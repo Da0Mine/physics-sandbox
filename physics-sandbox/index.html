@@ -1,0 +1,2872 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="A9eyw9WPtrH5nl5ub04oNg">
+<head data-page-node-id="G6NNsXC9b1q1lPiYn6Z8eo">
+<meta charset="UTF-8" data-page-node-id="sZDF7dFFip78zHd1Y1sYUt">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="GG2UpZlX9FgLBNbL5d2TYy">
+<title>m g a v r</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden}
+body{background:#F4F1EA;font-family:Georgia,'Times New Roman',serif;font-style:italic;color:#26221C;user-select:none;-webkit-user-select:none}
+.ground{position:fixed;left:0;right:0;bottom:20%;height:2px;background:#26221C;opacity:.65;pointer-events:none}
+.cv{position:fixed;left:0;top:0;pointer-events:auto;z-index:0}
+.char{position:fixed;left:0;top:0;line-height:1;font-size:48px;will-change:transform;cursor:grab;touch-action:none;z-index:5}
+.char:active{cursor:grabbing}
+.panel .char{position:static;pointer-events:auto;font-size:30px;display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:rgba(255,255,255,.45);border-radius:10px;cursor:grab}
+.panel .char:active{cursor:grabbing}
+@keyframes popin{0%{transform:scale(0);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+.dockin{animation:popin .22s ease-out}
+.panel{position:fixed;top:24px;right:24px;display:grid;grid-template-columns:repeat(4,44px);grid-template-rows:repeat(4,44px);gap:6px;padding:10px;border:1px solid rgba(38,34,28,.2);border-radius:14px;background:rgba(255,255,255,.5);pointer-events:none;z-index:3}
+.panel .sep{width:1px;height:30px;background:rgba(38,34,28,.16);flex:none}
+.shadow{position:fixed;left:0;top:0;height:12px;border-radius:50%;background:radial-gradient(ellipse at center,rgba(38,34,28,.45),rgba(38,34,28,0) 70%);pointer-events:none;will-change:transform,opacity;display:none}
+.handle{position:fixed;left:0;top:0;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.92);border:1px solid rgba(38,34,28,.35);box-shadow:0 3px 10px rgba(38,34,28,.14);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .18s;cursor:grab;z-index:6}
+.handle.on{opacity:1;pointer-events:auto}
+.handle:active{cursor:grabbing}
+.ring{position:fixed;width:150px;height:150px;border:2.5px solid rgba(38,34,28,.55);border-radius:50%;opacity:0;pointer-events:none}
+.ring.go{animation:ring .5s ease-out forwards}
+@keyframes ring{from{opacity:.6;transform:scale(.3)}to{opacity:0;transform:scale(1.3)}}
+.menu{position:fixed;display:none;z-index:9;padding:9px 18px;background:#26221C;color:#F4F1EA;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:15px;border-radius:20px;box-shadow:0 6px 18px rgba(38,34,28,.28);cursor:pointer;letter-spacing:1px}
+.menu.on{display:block}
+.trash{position:fixed;right:24px;bottom:24px;display:flex;align-items:center;justify-content:center;opacity:.5;pointer-events:auto;transition:opacity .15s ease,transform .15s ease;z-index:3;cursor:pointer}
+.trash.on{opacity:1;transform:scale(1.15)}
+.trash svg{pointer-events:none}
+</style>
+</head>
+<body data-page-node-id="b9AleLmR7rm5yRMONcsoPM">
+<div class="ground" data-page-node-id="W6lOmQt89cguU1FqSHa9n0"></div>
+<canvas class="cv" id="cv" data-page-node-id="bdmBFkreuwwDCQaXtsGjkG"></canvas>
+<div class="shadow" id="shadow" data-page-node-id="sN2Psm5DWcZvAnnXNbc42B"></div>
+<div class="panel" id="panel" data-page-node-id="IxHsX99YHhBxUCvOrfagEf"></div>
+<div class="handle" id="handle" data-page-node-id="UWXij0BVCyFd48XE5uApY0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="iq2t982utHvvc3sXaYMC36"><polyline points="22 4 22 10 16 10" data-page-node-id="ohwEGt9cOKw0vOjq0x7pgt"></polyline><path d="M19.5 15a8.5 8.5 0 1 1-2-8.9L22 10" data-page-node-id="BZdi6I8wfnH2vjHAB3pOfe"></path></svg></div>
+<div class="menu" id="menu" data-page-node-id="6VGyPwgjDMxecAgAzNFgq6">复制</div>
+<div class="trash" id="trash" data-page-node-id="tBnA0GugXEjEA4Bj0p78wr"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="Wy6GVFxd8XmDRAEGWhPxXT"><path d="M3 6h18" data-page-node-id="j1e5UDbTiSQX2PRvFn1l0s"/><path d="M19 6l-1.2 13.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 6" data-page-node-id="8vPqrmuPOYVYT5IuSkhrk0"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" data-page-node-id="BOvZg3ANs7YL4AFDi9CQwm"/><path d="M10 11v6M14 11v6" data-page-node-id="UJETdIFnRQ6JfdWxVY1UIM"/></svg></div>
+<div class="ring" id="ring" data-page-node-id="VE0Y4pdjQvvUddHHV3DAjq"></div>
+<script>
+var ctx2d=document.createElement('canvas').getContext('2d');
+var F=48,GRAV=2600,AACC=1300,RM=150,MT={},RAISE=F*0.3;
+var B_FIELD_RANGE=320,BZ_DIR=1,Q_OMEGA=2.4,A_FORCE=900,Q_FORCE=2.2;
+var E_FIELD_RANGE=320,E_FIELD_ACC=1500;   // E field: SQUARE range (half-side 160), uniform direction (th), F=qE
+var cv=document.getElementById('cv');
+var panel=document.getElementById('panel');
+var shadow=document.getElementById('shadow');
+var handle=document.getElementById('handle');
+var ring=document.getElementById('ring');
+var menu=document.getElementById('menu');
+var trash=document.getElementById('trash');
+var pointer={x:-9999,y:-9999};
+var W=0,H=0,groundY=0,t=0,menuBody=null;
+var dragBody=null,dragLetter=null,rotBody=null,rotGrab=0,hoverBody=null,handleBody=null;
+var axisBody=null,axisLast=null;
+var bodies=[],freeG=[],parts=[],ALL=[],slots={},samples=[];
+var OPEN='(',CLOSE=')',PLUS='+',SQ='²',BAR='-',HALF='½',MU='μ',SUB1='₁',SUB2='₂',PRIME='′';
+var SHATTER_SPEED=1100;
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function shortAng(d){d=d%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;if(d<-Math.PI)d+=Math.PI*2;return d;}
+function met(ch,size){
+  size=size||F;
+  var key=ch+'@'+size;
+  if(MT[key])return MT[key];
+  ctx2d.font='italic '+size+'px Georgia,"Times New Roman",serif';
+  var q=ctx2d.measureText(ch);
+  var fba=q.fontBoundingBoxAscent||q.actualBoundingBoxAscent||60;
+  var fbd=q.fontBoundingBoxDescent||q.actualBoundingBoxDescent||20;
+  var ia=q.actualBoundingBoxAscent||0;
+  var id=q.actualBoundingBoxDescent||0;
+  var bl=(size-(fba+fbd))/2+fba;
+  MT[key]={top:bl-ia-size/2,bot:bl+id-size/2,w:q.width};
+  return MT[key];
+}
+function isLet(d){return d.type==='g'||d.type==='a'||d.type==='v'||d.type==='r';}
+function isMass(d){var t=(typeof d==='string')?d:d.type;return t==='m'||t==='M';}
+function GD(ch,sc){
+  sc=sc||1;
+  var sz=F*sc;
+  var el=document.createElement('div');
+  el.className='char';
+  el.style.fontSize=sz+'px';
+  el.textContent=ch;
+  document.body.appendChild(el);
+  var d={el:el,ch:ch,type:ch,clone:false,body:null,sx:0,sy:0,w:el.offsetWidth,h:el.offsetHeight,wx:0,wy:0,vx:0,vy:0,anim:0,rung:false,pop:0,r:0,dead:false,m:met(ch,sz)};
+  ALL.push(d);
+  el._letterRef=d;   // back-pointer so panel-eat can find the letter behind the .char
+  el.addEventListener('pointerdown',function(e){gdDown(e,d);});
+  el.addEventListener('contextmenu',function(e){e.preventDefault();var mb=d.body;if(mb&&mb.glyphs.indexOf(d)>=0)openMenu(e.clientX,e.clientY,mb);});
+  return d;
+}
+var mO=GD('m');
+var gO=GD('g');
+var aO=GD('a');
+var vO=GD('v');
+var rO=GD('r');
+var M2O=GD('M');
+var halfO=GD(HALF);
+var muO=GD(MU);
+var cO=GD('c');
+var GO=GD('G');
+var tO=GD('t');
+var BO=GD('B');
+var qO=GD('q');
+var IO=GD('I');
+var EO=GD('E');
+gO.el.style.zIndex='5';
+aO.el.style.zIndex='5';
+vO.el.style.zIndex='5';
+rO.el.style.zIndex='5';
+M2O.el.style.zIndex='5';
+halfO.el.style.zIndex='5';
+muO.el.style.zIndex='5';
+cO.el.style.zIndex='5';
+GO.el.style.zIndex='5';
+tO.el.style.zIndex='5';
+BO.el.style.zIndex='5';
+qO.el.style.zIndex='5';
+IO.el.style.zIndex='5';
+EO.el.style.zIndex='5';
+freeG.push(gO,aO,vO,rO,M2O,halfO,muO,cO,GO,tO,BO,qO,IO,EO);
+function BODY(x,y){
+  var B={x:x,y:y,vx:0,vy:0,th:0,sc:1,glyphs:[],mem:[],massG:null,mass:1,hasG:false,hasA:false,hasV:false,hasR:false,family:0,hw:40,hh:26,dv:0,drag:false,diss:false,orbit:null,pendingOrbit:false,
+    kind:null,fg:null,fieldR:0,Bz:1,qsign:1,Isign:1,fieldState:null,L:48,
+    bh:null,   // black-hole state {stage:0 growing/1 alive, r, R, t, age, spin, seed}
+    st:{open:null,close:null,plus:null,sq:null,slash:null}};
+  bodies.push(B);
+  return B;
+}
+function spawnField(kind,x,y,svx,svy){
+  var B=BODY(x,y);
+  B.kind=kind;
+  var g=GD(kind);
+  g.pop=0;g.body=B;g.inBody=true;
+  B.fg=g;
+  B.glyphs=[g];
+  var sp=Math.hypot(svx||0,svy||0);
+  var f=sp>20?clamp(1-sp/6000,0.5,1):0;
+  if(kind==='B'){B.fieldR=B_FIELD_RANGE;B.Bz=BZ_DIR;B.vx=0;B.vy=0;}
+  else if(kind==='E'){B.fieldR=E_FIELD_RANGE;B.th=0;B.vx=0;B.vy=0;}   // E field: uniform direction, rotatable via th
+  else if(kind==='q'){B.qsign=1;B.vx=(svx||0)*f;B.vy=(svy||0)*f;}
+  else if(kind==='I'){B.Isign=1;B.vx=(svx||0)*f;B.vy=(svy||0)*f;}
+  refresh(B);
+  ringGo(B.x,B.y);
+  return B;
+}
+function makeRod(x,y,vx,vy){
+  var B=BODY(x,y);
+  B.kind='T';                                // t-rod: a solid draggable/rotatable plank, like the ground but movable
+  B.fg=null;
+  B.hasG=true;                               // weighs & falls to rest, like a real plank
+  B.len=170;B.php=F*0.55;
+  refresh(B);
+  B.vx=vx||0;B.vy=vy||0;
+  return B;
+}
+function tAnchor(B){
+  if(B.kind)return {x:B.x,y:B.y};
+  return B.massG?slot(B,B.massG):{x:B.x,y:B.y};
+}
+function findTComboTarget(L){
+  // t combines with: a field 'q' -> becomes I (current); a body with 'g' -> gt -> v; a
+  // body with 'v' (and no g) -> vt -> plank/rod. Also a FREE lowercase v near the t -> vt -> rod,
+  // so "v单独落下再放t" also works (no body needed). Only simple targets, never formulas.
+  // IMPORTANT: combos ONLY trigger for the letter 't' — other letters must never be hijacked
+  // (e.g. dropping a 2nd 'v' onto mv must make mv², not turn the body into a rod).
+  if(!L||L.type!=='t')return null;
+  var best=null,bd=150;
+  // free v letter nearby -> make a rod on the spot
+  for(var fvi=0;fvi<freeL.length;fvi++){
+    var FV=freeL[fvi];
+    if(FV.type!=='v'||FV===L||FV.dead)continue;
+    var df=Math.hypot(FV.wx-L.wx,FV.wy-L.wy);
+    if(df<bd){bd=df;best={fv:FV,kind:'vt'};}
+  }
+  if(!best){
+    for(var i=0;i<bodies.length;i++){
+      var B=bodies[i];
+      if(B.massG===L||B.mem.indexOf(L)>=0)continue;
+      var a=tAnchor(B);
+      var d=Math.hypot(a.x-L.wx,a.y-L.wy);
+      if(d>bd)continue;
+      var ok=false,kind='';
+      if(B.kind==='q'){ok=true;kind='qt';}
+      else if(B.kind&&B.kind!=='T'){continue;}
+      else if(B.hasG&&B.mem.length<=2&&!B.hasGrav){ok=true;kind='gt';}
+      else if((B.kind==='T')||(B.hasV&&!B.hasG&&!B.hasR&&!B.hasGrav&&B.mem.length<=1)){ok=true;kind='vt';}
+      if(ok&&d<bd){bd=d;best={B:B,kind:kind};}
+    }
+  }
+  return best;
+}
+function applyTCombo(L,c){
+  var B=c.B;
+  if(c.kind==='vt'&&c.fv){
+    // free v + t -> rod right here (no pre-existing body)
+    var rod=makeRod(L.wx,L.wy,0,0);
+    killLetter(c.fv);
+    killLetter(L);
+    ringGo(rod.x,rod.y);
+    return;
+  }
+  if(c.kind==='qt'){
+    // current: t dropped onto a field q -> q becomes I (current symbol). "qt组合变成I"
+    if(B.fg){B.fg.body=null;B.fg.inBody=false;killLetter(B.fg);B.fg=null;}
+    B.kind='I';B.Isign=1;
+    var ng=GD('I');ng.pop=0;ng.body=B;ng.inBody=true;B.fg=ng;
+    killLetter(L);
+    refresh(B);ringGo(B.x,B.y);
+  }else if(c.kind==='gt'){
+    // gt -> v : remove the g and the t, add a v (g·t = v)
+    for(var qi=B.mem.length-1;qi>=0;qi--){
+      if(B.mem[qi].type==='g'){var gi2=B.mem[qi];B.mem.splice(qi,1);killLetter(gi2);}
+    }
+    killLetter(L);
+    var vg=GD('v');vg.pop=0;vg.body=B;vg.inBody=true;B.mem.push(vg);
+    refresh(B);ringGo(B.x,B.y);
+  }else if(c.kind==='vt'){
+    // vt -> plank: the mass-v body becomes a solid rod (like the ground but movable/rotatable)
+    for(var jj=B.glyphs.length-1;jj>=0;jj--){
+      var og=B.glyphs[jj];
+      if(og.body===B){og.body=null;og.inBody=false;killLetter(og);}
+    }
+    for(var mmi=B.mem.length-1;mmi>=0;mmi--){var mo2=B.mem[mmi];B.mem.splice(mmi,1);killLetter(mo2);}
+    killLetter(L);
+    B.massG=null;
+    B.hasG=true;B.hasV=false;B.kind='T';B.fg=null;
+    B.len=170;B.php=F*0.55;
+    refresh(B);ringGo(B.x,B.y);
+  }
+}
+function layoutField(B){
+  if(B.kind==='T'){
+    B.fg=null;
+    B.hw=B.len/2+2;B.hh=4;   // rod is a 3px thin line -> thin collision box (no float on the ground)
+    B.sc=1;B.frac=false;B.subBar=null;
+    return;
+  }
+  B.glyphs=[B.fg];
+  B.fg.body=B;B.fg.inBody=true;B.fg.sx=0;B.fg.sy=0;
+  B.hw=(B.fg.m.w/2)+8;B.hh=(B.fg.m.bot-B.fg.m.top)/2+4;B.sc=1;B.frac=false;B.subBar=null;
+}
+function setF(B){
+  B.hasG=false;B.hasA=false;B.hasV=false;B.hasR=false;B.hasHalf=false;B.hasMu=false;B.hasC=false;B.hasGrav=false;
+  for(var i=0;i<B.mem.length;i++){
+    var tt=B.mem[i].type;
+    if(tt==='g')B.hasG=true;
+    else if(tt==='a')B.hasA=true;
+    else if(tt==='v')B.hasV=true;
+    else if(tt==='r')B.hasR=true;
+    else if(tt===HALF)B.hasHalf=true;
+    else if(tt===MU)B.hasMu=true;
+    else if(tt==='c')B.hasC=true;
+    else if(tt==='G')B.hasGrav=true;
+  }
+  B.family=(B.hasG||B.hasA||B.hasMu||B.hasC||B.hasGrav)?1:((B.hasV||B.hasR||B.hasHalf)?2:0);
+  B.vCount=0;
+  for(var k=0;k<B.mem.length;k++)if(B.mem[k].type==='v')B.vCount++;
+  B.cCount=0;
+  for(var k2=0;k2<B.mem.length;k2++)if(B.mem[k2].type==='c')B.cCount++;
+  B.rCount=0;
+  for(var rk=0;rk<B.mem.length;rk++)if(B.mem[rk].type==='r')B.rCount++;
+  // ---- gravity formula shape (single source of truth) ----
+  // 'schwarz' : 2GM/c²  -> needs G, a capital M and at least one c (no r). The small m is
+  //             NOT part of this formula, so it is hidden rather than drawn on top of GM.
+  // 'well'    : GMm/r²  -> needs G, a capital M AND the small m, plus r². A bare GM/r² is
+  //             an incomplete formula: no ring, no gravity.
+  // 'plain'   : incomplete gravity body, drawn as a plain product.
+  B.gravMode=gravModeOf(B);
+  B.isSchwarzschild=!!(B.gravMode==='schwarz'&&B.cCount>=2);
+  B.isWell=!!(B.gravMode==='well');
+  if(B.massG)B.mass=(B.massG.type==='M')?3:1;
+}
+function gravModeOf(B){
+  if(!B.hasGrav)return 'plain';
+  var Mtot=(B.massG&&B.massG.type==='M')?1:0,mtot=(B.massG&&B.massG.type==='m')?1:0;
+  var rc=0,cc2=0;
+  for(var i=0;i<B.mem.length;i++){
+    var t=B.mem[i].type;
+    if(t==='M')Mtot++;
+    else if(t==='m')mtot++;
+    else if(t==='r')rc++;
+    else if(t==='c')cc2++;
+  }
+  if(Mtot>=1&&cc2>=1&&rc<2)return 'schwarz';
+  if(Mtot>=1&&mtot>=1&&rc>=2)return 'well';
+  return 'plain';
+}
+function wLet(x){if(x==='g')return 0;if(x==='a')return 1;if(x==='v')return 2;return 3;}
+function ensureSt(B){
+  var p1=(B.family===1&&B.mem.length>=2&&B.cCount<2&&!(B.hasGrav||B.hasR));
+  var p2=(B.family===2&&B.vCount>=2);
+  var pFrac=(B.family===2&&(B.hasR||B.hasHalf)&&B.vCount>=2)||(B.hasGrav&&B.hasR);
+  var keeps=[];
+  function live(k,ch,sc){
+    if(!B.st[k]||B.st[k].dead){if(B.st[k])killG(B.st[k]);B.st[k]=stGD(ch,sc);}
+    var g=B.st[k];
+    if(B.glyphs.indexOf(g)<0)B.glyphs.push(g);
+    g.body=B;g.s=1;keeps.push(g);
+  }
+  function dead(k){
+    if(B.st[k]){killG(B.st[k]);B.st[k]=null;}
+  }
+  if(p1){live('open',OPEN);live('plus',PLUS);live('close',CLOSE);}
+  else{dead('open');dead('plus');dead('close');}
+  var gMode=gravModeOf(B);
+  var pSq=(B.family===2&&B.vCount>=2)||(B.family===1&&B.cCount>=2&&!B.hasGrav)||(B.hasGrav&&B.rCount>=2)||(gMode==='schwarz'&&B.cCount>=2);
+  if(pSq){live('sq',SQ,0.6);}
+  else{dead('sq');}
+  // a gravity body turns into a fraction as soon as its denominator letter (r or c) arrives,
+  // so the letter can never sit on top of the numerator.
+  var pFrac=(gMode==='schwarz')||(B.family===2&&(B.hasR||B.hasHalf)&&B.vCount>=2)||(B.hasGrav&&B.hasR);
+  if(pFrac){live('bar',BAR);}
+  else{dead('bar');}
+  if(B.hasHalf||B.isSchwarzschild){live('h2','2');}
+  else{dead('h1');dead('h2');}
+  for(var i=B.glyphs.length-1;i>=0;i--){
+    var g=B.glyphs[i];
+    if(g.stk&&keeps.indexOf(g)<0){B.glyphs.splice(i,1);killG(g);}
+  }
+}
+function killG(g){
+  if(!g||g.dead)return;
+  g.dead=true;
+  if(g.el&&g.el.parentNode)g.el.parentNode.removeChild(g.el);
+  if(g.body){var k=g.body.glyphs.indexOf(g);if(k>=0)g.body.glyphs.splice(k,1);}
+  g.body=null;
+}
+function stGD(ch,sc){
+  var d=GD(ch,sc||1);
+  d.stk=true;
+  d.s=1;
+  return d;
+}
+function gapPair(a,b){
+  if(b===SQ)return 1;
+  if(a===SQ)return 2;
+  if(a===OPEN)return 4;
+  if(b===OPEN)return 6;
+  if(a===PLUS)return 3;
+  if(b===PLUS)return 3;
+  if(b===CLOSE)return 3;
+  if(isMass(a))return (b==='g'||b==='v'||b==='r'||b==='a')?-6:4;
+  return 4;
+}
+function tokenSeq(B){
+  var out=[B.massG];
+  if(B.family===0){
+    // pure mass stack (M+m): show all mem masses
+    for(var mi0=0;mi0<B.mem.length;mi0++)if(isMass(B.mem[mi0]))out.push(B.mem[mi0]);
+  }else if(B.family===1){
+    if(B.mem.length===1)out.push(B.mem[0]);
+    else if(B.cCount>=2){
+      var c1=null;
+      for(var ci=0;ci<B.mem.length;ci++){if(B.mem[ci].type==='c'){c1=B.mem[ci];break;}}
+      if(c1)out.push(c1);
+      if(B.st.sq)out.push(B.st.sq);
+    }
+    else{
+      out.push(B.st.open);
+      for(var i=0;i<B.mem.length;i++){
+        if(i)out.push(B.st.plus);
+        out.push(B.mem[i]);
+      }
+      out.push(B.st.close);
+    }
+  }else if(B.family===2){
+    var vSeen=false;
+    for(var j=0;j<B.mem.length;j++){
+      var tt=B.mem[j].type;
+      if(tt==='r')continue;
+      if(tt==='v'){
+        if(vSeen)continue;
+        vSeen=true;
+      }
+      out.push(B.mem[j]);
+    }
+    if(B.vCount>=2)out.push(B.st.sq);
+  }
+  var fin=[];
+  for(var k=0;k<out.length;k++)if(out[k])fin.push(out[k]);
+  return fin;
+}
+function kern(a,b){
+  if(a===SQ||b===SQ)return 2;
+  if(a===OPEN||b===CLOSE)return 4;
+  return 5;
+}
+function hRun(items){
+  var x=0,parts=[];
+  for(var i=0;i<items.length;i++){
+    var it=items[i];
+    var w=it.g.m.w*it.s;
+    var gap=(i<items.length-1)?kern(it.g.type, items[i+1].g.type):0;
+    parts.push({g:it.g,s:it.s,dy:it.dy,cx:x+w/2,w:w});
+    x+=w+gap;
+  }
+  return {parts:parts,w:x};
+}
+function placeRun(parts, runW, centerY){
+  var top=1e9,bot=-1e9;
+  for(var i=0;i<parts.length;i++){var p=parts[i];top=Math.min(top,p.dy+p.g.m.top*p.s);bot=Math.max(bot,p.dy+p.g.m.bot*p.s);}
+  var dv=(top+bot)/2;
+  for(var j=0;j<parts.length;j++){var q=parts[j];q.g.sx=q.cx-runW/2;q.g.sy=(q.dy-dv)+centerY;}
+}
+function layoutRun(B, items){
+  var run=hRun(items);
+  placeRun(run.parts, run.w, 0);
+  B.frac=false;
+  var top=1e9,bot=-1e9;
+  for(var i=0;i<run.parts.length;i++){var p=run.parts[i];top=Math.min(top,p.dy+p.g.m.top*p.s);bot=Math.max(bot,p.dy+p.g.m.bot*p.s);}
+  B.hw=run.w/2+5;B.hh=(bot-top)/2+1;B.sc=1;B.subBar=null;
+}
+function layoutBracket(B){
+  var toks=tokenSeq(B);
+  var items=[];for(var i=0;i<toks.length;i++)items.push({g:toks[i],s:1,dy:0});
+  layoutRun(B,items);
+}
+function layoutFrac(B, vG, rG){
+  var num=[{g:B.massG,s:1,dy:0}];
+  if(vG)num.push({g:vG,s:1,dy:0});
+  if(B.vCount>=2&&B.st.sq)num.push({g:B.st.sq,s:1,dy:0});
+  var numR=hRun(num);
+  var nTop=1e9,nBot=-1e9;
+  numR.parts.forEach(function(p){nTop=Math.min(nTop,p.dy+p.g.m.top*p.s);nBot=Math.max(nBot,p.dy+p.g.m.bot*p.s);});
+  var rows=[];
+  if(B.hasR&&rG){var rr=hRun([{g:rG,s:1,dy:0}]);rows.push(rr);}
+  if(B.hasHalf){var rr2=hRun([{g:B.st.h2,s:1,dy:0}]);rows.push(rr2);}
+  rows.forEach(function(r){r.top=1e9;r.bot=-1e9;r.parts.forEach(function(p){r.top=Math.min(r.top,p.dy+p.g.m.top*p.s);r.bot=Math.max(r.bot,p.dy+p.g.m.bot*p.s);});});
+  var dGap=7, subGap=3;
+  var denTop=nBot+dGap;
+  var dTop,dBot,subBarY=null;
+  if(rows.length===1){
+    var r0=rows[0];var sh=denTop-r0.top;
+    r0.parts.forEach(function(p){p.g.sy=sh+p.dy;});
+    dTop=r0.top+sh;dBot=r0.bot+sh;
+  }else{
+    var A=rows[0],Bb=rows[1];
+    var ah=A.bot-A.top;
+    subBarY=denTop+ah+subGap/2;
+    var shA=subBarY-subGap/2-A.bot;
+    A.parts.forEach(function(p){p.g.sy=shA+p.dy;});
+    var shB=subBarY+subGap/2-Bb.top;
+    Bb.parts.forEach(function(p){p.g.sy=shB+p.dy;});
+    dTop=A.top+shA;dBot=Bb.bot+shB;
+  }
+  var numShift=-dGap-nBot;
+  numR.parts.forEach(function(p){p.g.sx=p.cx-numR.w/2;p.g.sy=numShift+p.dy;});
+  rows.forEach(function(r){r.parts.forEach(function(p){p.g.sx=p.cx-r.w/2;});});
+  var denW=0;rows.forEach(function(r){denW=Math.max(denW,r.w);});
+  var fracW=Math.max(numR.w,denW)+14;
+  B.st.bar.w=fracW;B.st.bar.h=2;B.st.bar.sx=0;B.st.bar.sy=0;
+  var wholeTop=nTop+numShift, wholeBot=dBot;
+  var shiftY=-(wholeTop+wholeBot)/2;
+  numR.parts.forEach(function(p){p.g.sy+=shiftY;});
+  rows.forEach(function(r){r.parts.forEach(function(p){p.g.sy+=shiftY;});});
+  B.st.bar.sy=shiftY;
+  if(subBarY!=null){B.subBar={y:subBarY+shiftY,w:Math.max(rows[0].w,rows[1].w)+6};}else{B.subBar=null;}
+  B.hw=fracW/2+4;B.hh=(wholeBot-wholeTop)/2+2;
+  var maxDim=Math.max(fracW,(wholeBot-wholeTop));
+  B.sc=clamp(155/maxDim,0.5,1);
+  B.frac=true;
+}
+function gravParts(B){
+  // collect the gravity formula's pieces by type so assembly order is irrelevant.
+  // bigM = the capital-M letter (from base or mem), smallM = the lowercase-m letter.
+  var Gg=null,bigM=null,smallM=null;
+  for(var i=0;i<B.mem.length;i++){
+    var t=B.mem[i].type;
+    if(t==='G'){if(!Gg)Gg=B.mem[i];}
+    else if(t==='M'){if(!bigM)bigM=B.mem[i];}
+    else if(t==='m'){if(!smallM)smallM=B.mem[i];}
+  }
+  if(B.massG){
+    if(B.massG.type==='M'){if(!bigM)bigM=B.massG;}
+    else if(B.massG.type==='m'){if(!smallM)smallM=B.massG;}
+  }
+  return {Gg:Gg,bigM:bigM,smallM:smallM};
+}
+function layoutGrav(B){
+  var p=gravParts(B),Gg=p.Gg,bigM=p.bigM,smallM=p.smallM,rG=null;
+  for(var i=0;i<B.mem.length;i++){if(B.mem[i].type==='r')rG=B.mem[i];}
+  var cG=null;
+  for(var ci=0;ci<B.mem.length;ci++){if(B.mem[ci].type==='c'){cG=B.mem[ci];break;}}
+  var mode=gravModeOf(B);
+  function gravItems(){
+    var a=[];
+    if(B.isSchwarzschild&&B.st.h2)a.push({g:B.st.h2,s:1,dy:0});   // automatic leading "2"
+    if(Gg)a.push({g:Gg,s:1,dy:0});
+    if(bigM)a.push({g:bigM,s:1,dy:0});
+    // 2GM/c² has no lowercase m — it is not part of the formula (it stays hidden)
+    if(smallM&&mode!=='schwarz')a.push({g:smallM,s:1,dy:0});
+    return a;
+  }
+  // the denominator is r (GMm/r²) or c (2GM/c²) — as soon as the letter is there it goes
+  // UNDER the fraction bar, so it can never overlap the numerator.
+  var denMain=(B.hasR&&rG)?rG:((mode==='schwarz'&&cG)?cG:null);
+  var gravBase=!!denMain;
+  if(gravBase){
+    var num=gravItems();
+    var numR=hRun(num);
+    var nTop=1e9,nBot=-1e9;
+    numR.parts.forEach(function(p){nTop=Math.min(nTop,p.dy+p.g.m.top*p.s);nBot=Math.max(nBot,p.dy+p.g.m.bot*p.s);});
+    var denMain=(B.hasR&&rG)?rG:((mode==='schwarz'&&cG)?cG:null);
+    var den=[{g:denMain,s:1,dy:0}];
+    if(B.st.sq&&(B.isSchwarzschild||B.rCount>=2)){
+      // superscript ²: raise it so its BOTTOM sits 4px above the denominator main glyph's top
+      // (proper exponent), derived from metrics.
+      var sqM=B.st.sq.m||{bot:8,top:-12};
+      var dySup=(denMain.m.top-sqM.bot)-4;
+      den.push({g:B.st.sq,s:1,dy:dySup});
+    }
+    var dR=hRun(den);
+    var dTop=1e9,dBot=-1e9;
+    dR.parts.forEach(function(p){dTop=Math.min(dTop,p.dy+p.g.m.top*p.s);dBot=Math.max(dBot,p.dy+p.g.m.bot*p.s);});
+    var dGap=7;
+    var denTop=nBot+dGap;
+    // anchor the denominator's main glyph (r, or c for 2GM/c²): its top sits at denTop
+    // (just below the bar); ² is a small superscript hanging just above it.
+    var shR=denTop-denMain.m.top;
+    dR.parts.forEach(function(p){p.g.sx=p.cx-dR.w/2;p.g.sy=shR+p.dy;});
+    var numShift=-dGap-nBot;
+    numR.parts.forEach(function(p){p.g.sx=p.cx-numR.w/2;p.g.sy=numShift+p.dy;});
+    var denW=dR.w;
+    var fracW=Math.max(numR.w,denW)+14;
+    B.st.bar.w=fracW;B.st.bar.h=2;B.st.bar.sx=0;B.st.bar.sy=0;
+    var wholeTop=nTop+numShift, wholeBot=dBot;
+    var shiftY=-(wholeTop+wholeBot)/2;
+    numR.parts.forEach(function(p){p.g.sy+=shiftY;});
+    dR.parts.forEach(function(p){p.g.sy+=shiftY;});
+    B.st.bar.sy=shiftY;
+    B.subBar=null;
+    B.hw=fracW/2+4;B.hh=(wholeBot-wholeTop)/2+2;
+    var maxDim=Math.max(fracW,(wholeBot-wholeTop));
+    B.sc=clamp(155/maxDim,0.5,1);
+    B.frac=true;
+  }else{
+    // no r yet (and not on the 2GM/c² path): render as a plain product "GMm". EVERY letter
+    // the user has glued on participates — in particular stray c's are laid out side by side
+    // so they can never sit on top of the row (sx/sy unset -> body centre) and a second c
+    // cannot silently drop the G and morph the body into an mc² look-alike.
+    var items=gravItems();
+    for(var xi=0;xi<B.mem.length;xi++){
+      var xg=B.mem[xi];
+      if(xg.type==='r')continue;
+      var dup=false;
+      for(var yj=0;yj<items.length;yj++)if(items[yj].g===xg){dup=true;break;}
+      if(!dup)items.push({g:xg,s:1,dy:0});
+    }
+    var R=hRun(items);
+    var top=1e9,bot=-1e9;
+    R.parts.forEach(function(p){top=Math.min(top,p.dy+p.g.m.top);bot=Math.max(bot,p.dy+p.g.m.bot);});
+    var dv=(top+bot)/2;
+    R.parts.forEach(function(p){p.g.sx=p.cx-R.w/2;p.g.sy=(p.dy-dv);});
+    B.frac=false;B.subBar=null;
+    B.hw=R.w/2+5;B.hh=(bot-top)/2+1;
+    B.sc=clamp(155/Math.max(R.w,(bot-top)),0.5,1);
+    // glyph list must match exactly what was laid out (refresh skips tokList for these)
+    B._plainGlyphs=[];
+    for(var gi2=0;gi2<items.length;gi2++)B._plainGlyphs.push(items[gi2].g);
+  }
+}
+function layoutBody(B){
+  B.mem.sort(function(x,y){return wLet(x.type)-wLet(y.type);});
+  ensureSt(B);
+  if(B.hasGrav){layoutGrav(B);return;}
+  var isFrac=B.family===2&&(B.hasR||B.hasHalf)&&B.vCount>=2;
+  var vG=null,rG=null;
+  for(var i=0;i<B.mem.length;i++){if(B.mem[i].type==='v'&&!vG)vG=B.mem[i];if(B.mem[i].type==='r'&&!rG)rG=B.mem[i];}
+  if(B.family===1){
+    if(B.cCount>=2){
+      var cg=null;
+      for(var ci2=0;ci2<B.mem.length;ci2++){if(B.mem[ci2].type==='c'){cg=B.mem[ci2];break;}}
+      var num=[{g:B.massG,s:1,dy:0}];
+      if(cg)num.push({g:cg,s:1,dy:0});
+      if(B.st.sq)num.push({g:B.st.sq,s:1,dy:0});
+      layoutRun(B,num);
+      return;
+    }
+    layoutBracket(B);return;
+  }
+  if(isFrac){layoutFrac(B,vG,rG);return;}
+  var num=[{g:B.massG,s:1,dy:0}];
+  if(vG)num.push({g:vG,s:1,dy:0});
+  if(B.vCount>=2&&B.st.sq)num.push({g:B.st.sq,s:1,dy:0});
+  if(B.family===0){
+    // pure mass stack (e.g. M then m, no G/v/r yet): render every mass side by side
+    for(var mq=0;mq<B.mem.length;mq++)if(isMass(B.mem[mq]))num.push({g:B.mem[mq],s:1,dy:0});
+  }
+  layoutRun(B,num);
+}
+function slot(B,g){
+  var sc=B.sc||1;
+  var co=Math.cos(B.th),si=Math.sin(B.th);
+  return {x:B.x+(g.sx*co-g.sy*si)*sc,y:B.y+(g.sx*si+g.sy*co)*sc};
+}
+function initWorld(B){
+  for(var i=0;i<B.glyphs.length;i++){
+    var s=slot(B,B.glyphs[i]);
+    B.glyphs[i].wx=s.x;
+    B.glyphs[i].wy=s.y;
+  }
+}
+var DD=document,dpr=window.devicePixelRatio||1,cvx=cv.getContext('2d');
+var freeL=[],orbHover=null,orbDrag=null,orbLast=null,cur=null;
+var formulas=[];
+var dockSep=null,merging=false;
+function col(x){return Math.max(0,Math.min(255,x|0));}
+function rgba(c,a){return 'rgba('+c[0]+','+c[1]+','+c[2]+','+a+')';}
+var INK=[38,34,28];
+function met2(ch){return met(ch);}
+function glyphH(g){return Math.max(g.el.offsetHeight||F,g.m.bot-g.m.top);}
+function refresh(B){
+  if(B.kind){layoutField(B);return;}
+  if(B.bh&&(B.bh.stage===1||B.bh.t>0.6)){
+    // the formula is being/has been consumed by the hole — never rebuild its glyphs
+    B.bh.fade=(B.bh.stage===1)?null:0;
+    return;
+  }
+  setF(B);
+  layoutBody(B);
+  if(B.frac){
+    if(B.hasGrav){
+      B.glyphs=[];
+      var gp=gravParts(B),Gg=gp.Gg,bigM=gp.bigM,smallM=gp.smallM,rGg=null,cGg=null;
+      for(var q=0;q<B.mem.length;q++){
+        var tq=B.mem[q].type;
+        if(tq==='r')rGg=B.mem[q];
+        else if(tq==='c'&&!cGg)cGg=B.mem[q];
+      }
+      if(gravModeOf(B)==='schwarz'){
+        // 2GM/c²: automatic leading "2", G, M, bar, c, ² — the lowercase m is NOT part of
+        // this formula, so it is left out of the glyph list (and stays hidden).
+        if(B.isSchwarzschild&&B.st.h2)B.glyphs.push(B.st.h2);
+        if(Gg)B.glyphs.push(Gg);
+        if(bigM)B.glyphs.push(bigM);
+        if(B.st.bar)B.glyphs.push(B.st.bar);
+        if(cGg)B.glyphs.push(cGg);
+        if(B.st.sq)B.glyphs.push(B.st.sq);
+      }else{
+        if(Gg)B.glyphs.push(Gg);
+        if(bigM)B.glyphs.push(bigM);
+        if(smallM)B.glyphs.push(smallM);
+        if(rGg)B.glyphs.push(rGg);
+        if(B.st.sq&&B.rCount>=2)B.glyphs.push(B.st.sq);
+        if(B.st.bar)B.glyphs.push(B.st.bar);
+      }
+    }else{
+      B.glyphs=[B.massG];
+      var vG=null,rG=null;
+      for(var q2=0;q2<B.mem.length;q2++){if(B.mem[q2].type==='v'&&!vG)vG=B.mem[q2];if(B.mem[q2].type==='r'&&!rG)rG=B.mem[q2];}
+      if(vG)B.glyphs.push(vG);
+      if(B.st.sq)B.glyphs.push(B.st.sq);
+      if(rG)B.glyphs.push(rG);
+      if(B.hasHalf){if(B.st.h2)B.glyphs.push(B.st.h2);}
+      if(B.st.bar)B.glyphs.push(B.st.bar);
+    }
+  }else if(B.hasGrav&&B._plainGlyphs){
+    // incomplete gravity body: glyphs are exactly the letters layoutGrav placed in the row
+    B.glyphs=B._plainGlyphs;
+  }else{
+    B.glyphs=tokList(B);
+  }
+  for(var i=0;i<B.glyphs.length;i++){B.glyphs[i].body=B;B.glyphs[i].inBody=true;}
+  // any LETTER owned by this body that is NOT in B.glyphs must be hidden, INCLUDING the
+  // base massG (e.g. the lowercase m that becomes a stray in the 2GM/c² formula — it is
+  // not part of the schwarz layout and would otherwise sit on top of the capital M).
+  for(var m=0;m<B.mem.length;m++){
+    if(B.glyphs.indexOf(B.mem[m])<0)B.mem[m].el.style.display='none';
+  }
+  if(B.massG&&B.glyphs.indexOf(B.massG)<0)B.massG.el.style.display='none';
+  if(B.orb&&!(B.hasV&&B.hasR&&B.vCount>=2))B.orb=null;
+  if(!B.orb&&(B.hasV&&B.hasR&&B.vCount>=2)){B.orb={spin:0,age:0,pulse:0,ringPts:null,R:120,k:0,e:0,gx:B.x,gy:B.y,gs:1,ga:1};}
+  // keep the current velocity on inflation start — mc² must stay pushable while it inflates.
+  // A 2GM/c² formula (isSchwarzschild) does NOT explode — it collapses into a black hole.
+  // A gravity body (G…) is never an mc² bomb: E=mc² needs mass + c² and NO G.
+  if(B.family===1&&B.cCount>=2&&!B.hasGrav&&!B.isSchwarzschild&&!B.exploding&&!B.copied){B.exploding=true;B.explT=0;B.infl=1;}
+  if(B.cCount<2||B.isSchwarzschild){B.exploding=false;B.infl=1;B.wob=0;}
+  // 2GM/c² complete -> the whole formula COLLAPSES into a black hole (event horizon grows
+  // outward, the letters get sucked in and vanish, the hole stays and devours everything).
+  if(B.isSchwarzschild&&!B.bh){
+    B.bh={stage:0,r:0,R:210,t:0,age:0,spin:0,seed:Math.random()*1000,dead:false};
+    ringGo(B.x,B.y);
+  }
+  if(!B.isSchwarzschild&&B.bh&&B.bh.stage===0)B.bh=null;   // split mid-collapse: no hole
+}
+function tokList(B){
+  var t=tokenSeq(B);
+  for(var i=0;i<t.length;i++){if(t[i]&&!t[i].body)t[i].body=B;}
+  return t;
+}
+function place(g,x,y,rot,sc,show){
+  var e=g.el;
+  if(!show){e.style.display='none';return;}
+  e.style.display='';
+  e.style.left=(x-g.w/2)+'px';
+  e.style.top=(y-g.h/2)+'px';
+  var t='rotate('+(rot||0)+'rad) scale('+(sc==null?1:sc)+')';
+  if(e.style.transform!==t)e.style.transform=t;
+}
+function placeLetter(d){
+  if(d.state==='dock'){
+    if(d.el.parentNode!==panel)panel.appendChild(d.el);
+    d.el.style.display='';
+    d.el.style.fontSize='34px';
+    d.el.style.left='';d.el.style.top='';d.el.style.transform='';
+    return;
+  }
+  if(d.el.parentNode!==DD.body)DD.body.appendChild(d.el);
+  d.el.style.fontSize=F+'px';
+  if(d.inBody&&d.body){
+    var s=slot(d.body,d);
+    place(d,s.x,s.y,d.body.th||0,1,true);
+  }else if(d.state==='free'||d.state==='grab'){
+    place(d,d.wx||0,d.wy||0,0,1,true);
+  }
+  // progressive fade while a free letter is being consumed by the black hole
+  d.el.style.opacity=(d.fade!=null)?d.fade:'';
+}
+function dockedTwins(ch,me){
+  var els=panel.querySelectorAll('.char');
+  for(var i=0;i<els.length;i++){
+    var e=els[i];
+    if(e===me)continue;
+    if(e.textContent===ch){
+      var r=e._letterRef;
+      if(r&&r.state==='dock')return true;
+    }
+  }
+  return false;
+}
+function dockLetter(d){
+  // the palette always keeps one docked copy of each letter (dragging a docked letter grabs
+  // a clone of it). So docking a CLONE here would stack a duplicate — let it dissolve back
+  // into the palette instead. Only a letter whose docked copy has LEFT (e.g. eaten by a
+  // black hole) may dock again and refill its empty slot.
+  if(dockedTwins(d.ch,d.el)){
+    d.body=null;d.inBody=false;
+    killLetter(d);
+    return;
+  }
+  d.state='dock';d.body=null;d.inBody=false;
+  var e=d.el;
+  if(e.parentNode!==panel)panel.appendChild(e);
+  e.style.display='';
+  e.style.fontSize='34px';
+  e.style.left='';e.style.top='';e.style.transform='';
+  e.style.opacity='';
+  e.classList.remove('dockin');
+  e.classList.add('dockin');
+  setTimeout(function(){if(d.state==='dock')e.classList.remove('dockin');},240);
+  sortPanel();
+}
+var DOCK_ORDER={'m':0,'M':1,'g':2,'a':3,'v':4,'r':5,'½':6,'μ':7,'c':8,'G':9,'t':10,'B':11,'E':12,'q':13,'I':14};
+function dockSlotEl(e){
+  var i=DOCK_ORDER[e.textContent];
+  if(i==null)return;
+  e.style.gridRowStart=(Math.floor(i/4)+1);
+  e.style.gridColumnStart=(i%4+1);
+}
+function sortPanel(){
+  var kids=[mO,M2O,gO,aO,vO,rO,halfO,muO,cO,GO,tO,BO,EO,qO,IO];
+  for(var i=0;i<kids.length;i++){
+    var d=kids[i];
+    if(d.state==='dock'&&d.el.parentNode!==panel)panel.appendChild(d.el);
+  }
+  var arr=[].slice.call(panel.querySelectorAll('.char'));
+  arr.sort(function(x,y){return DOCK_ORDER[x.textContent]-DOCK_ORDER[y.textContent];});
+  arr.forEach(function(e){panel.appendChild(e);});
+  // pin every docked letter to its OWN fixed grid cell, so when a black hole takes a letter
+  // the rest do NOT reflow — the eaten letter simply leaves a blank slot in the frame.
+  for(var k2=0;k2<arr.length;k2++)dockSlotEl(arr[k2]);
+}
+function freeLetter(d,x,y,vx,vy,cat){
+  d.body=null;d.inBody=false;d.state='free';
+  d.wx=x;d.wy=y;d.vx=vx||0;d.vy=vy||0;d.cat=cat;
+  if(freeL.indexOf(d)<0)freeL.push(d);
+  d.el.classList.remove('dockin');
+  placeLetter(d);
+}
+function pickFromDock(d){
+  var r=panel.getBoundingClientRect();
+  d.state='grab';d.body=null;
+  d.wx=pointer.x;d.wy=pointer.y;d.vx=0;d.vy=0;
+  placeLetter(d);
+}
+function attach(B,d){
+  if(B.mem.indexOf(d)>=0)return;
+  var mi=freeL.indexOf(d);if(mi>=0)freeL.splice(mi,1);
+  var pv=null;
+  if(B.massG&&B.massG.sx!=null)pv={sx:B.massG.sx,sy:B.massG.sy};
+  d.state='mem';
+  B.mem.push(d);
+  d.body=B;d.inBody=true;
+  B.pop=1;
+  refresh(B);
+  var hh=Math.max(20,B.hh||18);
+  if(B.y+hh>groundY){B.y=groundY-hh;B.vy=-Math.abs(B.vy)*0.5;}
+  if(pv)keepMass(B,pv);
+  ringGo(B.x,B.y);
+}
+function keepMass(B,pv){
+  var m=B.massG;if(!m)return;
+  var th=B.th||0,c=Math.cos(th),s=Math.sin(th);
+  var dx=pv.sx-m.sx,dy=pv.sy-m.sy;
+  B.x+=dx*c-dy*s;
+  B.y+=dx*s+dy*c;
+}
+function splitOne(B,d){
+  var i=B.mem.indexOf(d);
+  if(i<0){
+    i=-1;
+    for(var q=B.mem.length-1;q>=0;q--)if(B.mem[q].type==='v')i=q;
+    if(i<0)i=B.mem.length-1;
+    if(i<0)return;
+    d=B.mem[i];
+  }
+  var out=[d];
+  if(d.type==='v'&&B.vCount>=2&&(B.hasR||B.hasHalf)){
+    for(var k=B.mem.length-1;k>=0;k--){
+      var tk=B.mem[k].type;
+      if((tk==='r'||tk===HALF)&&out.indexOf(B.mem[k])<0)out.push(B.mem[k]);
+    }
+  }
+  var pv=null;
+  if(B.massG&&B.massG.sx!=null)pv={sx:B.massG.sx,sy:B.massG.sy};
+  var msvx=B.vx,msvy=B.vy;
+  for(var j=0;j<out.length;j++){
+    var g=out[j],mi2=B.mem.indexOf(g);
+    if(mi2>=0)B.mem.splice(mi2,1);
+    g.body=null;g.inBody=false;g.state='free';g.pop=0;
+  }
+  refresh(B);
+  if(pv)keepMass(B,pv);
+  var dir=Math.random()*6.2832, dx=Math.cos(dir), dy=Math.sin(dir), sep=75;
+  B.vx=msvx+dx*sep; B.vy=msvy+dy*sep;
+  for(var n=0;n<out.length;n++){
+    var L=out[n], sp=slot(B,L);
+    var fi=freeL.indexOf(L); if(fi>=0)freeL.splice(fi,1);
+    freeLetter(L, sp.x, sp.y, msvx-dx*sep+(Math.random()*24-12), msvy-dy*sep+(Math.random()*24-12), false);
+  }
+}
+function canMerge(B,d){
+  if(!B||B.kind)return false; // field bodies (B/q/I) are not letter-merge targets
+  if(B.bh)return false;       // a black hole devours letters — never merges with them
+  var t=d.type;
+  if(t==='t')return false;   // 't' only forms combos (gt→v, qt→I, vt→rod), never an inert formula letter
+  if(isMass(t)){
+    var hasM=false,hasm=false;
+    if(B.massG){if(B.massG.type==='M')hasM=true;else if(B.massG.type==='m')hasm=true;}
+    for(var mi=0;mi<B.mem.length;mi++){
+      var mt=B.mem[mi].type;
+      if(mt==='M')hasM=true;else if(mt==='m')hasm=true;
+    }
+    // two IDENTICAL masses can never merge (mm / MM): every formula needs at most one M
+    // and one m. Different masses (M+m) are still allowed so the build order stays free.
+    if(t==='M'&&hasM)return false;
+    if(t==='m'&&hasm)return false;
+    var nM=(hasM?1:0)+(hasm?1:0);
+    if(B.hasGrav){
+      if(B.cCount>=1)return false;   // on the 2GM/c² path (G M c …) the masses are settled
+      if(nM>=2)return false;         // GMm already has its two masses (M and m)
+      if(B.mem.length>=5)return false;
+      return true;
+    }
+    // before G is attached: allow stacking M+m (so m→M→G and M→m→G both work)
+    if(nM>=2)return false;
+    return true;
+  }
+  if(t==='c'){
+    var cc=0;
+    for(var cci=0;cci<B.mem.length;cci++)if(B.mem[cci].type==='c')cc++;
+    if(cc>=2)return false;
+    if(B.hasV||B.hasR||B.hasHalf)return false;
+    // into a gravity body (GMc -> GMc², on the way to 2GM/c²): allow up to 2 c's
+    if(B.hasGrav)return B.mem.length<4;
+    // into a mass-only body (mc²): keep it small
+    if(B.mem.length>=2)return false;
+    return true;
+  }
+  if(t==='G'){
+    if(B.hasGrav)return false;
+    if(B.family===2)return false;          // don't drop G into a v/r formula
+    // into an empty / mass-only body, or a mass-with-c body (M+c -> GMc -> GMc² -> 2GM/c²)
+    if(B.hasC){if(B.mem.length>=1)return false;return true;}
+    if(B.mem.length>=2)return false;
+    return true;
+  }
+  var fam=(t==='g'||t==='a'||t===MU||t==='c'||t==='G')?1:2;
+  if(B.family&&B.family!==fam&&!B.hasGrav)return false;
+  if(t==='r'||t===HALF){
+    if(t==='r'){if(B.hasGrav){if(B.rCount>=2)return false;if(B.mem.length>=5)return false;return true;}for(var i=0;i<B.mem.length;i++)if(B.mem[i].type==='r')return false;}
+    else{for(var i2=0;i2<B.mem.length;i2++)if(B.mem[i2].type===HALF)return false;}
+    if(B.vCount<2)return false;
+    if(B.mem.length>=3)return false;
+    return true;
+  }
+  if(t==='v'){
+    if(B.vCount>=2)return false;
+    if(B.mem.length>=3)return false;
+    return true;
+  }
+  for(var k=0;k<B.mem.length;k++)if(B.mem[k].type===t)return false;
+  if(B.mem.length>=2)return false;
+  return true;
+}
+function findMergeTarget(d){
+  var best=null,bd=1e9;
+  for(var i=0;i<bodies.length;i++){
+    var B=bodies[i];
+    if(B.massG===d||B.mem.indexOf(d)>=0)continue;
+    if(!canMerge(B,d))continue;
+    var s=B.massG?slot(B,B.massG):{x:B.x,y:B.y};
+    var dist=Math.hypot(s.x-d.wx,s.y-d.wy);
+    if(dist<bd){bd=dist;best=B;}
+  }
+  return bd<200?best:null;
+}
+// a loose mass letter on the canvas (left over from a shatter or a split) can be a merge
+// target just like a body: drop another letter onto it and it is promoted to the base of a
+// fresh body on the spot (instead of requiring the player to nudge it first).
+function findFreeMassTarget(d){
+  var best=null,bd=200;
+  for(var i=0;i<freeL.length;i++){
+    var F=freeL[i];
+    if(F===d||F.dead||F.state!=='free')continue;
+    if(!isMass(F))continue;
+    var dist=Math.hypot(F.wx-d.wx,F.wy-d.wy);
+    if(dist<bd){bd=dist;best=F;}
+  }
+  return best;
+}
+function findFreeLetterTarget(B){
+  var best=null,bd=200;
+  for(var i=0;i<freeL.length;i++){
+    var L=freeL[i];
+    if(!canMerge(B,L))continue;
+    var dx=L.wx-B.x,dy=L.wy-B.y;
+    var d=Math.hypot(dx,dy);
+    if(d<bd){bd=d;best=L;}
+  }
+  return best;
+}
+function openMenu(x,y,B){
+  if(!B)return;
+  menuBody=B;
+  menu.style.left=clamp(x,0,W-90)+'px';
+  menu.style.top=clamp(y,0,H-40)+'px';
+  menu.classList.add('on');
+}
+function closeMenu(){menu.classList.remove('on');}
+function ringGo(x,y){
+  var e=ring;
+  e.style.left=(x-75)+'px';e.style.top=(y-75)+'px';
+  e.classList.remove('go');void e.offsetWidth;e.classList.add('go');
+}
+menu.addEventListener('click',function(e){
+  e.stopPropagation();
+  if(menuBody)copyBody(menuBody);
+  closeMenu();
+});
+DD.addEventListener('pointerdown',function(e){if(!e.target.closest('#menu'))closeMenu();});
+var grab={kind:null,obj:null,gx:0,gy:0,lx:0,ly:0,t:0,svx:0,svy:0,start:0};
+var dblState={t:0,x:0,y:0,body:null};
+var hoverB=null;
+function easeOutBack(k){k-=1;return 1+k*k*((2.2)*k+1+2.2);}
+function gdDown(e,d){
+  if(e.button!==0)return;
+  if(d.state==='dock'){
+    var rp=d.el.getBoundingClientRect();
+    var cx=rp.left+rp.width/2,cy=rp.top+rp.height/2;
+    if(isMass(d)){
+      var t2=GD(d.ch);
+      t2.cat=1;t2.pop=0;
+      t2.state='grab';
+      t2.body=null;
+      t2.wx=cx;t2.wy=cy;
+      t2.w=F*0.7;t2.h=F;
+      grab={kind:'letter',obj:t2,gx:pointer.x-cx,gy:pointer.y-cy,lx:pointer.x,ly:pointer.y,t:performance.now(),start:pointer.x};
+      DD.body.appendChild(t2.el);
+      place(t2,cx,cy,0,1,true);
+      return;
+    }
+    var t2=GD(d.ch);
+    t2.cat=1;t2.pop=0;
+    t2.state='grab';
+    t2.body=null;
+    t2.wx=cx;t2.wy=cy;
+    t2.w=F*0.7;t2.h=F;
+    grab={kind:'letter',obj:t2,gx:pointer.x-cx,gy:pointer.y-cy,lx:pointer.x,ly:pointer.y,t:performance.now(),start:pointer.x};
+    DD.body.appendChild(t2.el);
+    place(t2,cx,cy,0,1,true);
+    return;
+  }
+  if(d.body&&!d.body.bh&&d.body.glyphs&&d.body.glyphs.indexOf(d)>=0){
+    var B=d.body;
+    if(dblState.body!==B){dblState.t=0;dblState.body=B;dblState.g=d;dblState.x=pointer.x;dblState.y=pointer.y;}
+    grab={kind:'body',obj:B,gx:pointer.x-B.x,gy:pointer.y-B.y,lx:pointer.x,ly:pointer.y,t:performance.now(),svx:B.vx,svy:B.vy,start:pointer.x,x0:pointer.x,y0:pointer.y};
+    DD.body.appendChild(d.el);
+    return;
+  }
+  if(d.state==='free'||d.state==='grab'){
+    grab={kind:'letter',obj:d,gx:pointer.x-d.wx,gy:pointer.y-d.wy,lx:pointer.x,ly:pointer.y,t:performance.now(),start:pointer.x};
+    return;
+  }
+}
+handle.addEventListener('pointerdown',function(e){
+  if(!hoverB||(!hoverB.hasA&&hoverB.kind!=='T'&&hoverB.kind!=='E'))return;
+  e.preventDefault();e.stopPropagation();
+  grab={kind:'rot',obj:hoverB,lx:pointer.x,ly:pointer.y,t:performance.now()};
+});
+cv.addEventListener('pointerdown',function(e){
+  var hit=null;
+  for(var i=0;i<bodies.length;i++){
+    var B=bodies[i];
+    var dx=pointer.x-B.x,dy=pointer.y-B.y;
+    var th=B.th||0,c=Math.cos(th),s=Math.sin(th);
+    var lx=c*dx+s*dy,ly=-s*dx+c*dy;
+    if(Math.abs(lx)<(B.hw||30)+10&&Math.abs(ly)<(B.hh||24)+10)hit=B;
+  }
+  if(hit&&!hit.bh){
+    if(dblState.body!==hit){dblState.t=0;dblState.body=hit;dblState.g=hit.massG;dblState.x=pointer.x;dblState.y=pointer.y;}
+    grab={kind:'body',obj:hit,gx:pointer.x-hit.x,gy:pointer.y-hit.y,lx:pointer.x,ly:pointer.y,t:performance.now(),svx:hit.vx,svy:hit.vy,start:pointer.x,x0:pointer.x,y0:pointer.y};
+  }
+});
+DD.addEventListener('pointermove',function(e){
+  pointer.x=e.clientX;pointer.y=e.clientY;
+  if(trashDrag.active){
+    trash.style.left=(pointer.x-17)+'px';
+    trash.style.top=(pointer.y-17)+'px';
+    eraseUnderTrash();
+    return;
+  }
+  var onT=(grab.kind==='letter'||grab.kind==='body')&&inTrash(pointer.x,pointer.y);
+  trash.classList.toggle('on',onT);
+  if(grab.kind==='body'){
+    var B=grab.obj;
+    B.x=pointer.x-grab.gx;B.y=pointer.y-grab.gy;
+    var dt=(performance.now()-grab.t)/1000||0.016;
+    if(dt>0){
+      var spx=(pointer.x-grab.lx)/dt,spy=(pointer.y-grab.ly)/dt;
+      grab.svx=spx;grab.svy=spy;
+      B.vx=spx;B.vy=spy;
+    }
+    grab.lx=pointer.x;grab.ly=pointer.y;grab.t=performance.now();
+    var ft=findFreeLetterTarget(B);
+    cv.style.cursor=ft?'copy':'grabbing';
+  }else if(grab.kind==='letter'){
+    var L=grab.obj;
+    L.wx=pointer.x-grab.gx;L.wy=pointer.y-grab.gy;
+    placeLetter(L);
+    var dtt=(performance.now()-grab.t)/1000||0.016;
+    if(dtt>0){grab.svx=(pointer.x-grab.lx)/dtt;grab.svy=(pointer.y-grab.ly)/dtt;}
+    grab.lx=pointer.x;grab.ly=pointer.y;grab.t=performance.now();
+    var h=findMergeTarget(L);
+    cv.style.cursor=h?'copy':'default';
+  }else if(grab.kind==='rot'){
+    var Rb=grab.obj,s=tAnchor(Rb);
+    var a0=Math.atan2(grab.ly-s.y,grab.lx-s.x);
+    var a1=Math.atan2(pointer.y-s.y,pointer.x-s.x);
+    Rb.th=shortAng(Rb.th+(a1-a0));
+    grab.lx=pointer.x;grab.ly=pointer.y;
+  }
+});
+DD.addEventListener('pointerup',function(e){
+  pointer.x=e.clientX;pointer.y=e.clientY;
+  if(trashDrag.active){
+    trash.style.left='';trash.style.top='';
+    trash.style.right='24px';trash.style.bottom='24px';
+    trash.classList.remove('on');
+    trashDrag.active=false;
+    grab.kind=null;grab.obj=null;
+    return;
+  }
+  trash.classList.remove('on');
+  if(grab.kind==='body'){
+    var B=grab.obj;
+    if(inTrash(pointer.x,pointer.y)){
+      if(B.bh){explodeBlackHole(B);}   // a live black hole dropped in the trash DETONATES
+      else{killBody(B);}
+      grab.kind=null;grab.obj=null;
+      return;
+    }
+    if(inPanel(pointer.x,pointer.y)&&!B.kind){
+      // drop a formula body back onto the panel box -> its letters dock into the box
+      for(var pi2=B.glyphs.length-1;pi2>=0;pi2--){if(B.glyphs[pi2].stk)killG(B.glyphs[pi2]);}
+      var rl=[];if(B.massG)rl.push(B.massG);
+      for(var mi3=0;mi3<B.mem.length;mi3++){if(B.mem[mi3]!==B.massG)rl.push(B.mem[mi3]);}
+      for(var ri=0;ri<rl.length;ri++){
+        var LG=rl[ri];
+        if(LG.body===B){LG.body=null;LG.inBody=false;}
+        LG.pop=0;
+        dockLetter(LG);
+      }
+      killBody(B);
+      grab.kind=null;grab.obj=null;
+      return;
+    }
+    if(B.kind){
+      // spawned field symbol (B/q/I) dragged back onto the panel box -> remove it
+      if(inPanel(pointer.x,pointer.y)){
+        killBody(B);
+        grab.kind=null;grab.obj=null;
+        return;
+      }
+      var sp2=Math.hypot(grab.svx,grab.svy);
+      var sp2=Math.hypot(grab.svx,grab.svy);
+      if(sp2>20){var f2=clamp(1-sp2/6000,0.5,1);B.vx=grab.svx*f2;B.vy=grab.svy*f2;}
+      else{B.vx=0;B.vy=0;}
+      grab.kind=null;grab.obj=null;
+      return;
+    }
+    var ds=dblState;
+    var didSplit=false;
+    if(ds.body===B){
+      var mvd=Math.hypot(pointer.x-ds.x,pointer.y-ds.y);
+      var now=performance.now();
+      if(mvd<14){
+        if(ds.t>0&&now-ds.t<500){
+          splitOne(B,ds.g);
+          ds.t=0;ds.body=null;ds.g=null;
+          didSplit=true;
+        }else{
+          ds.t=now;ds.x=pointer.x;ds.y=pointer.y;
+        }
+      }else{
+        ds.t=0;ds.body=null;
+      }
+    }
+    if(didSplit){
+      grab.kind=null;grab.obj=null;
+      return;
+    }
+    if(Math.abs(grab.svx)>20||Math.abs(grab.svy)>20){
+      var f=clamp(1-Math.hypot(grab.svx,grab.svy)/6000,0.5,1);
+      B.vx=grab.svx*f;B.vy=grab.svy*f;
+    }else{
+      B.vx=0;B.vy=0;
+    }
+    var fl=findFreeLetterTarget(B);
+    if(fl){attach(B,fl);}
+  }else if(grab.kind==='letter'){
+    dblState.t=0;
+    var L=grab.obj;
+    if(inTrash(pointer.x,pointer.y)){
+      killLetter(L);
+      grab.kind=null;grab.obj=null;
+      return;
+    }
+    if(inPanel(pointer.x,pointer.y)){
+      // dropped back onto the panel box -> returns to box and disappears
+      killLetter(L);
+      grab.kind=null;grab.obj=null;
+      return;
+    }
+    if(L.ch==='B'||L.ch==='q'||L.ch==='I'||L.ch==='E'){
+      spawnField(L.ch,L.wx,L.wy,grab.svx||0,grab.svy||0);
+      killLetter(L);
+      grab.kind=null;grab.obj=null;
+      return;
+    }
+    // 't' combos: qt -> I, gt -> v, vt -> rod (hijacks a simple body)
+    var tc=findTComboTarget(L);
+    if(tc){applyTCombo(L,tc);grab.kind=null;grab.obj=null;return;}
+    var B2=findMergeTarget(L);
+    if(B2){
+      attach(B2,L);
+    }else{
+      // shatter/split leaves letters FREE on the canvas. A loose mass (m/M) must still work
+      // as a base: promote it to a body right here, then merge the dragged letter into it.
+      // (mc, mg, mv, mG, Mm … all assemble again without a manual nudge.)
+      var FM=findFreeMassTarget(L);
+      if(FM){
+        var fi3=freeL.indexOf(FM);if(fi3>=0)freeL.splice(fi3,1);
+        var nb3=BODY(FM.wx,FM.wy);
+        FM.pop=0;FM.body=nb3;FM.inBody=true;
+        nb3.massG=FM;nb3.glyphs=[FM];
+        refresh(nb3);
+        if(canMerge(nb3,L)){
+          attach(nb3,L);
+          ringGo(nb3.x,nb3.y);
+        }else{
+          // not a valid merge after all — undo the promotion and keep the old behaviour
+          var ri3=bodies.indexOf(nb3);if(ri3>=0)bodies.splice(ri3,1);
+          FM.body=null;FM.inBody=false;FM.pop=0;
+          if(freeL.indexOf(FM)<0)freeL.push(FM);
+          placeLetter(FM);
+          if(isMass(L)||L.type==='G'){
+            var nb=BODY(L.wx,L.wy);
+            L.pop=0;L.body=nb;L.inBody=true;
+            if(isMass(L)){ nb.massG=L; nb.glyphs=[L]; refresh(nb); }
+            else { nb.glyphs=[L]; attach(nb,L); }
+            ringGo(nb.x,nb.y);
+          }else{
+            L.state='free';
+            var spd=Math.hypot(grab.svx,grab.svy);
+            if(spd>40){L.vx=grab.svx*clamp(1-spd/8000,0.4,1);L.vy=grab.svy*clamp(1-spd/8000,0.4,1);}
+            else{L.vx=0;L.vy=0;}
+            if(freeL.indexOf(L)<0)freeL.push(L);
+            placeLetter(L);
+          }
+        }
+      }else if(isMass(L)||L.type==='G'){
+      // no body nearby accepts it -> spawn a fresh body here.
+      // Masses become the base (massG); G is routed through attach() so it lands in
+      // mem (setF/layoutGrav read G from mem, not massG).
+      var nb=BODY(L.wx,L.wy);
+      L.pop=0;L.body=nb;L.inBody=true;
+      if(isMass(L)){ nb.massG=L; nb.glyphs=[L]; refresh(nb); }
+      else { nb.glyphs=[L]; attach(nb,L); }
+      ringGo(nb.x,nb.y);
+    }else{
+      L.state='free';
+      var spd=Math.hypot(grab.svx,grab.svy);
+      if(spd>40){L.vx=grab.svx*clamp(1-spd/8000,0.4,1);L.vy=grab.svy*clamp(1-spd/8000,0.4,1);}
+      else{L.vx=0;L.vy=0;}
+      if(freeL.indexOf(L)<0)freeL.push(L);
+      placeLetter(L);
+    }
+    }
+    cv.style.cursor='default';
+  }else if(grab.kind==='rot'){
+  }
+  grab.kind=null;grab.obj=null;
+});
+DD.addEventListener('pointercancel',function(){
+  if(grab.kind==='letter'&&grab.obj){
+    var L=grab.obj;
+    L.state='free';
+    if(freeL.indexOf(L)<0)freeL.push(L);
+    placeLetter(L);
+  }
+  grab.kind=null;grab.obj=null;cv.style.cursor='default';
+});
+function stepPhysics(dt){
+  for(var i=0;i<bodies.length;i++){
+    var B=bodies[i];
+    if(B.kind==='B'||B.kind==='E')continue;
+    if(B.bh)continue;   // black holes (any stage) are handled by stepBlackHole, not normal physics
+    if(grab.kind==='body'&&grab.obj===B)continue;
+    if(B.shatterBlast){
+      // mc² explosion blast: the whole body shatters into its own letters (already flung out
+      // with a big outward kick whose speed decays fast via B.decay)
+      B.shatterBlast=false;
+      shatter(B,'split');   // letters inherit the outward kick; freeL damping decays it fast
+      continue;
+    }
+    if(B.hasG)B.vy+=GRAV*dt;
+    if(B.hasA){
+      var th=B.th||0;
+      B.vx+=-AACC*Math.cos(th)*dt;
+      B.vy+=-AACC*Math.sin(th)*dt;
+    }
+    var damp=Math.pow(0.9992,dt*60);
+    if(B.kind!=='q'){B.vx*=damp;B.vy*=damp;}
+    B.x+=B.vx*dt;B.y+=B.vy*dt;
+    walls(B);
+  }
+    for(var k=0;k<freeL.length;k++){
+    var d=freeL[k];
+    if(d.state==='grab'&&grab.kind==='letter'&&grab.obj===d)continue;
+    var massless=!!d.massless;
+    var fdmp=massless?Math.pow(0.45,dt):Math.pow(0.94,dt*60);
+    d.vx*=fdmp;d.vy*=fdmp;
+    d.x2=d.wx+d.vx*dt;d.y2=d.wy+d.vy*dt;
+    d.wx=d.x2;d.wy=d.y2;
+    if(d.wx<20){d.wx=20;d.vx=Math.abs(d.vx)*0.6;}
+    if(d.wx>W-20){d.wx=W-20;d.vx=-Math.abs(d.vx)*0.6;}
+    if(d.wy<20){d.wy=20;d.vy=Math.abs(d.vy)*0.6;}
+    if(!massless&&d.wy>groundY-8){d.wy=groundY-8;d.vy=-Math.abs(d.vy)*0.6;}
+  }
+}
+function bodyHitSpeed(B,comp){
+  var v=(comp==='x')?B.vx:B.vy;
+  return Math.abs(v);
+}
+function shatter(B,mode){
+  var i=bodies.indexOf(B);if(i>=0)bodies.splice(i,1);
+  var cx=B.x,cy=B.y;
+  var S=Math.hypot(B.vx,B.vy)||1;
+  var ux=-B.vx/S,uy=-B.vy/S;
+  var px=-uy,py=ux;
+  var base=S*0.275,spread=S*0.275;
+  // structural glyphs (brackets / superscripts / bars) are always discarded
+  for(var sk=B.glyphs.length-1;sk>=0;sk--){if(B.glyphs[sk].stk)killG(B.glyphs[sk]);}
+  var lets=[];
+  if(B.massG)lets.push(B.massG);
+  for(var j2=0;j2<B.mem.length;j2++)if(B.mem[j2]!==B.massG)lets.push(B.mem[j2]);
+  if(mode==='split'){
+    // the body breaks into ITS OWN letters (e.g. mv² -> m, v, v) — reusable pieces
+    for(var q=0;q<lets.length;q++){
+      var L=lets[q];
+      if(L.body===B){L.body=null;L.inBody=false;}
+      L.pop=0;
+      var off=(q-(lets.length-1)/2)*28;
+      freeLetter(L,cx+px*off,cy+py*off, ux*base+px*spread*off/28, uy*base+py*spread*off/28, false);
+    }
+  }else{
+    for(var j=0;j<lets.length;j++){
+      var g=lets[j];
+      if(g.body===B){g.body=null;g.inBody=false;killLetter(g);}
+    }
+  }
+  B.glyphs=[];B.mem=[];
+  if(mode==='formula'){
+    // ½mv² wall smash — three preset outcomes by probability:
+    //  0.4  full elastic-collision pair (v₁′/v₂′ with (m₁−m₂)v₁+2m₂v₂ numerators)
+    //  0.3  simplified pair: v₁′=(m₁−m₂)/(m₁+m₂)·v₁  and  v₂′=2m₁/(m₁+m₂)·v₁
+    //  0.3  single common-velocity formula v_共=(m₁v₁+m₂v₂)/(m₁+m₂), flying back the way it came
+    var roll=Math.random();
+    if(roll<0.4){
+      spawnFormula(1,cx+px*26,cy+py*26, ux*base+px*spread, uy*base+py*spread);
+      spawnFormula(2,cx-px*26,cy-py*26, ux*base-px*spread, uy*base-py*spread);
+    }else if(roll<0.7){
+      spawnFormula(3,cx+px*26,cy+py*26, ux*base+px*spread, uy*base+py*spread);
+      spawnFormula(4,cx-px*26,cy-py*26, ux*base-px*spread, uy*base-py*spread);
+    }else{
+      // 原路返回: (ux,uy) already points AGAINST the incoming velocity, i.e. back along
+      // the way the body came — fly the single formula back out along that path.
+      spawnFormula(5,cx,cy,ux*base*0.8,uy*base*0.8);
+    }
+  }else if(mode==='labels'){
+    spawnText('m₁v₁′',cx+px*26,cy+py*26, ux*base+px*spread, uy*base+py*spread);
+    spawnText('m₂v₂′',cx-px*26,cy-py*26, ux*base-px*spread, uy*base-py*spread);
+  }
+  ringGo(cx,cy);
+}
+function walls(B){
+  if(B.kind){
+    if(B.kind!=='T')return;
+    // t-rod: a solid plank — rest on the ground, bounce off the screen edges, keep rotation
+    var lenh=B.len/2,c=Math.abs(Math.cos(B.th)),s=Math.abs(Math.sin(B.th));
+    var ex=lenh*c+B.hh*s,ey=lenh*s+B.hh*c;   // thin-line rod: half-thickness = B.hh
+    if(B.y-ey<-8){B.y=-8+ey;B.vy=Math.abs(B.vy)*0.5;if(Math.abs(B.vy)<60)B.vy=0;}
+    if(B.y+ey>groundY){B.y=groundY-ey;B.vy=-Math.abs(B.vy)*0.5;if(Math.abs(B.vy)<60)B.vy=0;}
+    if(B.x-ex<-8){B.x=-8+ex;B.vx=Math.abs(B.vx)*0.5;if(Math.abs(B.vx)<60)B.vx=0;}
+    if(B.x+ex>W+8){B.x=W+8-ex;B.vx=-Math.abs(B.vx)*0.5;if(Math.abs(B.vx)<60)B.vx=0;}
+    return;
+  }
+  var sc=B.sc||1;
+  var hw=(B.hw||20)*sc,hh=(B.hh||18)*sc;
+  var el=B.hasV,e=el?0.92:0.28;
+  if(B.hasMu){
+    B.vx*=0.90;B.vy*=0.90;
+  }
+  var ox=0,oy=0;
+  if(B.orb&&B.orb.k>=0.02&&B.orb.gx!=null){ox=B.orb.gx-B.x;oy=B.orb.gy-B.y;}
+  var cxp=B.x+ox,cyp=B.y+oy;
+  function shatterIfFast(sp){
+    if(sp<SHATTER_SPEED)return false;
+    if(B.hasC&&B.cCount>=2){
+      return false;   // mc² never shatters on a wall — it just bounces off (then inflates/explodes)
+    }
+    if(B.hasHalf&&B.vCount>=2){
+      shatter(B,'formula');   // ½mv² keeps its elastic-collision formula shards (preset)
+      return true;
+    }
+    // EVERY other lettered whole (mv, mv², mg, GMm/r² well, ...) breaks into its OWN letters
+    if(B.massG||B.mem.length){
+      shatter(B,'split');
+      return true;
+    }
+    return false;
+  }
+  if(cyp-hh<-8){
+    if(shatterIfFast(Math.abs(B.vy)))return;
+    cyp=-8+hh;B.vy=Math.abs(B.vy)*e;if(!el)B.vx*=0.4;
+  }
+  if(cyp+hh>groundY){
+    if(shatterIfFast(Math.abs(B.vy)))return;
+    cyp=groundY-hh;B.vy=-Math.abs(B.vy)*e;if(!el)B.vx*=0.35;
+  }
+  if(cxp-hw<-8){
+    if(shatterIfFast(Math.abs(B.vx)))return;
+    cxp=-8+hw;B.vx=Math.abs(B.vx)*e;if(!el)B.vy*=0.55;
+  }
+  if(cxp+hw>W+8){
+    if(shatterIfFast(Math.abs(B.vx)))return;
+    cxp=W+8-hw;B.vx=-Math.abs(B.vx)*e;if(!el)B.vy*=0.55;
+  }
+  B.x=cxp-ox;B.y=cyp-oy;
+}
+function collideBodies(){
+  function ext(B){
+    var th=B.th||0,c=Math.abs(Math.cos(th)),s=Math.abs(Math.sin(th));
+    var hw=B.hw||24,hh=B.hh||18;
+    return {ex:hw*c+hh*s,ey:hw*s+hh*c};
+  }
+  for(var i=0;i<bodies.length;i++){
+    var A=bodies[i];
+    if((A.kind&&A.kind!=='T')||A.bh)continue;   // fields pass through; black holes are singularities (no solid box)
+    if(grab.kind==='body'&&grab.obj===A)continue;
+    var ea=ext(A);
+    for(var j=i+1;j<bodies.length;j++){
+      var B=bodies[j];
+      if((B.kind&&B.kind!=='T')||B.bh)continue;
+      if(grab.kind==='body'&&grab.obj===B)continue;
+      var eb=ext(B);
+      var aox=0,aoy=0; if(A.orb&&A.orb.k>=0.02&&A.orb.gx!=null){aox=A.orb.gx-A.x;aoy=A.orb.gy-A.y;}
+      var box=0,boy=0; if(B.orb&&B.orb.k>=0.02&&B.orb.gx!=null){box=B.orb.gx-B.x;boy=B.orb.gy-B.y;}
+      var dx=(B.x+box)-(A.x+aox),dy=(B.y+boy)-(A.y+aoy);
+      var ox=ea.ex+eb.ex-Math.abs(dx);
+      if(ox<=0)continue;
+      var oy=ea.ey+eb.ey-Math.abs(dy);
+      if(oy<=0)continue;
+      var nx=0,ny=0,ov=0;
+      if(ox<oy){nx=(dx>0)?1:-1;ov=ox;}else{ny=(dy>0)?1:-1;ov=oy;}
+      // A gravity well (complete GMm/r²) and a t-rod are STATIC BODIES: they never move or gain
+      // velocity from impacts. Once a well is split (losing M or a 2nd r) it is no longer isWell
+      // and behaves as a normal pushable formula body again.
+      var mA=(A.kind==='T'?1e7:A.isWell?1e9:(A.bh?1e9:(A.mass||1))),mB=(B.kind==='T'?1e7:B.isWell?1e9:(B.bh?1e9:(B.mass||1))),sum=mA+mB;
+      var immA=(A.kind==='T')||A.isWell||!!A.bh, immB=(B.kind==='T')||B.isWell||!!B.bh;
+      // n points A->B; B sits on the +n side. To SEPARATE: B along +n, A along -n.
+      if(!immA){A.x-=nx*ov*(mB/sum);A.y-=ny*ov*(mB/sum);}
+      if(!immB){B.x+=nx*ov*(mA/sum);B.y+=ny*ov*(mA/sum);}
+      var vn=(A.vx-B.vx)*nx+(A.vy-B.vy)*ny;
+      if(vn>0){   // vn>0 = approaching (n points A->B); reflect the relative normal speed
+        var e=(A.hasV&&B.hasV)?1:0.75;
+        var jimp=-(1+e)*vn/(1/mA+1/mB);
+        if(!immA){A.vx+=jimp*nx/mA;A.vy+=jimp*ny/mA;}
+        if(!immB){B.vx-=jimp*nx/mB;B.vy-=jimp*ny/mB;}
+      }
+    }
+  }
+}
+function refreshHover(){
+  hoverB=null;
+  if(grab.kind==='body'){hoverB=grab.obj;}
+  else{
+    var best=null,bd=1e9;
+    for(var i=0;i<bodies.length;i++){
+      var B=bodies[i];
+      var s=(B.kind==='T')?{x:B.x,y:B.y}:(B.massG?slot(B,B.massG):{x:B.x,y:B.y});
+      var dx=pointer.x-s.x,dy=pointer.y-s.y;
+      if(B.kind==='E'){
+        // The E-field floating rotate button must appear while the pointer is ANYWHERE
+        // inside the field SQUARE (half-side hs), not only when it sits on the E glyph —
+        // same square test as stepField / drawFieldE so the hover area matches the visuals.
+        var hsE=(B.fieldR||E_FIELD_RANGE)/2;
+        if(Math.abs(dx)<=hsE&&Math.abs(dy)<=hsE){
+          var dE=Math.max(Math.abs(dx),Math.abs(dy));
+          if(dE<bd){bd=dE;best=B;}
+        }
+        continue;
+      }
+      var rr=Math.max(34,(B.hw||30))+18;
+      var d=Math.sqrt(dx*dx+dy*dy);
+      if(d<rr&&d<bd){bd=d;best=B;}
+    }
+    hoverB=best;
+  }
+  if(hoverB&&(hoverB.hasA||hoverB.kind==='T'||hoverB.kind==='E')){
+    var s2=hoverB.massG?slot(hoverB,hoverB.massG):{x:hoverB.x,y:hoverB.y};
+    var th=hoverB.th||0;
+    // E field: the rotate handle rides on the FIELD SQUARE EDGE along the current direction
+    var hh=Math.max(30,(hoverB.hh||24))+26;
+    if(hoverB.kind==='E'){
+      var hsE=(hoverB.fieldR||E_FIELD_RANGE)/2,cth=Math.cos(th),sth=Math.sin(th);
+      hh=hsE/Math.max(0.001,Math.max(Math.abs(cth),Math.abs(sth)));
+    }
+    handle.style.left=(s2.x+Math.sin(th)*hh-15)+'px';
+    handle.style.top=(s2.y-Math.cos(th)*hh-15)+'px';
+    handle.classList.add('on');
+  }else handle.classList.remove('on');
+}
+function copyBody(src){
+  if(src.kind){
+    // FIELD-SOURCE copy (B / q / I / E): right-clicking an electric field used to clone a
+    // bare "m" because copyBody only knew formula bodies. Replicate the SAME kind of source
+    // with its own direction / polarity kept (E keeps th, B keeps Bz, q/I keep their sign).
+    var nb=spawnField(src.kind,src.x+48+Math.random()*40-20,src.y+42+Math.random()*30-15,0,0);
+    if(src.kind==='E'){nb.th=src.th||0;}
+    else if(src.kind==='B'){nb.Bz=src.Bz;}
+    else if(src.kind==='q'){nb.qsign=src.qsign;}
+    else if(src.kind==='I'){nb.Isign=src.Isign;}
+    nb.pop=1;nb.orbPulse=1;nb.copied=true;
+    refresh(nb);
+    ringGo(nb.x,nb.y);
+    sortPanel();
+    return nb;
+  }
+  var ch=(src.massG&&src.massG.type==='M')?'M':'m';
+  var massN=GD(ch);
+  massN.pop=0;
+  var B=BODY(src.x+40+Math.random()*60-30,src.y+30+Math.random()*40-20);
+  B.massG=massN;
+  massN.body=B;
+  var old=B.glyphs;
+  B.glyphs=[];B.mem=[];
+  var mm=[];
+  for(var i=0;i<src.mem.length;i++){
+    var c2=src.mem[i].type;
+    var g2=GD(c2);g2.pop=0;
+    B.mem.push(g2);
+    mm.push(g2);
+  }
+  var list=[massN].concat(mm);
+  list.forEach(function(g){g.body=B;g.inBody=true;g.prev={x:0,y:0};B.glyphs.push(g);});
+  refresh(B);
+  B.pop=1;
+  B.orbPulse=1;
+  B.copied=true;
+  ringGo(B.x,B.y);
+  var ms=slot(B,B.massG);
+  B.x+=src.x-ms.x;B.y+=src.y-ms.y;
+  refresh(B);
+  B.vx=60;B.vy=-40;
+  sortPanel();
+}
+function inTrash(x,y){
+  var r=trash.getBoundingClientRect();
+  return x>r.left-10&&x<r.right+10&&y>r.top-10&&y<r.bottom+10;
+}
+function inPanel(x,y){
+  var r=panel.getBoundingClientRect();
+  return x>r.left-12&&x<r.right+12&&y>r.top-12&&y<r.bottom+12;
+}
+function clearAll(){
+  // if the black-hole finale is mid-flight, drop its letters and put the bin back home
+  if(BH_FINALE){
+    for(var fz=0;fz<BH_FINALE.letters.length;fz++){
+      var Lz=BH_FINALE.letters[fz];
+      if(!Lz.arr){Lz.arr=true;if(Lz.el&&Lz.el.parentNode)Lz.el.parentNode.removeChild(Lz.el);}
+    }
+    BH_FINALE=null;
+  }
+  resetTrashPos();
+  for(var i=bodies.length-1;i>=0;i--){
+    var B=bodies[i];
+    for(var j=0;j<B.glyphs.length;j++){
+      var g=B.glyphs[j];
+      if(g.body===B){g.body=null;g.inBody=false;killLetter(g);}
+    }
+    B.glyphs=[];B.mem=[];
+    if(B.bh)B.bh.dead=true;
+    bodies.splice(i,1);
+  }
+  // restore panel singletons: alive ones go back to dock; dead ones are rebuilt from scratch
+  // so a black hole that consumed a panel letter does not leave the panel crippled.
+  var kids=[mO,M2O,gO,aO,vO,rO,halfO,muO,cO,GO,tO,BO,EO,qO,IO];
+  var names=['mO','M2O','gO','aO','vO','rO','halfO','muO','cO','GO','tO','BO','EO','qO','IO'];
+  for(var i2=0;i2<kids.length;i2++){
+    var d=kids[i2];
+    var fi=freeL.indexOf(d);if(fi>=0)freeL.splice(fi,1);
+    if(d.dead){
+      var nd=GD(d.ch);
+      switch(names[i2]){
+        case 'mO':mO=nd;break;case 'M2O':M2O=nd;break;case 'gO':gO=nd;break;case 'aO':aO=nd;break;
+        case 'vO':vO=nd;break;case 'rO':rO=nd;break;case 'halfO':halfO=nd;break;case 'muO':muO=nd;break;
+        case 'cO':cO=nd;break;case 'GO':GO=nd;break;case 'tO':tO=nd;break;case 'BO':BO=nd;break;
+        case 'EO':EO=nd;break;case 'qO':qO=nd;break;case 'IO':IO=nd;break;
+      }
+      d=nd;
+    }
+    if(d.body){d.body=null;}
+    d.inBody=false;d.state='dock';d.pop=0;d.vx=0;d.vy=0;d.fade=null;d.bhShed=0;d.bhFade=null;
+    if(d.el&&d.el.parentNode!==panel)panel.appendChild(d.el);
+    if(d.el){d.el.style.display='';d.el.style.fontSize='34px';
+             d.el.style.left='';d.el.style.top='';d.el.style.transform='';d.el.style.opacity='';}
+  }
+  for(var k=freeL.length-1;k>=0;k--){killLetter(freeL[k]);freeL.splice(k,1);}
+  for(var f=formulas.length-1;f>=0;f--){killFormula(formulas[f]);formulas.splice(f,1);}
+  panel.style.opacity='';   // un-fade the panel after panel-eating has punched it
+  // purge any duplicate docked clones left behind by earlier dock bugs — the palette holds
+  // exactly the canonical singletons, one cell each.
+  var canon=[mO,M2O,gO,aO,vO,rO,halfO,muO,cO,GO,tO,BO,EO,qO,IO];
+  [].slice.call(panel.querySelectorAll('.char')).forEach(function(e){
+    var keep=false;
+    for(var ci=0;ci<canon.length;ci++)if(canon[ci].el===e){keep=true;break;}
+    if(!keep&&e.parentNode===panel)panel.removeChild(e);
+  });
+  sortPanel();
+}
+trash.addEventListener('dblclick',function(e){e.preventDefault();clearAll();});
+var trashDrag={active:false};
+function overlap(a,b){return !(a.right<b.left||a.left>b.right||a.bottom<b.top||a.top>b.bottom);}
+function eraseUnderTrash(){
+  var r=trash.getBoundingClientRect();
+  for(var i=freeL.length-1;i>=0;i--){
+    var d=freeL[i];
+    if(overlap(r,d.el.getBoundingClientRect()))killLetter(d);
+  }
+  for(var j=bodies.length-1;j>=0;j--){
+    var B=bodies[j],hit=false;
+    for(var k=0;k<B.glyphs.length;k++){
+      if(B.glyphs[k].el&&overlap(r,B.glyphs[k].el.getBoundingClientRect())){hit=true;break;}
+    }
+    if(hit)killBody(B);
+  }
+}
+trash.addEventListener('pointerdown',function(e){
+  if(e.button!==0)return;
+  e.preventDefault();e.stopPropagation();
+  trashDrag.active=true;
+  var r=trash.getBoundingClientRect();
+  trash.style.right='auto';trash.style.bottom='auto';
+  trash.style.left=r.left+'px';trash.style.top=r.top+'px';
+  trash.classList.add('on');
+});
+
+function killLetter(d){
+  d.dead=true;
+  var i=freeL.indexOf(d);if(i>=0)freeL.splice(i,1);
+  i=freeG.indexOf(d);if(i>=0)freeG.splice(i,1);
+  i=ALL.indexOf(d);if(i>=0)ALL.splice(i,1);
+  if(d.el&&d.el.parentNode)d.el.parentNode.removeChild(d.el);
+}
+function killBody(B){
+  var i=bodies.indexOf(B);if(i>=0)bodies.splice(i,1);
+  // dissolve any binary-star / orbit link involving B (release partner tangentially)
+  if(B.go){
+    var gD=B.go, txd=-Math.sin(gD.ang), tyd=Math.cos(gD.ang);
+    var P2=(gD.bin)?gD.by:null;
+    if(P2&&bodies.indexOf(P2)>=0){
+      P2.vx=txd*gD.w*(gD.rad*((gD.bin)?gD.rP:1));P2.vy=tyd*gD.w*(gD.rad*((gD.bin)?gD.rP:1));
+      P2.goB=null;
+    }
+    B.go=null;
+  }
+  if(B.goB&&bodies.indexOf(B.goB)>=0){
+    var H=B.goB,gH=H.go;
+    if(gH){var txd2=-Math.sin(gH.ang),tyd2=Math.cos(gH.ang);H.vx=txd2*gH.w*(gH.rad*gH.rB);H.vy=tyd2*gH.w*(gH.rad*gH.rB);H.go=null;}
+    H.goB=null;
+    B.goB=null;
+  }
+  if(B.bh){B.bh.dead=true;B.bh=null;}   // kill a black hole: the hole itself vanishes
+  B.diss=true;
+  for(var j=0;j<B.glyphs.length;j++){
+    var g=B.glyphs[j];
+    if(g.body===B){
+      g.body=null;g.inBody=false;
+      killLetter(g);
+    }
+  }
+  B.glyphs=[];B.mem=[];
+}
+function metS(ch,size){
+  ctx2d.font='italic '+size+'px Georgia,"Times New Roman",serif';
+  var q=ctx2d.measureText(ch);
+  var fba=q.fontBoundingBoxAscent||size*0.8,fbd=q.fontBoundingBoxDescent||size*0.25;
+  var ia=q.actualBoundingBoxAscent||0,id=q.actualBoundingBoxDescent||0;
+  var bl=(size-(fba+fbd))/2+fba;
+  return {top:bl-ia-size/2,bot:bl+id-size/2,w:q.width};
+}
+function mkFG(ch,size){
+  var el=DD.createElement('div');
+  el.className='char';
+  el.style.fontSize=size+'px';
+  el.style.pointerEvents='none';
+  el.style.cursor='default';
+  el.style.zIndex='8';
+  el.textContent=ch;
+  DD.body.appendChild(el);
+  var m=metS(ch,size);
+  el.style.display='none';
+  // back-pointer so the black-hole panel-eating pass can find the letter that owns this .char
+  var d={el:el,ch:ch,m:m,sx:0,sy:0,dead:false};
+  el._letterRef=d;
+  return d;
+}
+function buildFormulaGlyphs(Fo,which){
+  function tok(ch,sub){return {ch:ch,sub:sub?true:false};}
+  var lhs,COM='共';
+  var num,den;
+  if(which===1){
+    lhs=[tok('v'),tok(SUB1,true),tok(PRIME),tok('=')];
+    num=[tok('('),tok('m'),tok(SUB1,true),tok('−'),tok('m'),tok(SUB2,true),tok(')'),tok('v'),tok(SUB1,true),tok('+'),tok('2'),tok('m'),tok(SUB2,true),tok('v'),tok(SUB2,true)];
+    den=[tok('m'),tok(SUB1,true),tok('+'),tok('m'),tok(SUB2,true)];
+  }else if(which===2){
+    lhs=[tok('v'),tok(SUB2,true),tok(PRIME),tok('=')];
+    num=[tok('('),tok('m'),tok(SUB2,true),tok('−'),tok('m'),tok(SUB1,true),tok(')'),tok('v'),tok(SUB2,true),tok('+'),tok('2'),tok('m'),tok(SUB1,true),tok('v'),tok(SUB1,true)];
+    den=[tok('m'),tok(SUB2,true),tok('+'),tok('m'),tok(SUB1,true)];
+  }else if(which===3){
+    // v₁' = (m₁−m₂)/(m₁+m₂) · v₁
+    lhs=[tok('v'),tok(SUB1,true),tok(PRIME),tok('=')];
+    num=[tok('('),tok('m'),tok(SUB1,true),tok('−'),tok('m'),tok(SUB2,true),tok(')'),tok('v'),tok(SUB1,true)];
+    den=[tok('m'),tok(SUB1,true),tok('+'),tok('m'),tok(SUB2,true)];
+  }else if(which===4){
+    // v₂' = 2m₁/(m₁+m₂) · v₁
+    lhs=[tok('v'),tok(SUB2,true),tok(PRIME),tok('=')];
+    num=[tok('2'),tok('m'),tok(SUB1,true),tok('v'),tok(SUB1,true)];
+    den=[tok('m'),tok(SUB1,true),tok('+'),tok('m'),tok(SUB2,true)];
+  }else{
+    // v_共 = (m₁v₁+m₂v₂)/(m₁+m₂)   (common velocity, single formula)
+    lhs=[tok('v'),tok(COM,true),tok('=')];
+    num=[tok('m'),tok(SUB1,true),tok('v'),tok(SUB1,true),tok('+'),tok('m'),tok(SUB2,true),tok('v'),tok(SUB2,true)];
+    den=[tok('m'),tok(SUB1,true),tok('+'),tok('m'),tok(SUB2,true)];
+  }
+  function sizeOf(t){return t.sub?F*0.62:F;}
+  function run(tokens){
+    var x=0,items=[];
+    for(var i=0;i<tokens.length;i++){
+      var t=tokens[i];
+      var g=mkFG(t.ch,sizeOf(t));
+      var w=g.m.w;
+      items.push({g:g,x0:x,w:w,sub:t.sub});
+      Fo.glyphs.push(g);
+      x+=w+(i<tokens.length-1?3:0);
+    }
+    return {items:items,width:x};
+  }
+  var L=run(lhs),N=run(num),D=run(den);
+  var fracW=Math.max(N.width,D.width)+14;
+  var barGap=5;
+  var nTop=1e9,nBot=-1e9;
+  N.items.forEach(function(it){var s=it.sub?0.62:1;nTop=Math.min(nTop,it.g.m.top*s);nBot=Math.max(nBot,it.g.m.bot*s);});
+  var nShift=-barGap-nBot;
+  N.items.forEach(function(it){it.g.sx=(-N.width/2)+it.x0+it.w/2;it.g.sy=nShift;});
+  var dTop=1e9,dBot=-1e9;
+  D.items.forEach(function(it){var s=it.sub?0.62:1;dTop=Math.min(dTop,it.g.m.top*s);dBot=Math.max(dBot,it.g.m.bot*s);});
+  var dShift=barGap-dTop;
+  D.items.forEach(function(it){it.g.sx=(-D.width/2)+it.x0+it.w/2;it.g.sy=dShift;});
+  var wholeTop=nTop+nShift, wholeBot=dBot+dShift;
+  var cY=-(wholeTop+wholeBot)/2;
+  N.items.forEach(function(it){it.g.sy+=cY;});
+  D.items.forEach(function(it){it.g.sy+=cY;});
+  var lhsX0=-(fracW/2)-8-L.width;
+  L.items.forEach(function(it){it.g.sx=lhsX0+it.x0+it.w/2;it.g.sy=cY;});
+  var totalL=lhsX0, totalR=fracW/2;
+  var cX=-(totalL+totalR)/2;
+  N.items.forEach(function(it){it.g.sx+=cX;});
+  D.items.forEach(function(it){it.g.sx+=cX;});
+  L.items.forEach(function(it){it.g.sx+=cX;});
+  Fo.bar={x1:cX-fracW/2,y:cY,x2:cX+fracW/2};
+  var extW=totalR-totalL,extH=wholeBot-wholeTop;
+  Fo.sc=clamp(150/Math.max(extW,extH),0.55,1);
+  Fo.hw=extW*Fo.sc/2;Fo.hh=extH*Fo.sc/2;
+}
+function spawnFormula(which,x,y,bvx,bvy){
+  var Fo={x:x,y:y,vx:bvx,vy:bvy,age:0,life:14,glyphs:[],alpha:1,dead:false,bar:null,sc:1,hw:60,hh:30,stoppedAt:null};
+  buildFormulaGlyphs(Fo,which);
+  var sc=Fo.sc||1;
+  for(var i=0;i<Fo.glyphs.length;i++){
+    var g=Fo.glyphs[i];
+    g.el.style.display='';
+    g.el.style.left=(x+g.sx*sc)+'px';
+    g.el.style.top=(y+g.sy*sc)+'px';
+    g.el.style.transform='translate(-50%,-50%) scale('+sc+')';
+    g.el.style.transformOrigin='center';
+    g.el.style.opacity='1';
+  }
+  formulas.push(Fo);
+  return Fo;
+}
+function spawnText(text,x,y,bvx,bvy){
+  var Fo={x:x,y:y,vx:bvx,vy:bvy,age:0,life:14,glyphs:[],alpha:1,dead:false,bar:null,sc:1,hw:60,hh:30,stoppedAt:null};
+  var g=mkFG(text,F*0.92);
+  g.sx=0;g.sy=0;
+  Fo.glyphs.push(g);
+  var w=g.el.offsetWidth||120,h=g.el.offsetHeight||44;
+  Fo.sc=clamp(150/Math.max(w,h),0.55,1);
+  Fo.hw=w*Fo.sc/2;Fo.hh=h*Fo.sc/2;
+  g.el.style.display='';
+  g.el.style.left=(x)+'px';
+  g.el.style.top=(y)+'px';
+  g.el.style.transform='translate(-50%,-50%) scale('+Fo.sc+')';
+  g.el.style.transformOrigin='center';
+  g.el.style.opacity='1';
+  formulas.push(Fo);
+  return Fo;
+}
+function stepFormulas(dt){
+  for(var i=formulas.length-1;i>=0;i--){
+    var F=formulas[i];
+    F.age+=dt;
+    if(F.hw&&pointer.x>F.x-F.hw&&pointer.x<F.x+F.hw&&pointer.y>F.y-F.hh&&pointer.y<F.y+F.hh){
+      F.stoppedAt=null;
+    }
+    var damp=Math.pow(0.22,dt);
+    F.vx*=damp;F.vy*=damp;
+    F.x+=F.vx*dt;F.y+=F.vy*dt;
+    var margin=22,e=0.9;
+    if(F.x<margin){F.x=margin;if(F.vx<0)F.vx=-F.vx*e;}
+    if(F.x>W-margin){F.x=W-margin;if(F.vx>0)F.vx=-F.vx*e;}
+    if(F.y<margin){F.y=margin;if(F.vy<0)F.vy=-F.vy*e;}
+    if(F.y>groundY-margin){F.y=groundY-margin;if(F.vy>0)F.vy=-F.vy*e;}
+    var sp=Math.hypot(F.vx,F.vy);
+    if(sp<26){ if(F.stoppedAt==null)F.stoppedAt=F.age; } else { F.stoppedAt=null; }
+    var a=1;
+    if(F.stoppedAt!=null){
+      var idle=F.age-F.stoppedAt-3.0;
+      if(idle>0){
+        var blink=0.35+0.65*Math.abs(Math.sin(F.age*6));
+        var fade=clamp(1-idle/2.0,0,1);
+        a=blink*fade;
+        if(idle>=2.0){ killFormula(F); formulas.splice(i,1); continue; }
+      }
+    }
+    F.alpha=a;
+    var sc=F.sc||1;
+    for(var j=0;j<F.glyphs.length;j++){
+      var g=F.glyphs[j];
+      g.el.style.left=(F.x+g.sx*sc)+'px';
+      g.el.style.top=(F.y+g.sy*sc)+'px';
+      g.el.style.transform='translate(-50%,-50%) scale('+sc+')';
+      g.el.style.opacity=a;
+    }
+    if(F.age>=F.life){
+      killFormula(F);
+      formulas.splice(i,1);
+    }
+  }
+}
+function killFormula(F){
+  for(var i=0;i<F.glyphs.length;i++){
+    var g=F.glyphs[i];
+    if(g.el&&g.el.parentNode)g.el.parentNode.removeChild(g.el);
+  }
+  F.glyphs=[];F.dead=true;
+}
+var particles=[];
+var shakeAmp=0,shakeDur=0,shakeT=0,shakeOn=false;
+function shake(a,d){shakeAmp=Math.max(shakeAmp,a);shakeDur=Math.max(shakeDur,d);shakeT=0;shakeOn=true;}
+function stepParticles(dt){
+  for(var i=particles.length-1;i>=0;i--){
+    var p=particles[i];
+    p.age+=dt;
+    var damp=Math.pow(0.35,dt);
+    p.vx*=damp;p.vy*=damp;
+    p.x+=p.vx*dt;p.y+=p.vy*dt;
+    p.alpha=Math.max(0,1-p.age/p.life);
+    if(p.age>=p.life)particles.splice(i,1);
+  }
+}
+function spawnExplosion(cx,cy){
+  var N=240;
+  for(var i=0;i<N;i++){
+    var ang=Math.random()*6.2832;
+    var sp=120+Math.random()*820;
+    var r=1+Math.random()*2.4;
+    particles.push({x:cx+(Math.random()*10-5),y:cy+(Math.random()*10-5),vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,age:0,life:0.9+Math.random()*1.1,r:r,alpha:1});
+  }
+}
+// BLAST WAVE (mc² explosion / black-hole detonation):
+//  - whole bodies in range  -> shatter into their OWN letters, flung outward (letters
+//    inherit the big kick and their speed decays fast — freeLetter damping)
+//  - free letters in range  -> vaporized outright
+//  - rendered formula shards -> blown away with an outward kick
+function blastAt(cx,cy,R){
+  for(var j=bodies.length-1;j>=0;j--){
+    var O=bodies[j];
+    if(O.kind||O.bh)continue;
+    if(grab.kind==='body'&&grab.obj===O)continue;
+    var dx=O.x-cx,dy=O.y-cy;
+    var d=Math.hypot(dx,dy);
+    if(d<=R){
+      var dirx=dx/(d||1),diry=dy/(d||1);
+      var fl=1200*(1-d/R)+240;
+      O.vx+=dirx*fl;O.vy+=diry*fl;
+      O.shatterBlast=true;   // stepPhysics converts this into shatter(O,'split')
+    }
+  }
+  for(var fl2=freeL.length-1;fl2>=0;fl2--){
+    var L2=freeL[fl2];
+    if(L2.state==='grab')continue;
+    var ldx=L2.wx-cx,ldy=L2.wy-cy;
+    if(Math.hypot(ldx,ldy)<=R){killLetter(L2);}   // killLetter already removes it from freeL
+  }
+  for(var fx2=formulas.length-1;fx2>=0;fx2--){
+    var F=formulas[fx2];
+    var fdx=F.x-cx,fdy=F.y-cy;
+    var fd=Math.hypot(fdx,fdy);
+    if(fd<=R){
+      var k2=1-fd/R;
+      F.vx+=(fdx/(fd||1))*(900+500*k2);
+      F.vy+=(fdy/(fd||1))*(900+500*k2);
+    }
+  }
+}
+function explodeBody(B){
+  var cx=B.x,cy=B.y;
+  var i=bodies.indexOf(B);if(i>=0)bodies.splice(i,1);
+  spawnExplosion(cx,cy);
+  for(var j=0;j<B.glyphs.length;j++){var g=B.glyphs[j];if(g.body===B){g.body=null;g.inBody=false;killLetter(g);}}
+  B.glyphs=[];B.mem=[];
+  blastAt(cx,cy,300);   // shockwave: shatter nearby wholes, vaporize nearby loose letters
+  shake(16,0.55);
+}
+function stepExplode(dt){
+  for(var i=0;i<bodies.length;i++){
+    var B=bodies[i];
+    if(!B.exploding)continue;
+    B.explT+=dt;
+    var T=0.9;
+    var k=clamp(B.explT/T,0,1);
+    B.infl=1+0.7*k;
+    B.wob=Math.sin(B.explT*38)*0.05*k;
+    // NOTE: velocity is NOT zeroed here — the inflating mc² keeps moving and can be
+    // pushed/gravitated like any other body (stepPhysics handles it).
+    if(B.explT>=T){explodeBody(B);break;}
+  }
+}
+// ================= BLACK HOLE (2GM/c² -> collapse) =================
+var BH_MAXR=105;
+// full-screen reach: pull tapers linearly to 0 at the screen's diagonal so the influence
+// feels whole-screen but is exactly 0 at the rim and stronger the closer it is to the hole
+var BH_REACH=2000;
+function stepBlackHole(dt){
+  for(var i=0;i<bodies.length;i++){
+    var B=bodies[i];
+    if(!B.bh)continue;
+    var bh=B.bh;
+    bh.age+=dt;bh.spin+=dt*(0.5+bh.r/60);
+    if(bh.stage===0){
+      // stage 0 — collapse: horizon grows outward while the formula's letters
+      // (2, G, M, c, ²) spiral inward and get sucked through (alpha -> 0).
+      bh.t+=dt;
+      var k=bh.t/0.8;
+      if(k>=1){bh.stage=1;bh.r=BH_MAXR;continue;}
+      var ek=1-Math.pow(1-clamp(k,0,1),3);
+      bh.r=BH_MAXR*ek*0.5;
+      var s=clamp(1-k*1.4,0,1);
+      B.infl=s;B.wob=Math.sin(bh.t*30)*0.3*k;
+      bh.fade=(k>0.7)?clamp(1-(k-0.7)*4,0,1):1;   // letters sink into the horizon
+      if(k>=0.92){
+        // the letters are consumed by the horizon
+        B.glyphs.slice().forEach(function(g){if(g.body===B){g.body=null;g.inBody=false;killLetter(g);}});
+        B.glyphs=[];
+      }
+      continue;
+    }
+    // ---- stage 1 — alive: devour EVERYTHING on screen (whole-screen accretion) ----
+    if(B.vx||B.vy){B.vx=0;B.vy=0;}   // the hole itself is immovable
+    if(BH_FINALE&&BH_FINALE.hole===B)continue;   // finale drives the hole visuals now (suck/shrink)
+    if(grab.kind==='body'&&grab.obj===B)continue;   // paused while the hole is being dragged
+    // BH reach: full-screen diagonal + margin. The pull tapers linearly to 0 at the edge so
+  // the influence FEELS whole-screen but fades out at the screen boundary — a corner is no
+  // stronger than another, and at the very rim the pull is exactly zero.
+  var reach=BH_REACH;
+    for(var j=bodies.length-1;j>=0;j--){
+      var O=bodies[j];
+      if(O===B||O.bh)continue;
+      if(grab.kind==='body'&&grab.obj===O)continue;
+      var dx=B.x-O.x,dy=B.y-O.y;
+      var d=Math.hypot(dx,dy)||1;
+      if(d>reach){O.bhFade=null;O.bhShed=0;continue;}
+      // spiral accretion, closer = much stronger. The pull has a radial part and a
+      // tangential part (spiral), and ACCRETION DRAG — velocity-proportional damping,
+      // a true energy sink that is stronger the closer the body is. No stable orbit
+      // can survive the drag: everything spirals in and gets swallowed.
+      // Field sources (B/E) and rods ARE devoured too — they are objects on the canvas.
+      var fall=(O.kind==='q'||O.kind==='I');
+      var src=(O.kind==='B'||O.kind==='E');
+      var taper=clamp(1-d/reach,0,1);
+      var inv=1/Math.max(d,20);
+      var ux2=dx*inv,uy2=dy*inv;       // toward the hole
+      var tx2=-uy2,ty2=ux2;            // tangential (spiral)
+      var pull=(fall?1600:(src?5000:20000))*bh.r/(d*d)*(dt*60)*taper;
+      O.vx+=ux2*pull;O.vy+=uy2*pull;
+      O.vx+=tx2*pull*0.5;O.vy+=ty2*pull*0.5;
+      var drg=Math.pow(0.25,dt*1.6*Math.min(1,bh.r/Math.max(d,30)));
+      O.vx*=drg;O.vy*=drg;
+      // B/E sources and rods are skipped by stepPhysics (static), so integrate them here
+      if(src||O.kind==='T'){O.x+=O.vx*dt;O.y+=O.vy*dt;}
+      // progressive disintegration: the nearer it gets, the faster it sheds particles and
+      // the more it has eroded away — it visibly comes apart on the way in. The falloff is
+      // long enough (~280px) that disintegration starts far from the horizon so the trail
+      // is clearly visible.
+      var near=clamp(1-(d-bh.r)/280,0,1);
+      if(near>0){
+        O.bhShed=(O.bhShed||0)+dt;
+        var iv=0.06-0.045*near;
+        if(O.bhShed>=iv){
+          O.bhShed=0;
+          burstParticles(O.x+(Math.random()*22-11),O.y+(Math.random()*22-11),2+Math.round(near*3),0.45);
+        }
+        O.bhFade=clamp(1-near*1.1,0.06,1);
+      }
+      if(d<bh.r+16){   // swallowed
+        if(fall||src){
+          burstParticles(O.x,O.y,12,1);
+          killFieldBody(O,j);
+        }else{
+          annihBody(O,j);   // particleize the whole into the hole
+        }
+      }
+    }
+    for(var fl=freeL.length-1;fl>=0;fl--){
+      var L2=freeL[fl];
+      if(L2.state==='grab')continue;
+      var fdx=B.x-L2.wx,fdy=B.y-L2.wy;
+      var fd=Math.hypot(fdx,fdy)||1;
+      if(fd>reach)continue;
+      var fux=fdx/fd,fuy=fdy/fd;
+      var ftap=clamp(1-fd/reach,0,1);
+      var fpull=(26000*bh.r)/(fd*fd)*(dt*60)*ftap;
+      L2.vx+=fux*fpull*2.2;L2.vy+=fuy*fpull*2.2;
+      L2.vx+=(-fuy)*fpull*0.5;L2.vy+=(fux)*fpull*0.5;
+      // progressive disintegration: the letter visibly flicks apart and fades as it falls
+      var fnear=clamp(1-(fd-bh.r)/280,0,1);
+      if(fnear>0){
+        L2.bhShed=(L2.bhShed||0)+dt;
+        var fiv=0.06-0.045*fnear;
+        if(L2.bhShed>=fiv){
+          L2.bhShed=0;
+          burstParticles(L2.wx+(Math.random()*10-5),L2.wy+(Math.random()*10-5),1+Math.round(fnear*2),0.4);
+        }
+        L2.fade=clamp(1-fnear*1.0,0.1,1);
+      }
+      if(fd<bh.r+8){killLetter(L2);burstParticles(B.x,B.y,14,1);}   // killLetter removes it from freeL
+    }
+    // formulas (rendered collision shards) also get pulled in and consumed
+    for(var fx=formulas.length-1;fx>=0;fx--){
+      var F=formulas[fx];
+      var fx2=B.x-F.x,fy2=B.y-F.y;
+      var fd2=Math.hypot(fx2,fy2)||1;
+      if(fd2>reach)continue;
+      var fux2=fx2/fd2,fuy2=fy2/fd2;
+      var ftap2=clamp(1-fd2/reach,0,1);
+      var fp=(20000*bh.r)/(fd2*fd2)*(dt*60)*ftap2;
+      F.vx+=fux2*fp*2.2-fuy2*fp*0.5;F.vy+=fuy2*fp*2.2+fux2*fp*0.5;
+      if(fd2<bh.r+10){killFormula(F);formulas.splice(fx,1);burstParticles(B.x,B.y,14,1);}
+    }
+    // the debris itself falls in: particles spiral into the hole and wink out at the horizon
+    for(var pi=particles.length-1;pi>=0;pi--){
+      var p=particles[pi];
+      var pdx=B.x-p.x,pdy=B.y-p.y;
+      var pd=Math.hypot(pdx,pdy)||1;
+      if(pd>reach)continue;
+      var pux=pdx/pd,puy=pdy/pd;
+      var ptap=clamp(1-pd/reach,0,1);
+      var ppull=(30000*bh.r)/(pd*pd)*(dt*60)*ptap;
+      p.vx+=pux*ppull*1.6-puy*ppull*0.5;
+      p.vy+=puy*ppull*1.6+pux*ppull*0.5;
+      if(pd<bh.r*0.75){particles.splice(pi,1);}   // crossed the horizon
+    }
+    // the top-right panel gets devoured too — letters detach and fly into the hole, then the
+    // bare panel itself breaks apart in chunks nearest the hole first
+    stepBlackHolePanel(B,bh,dt);
+    // slow breathing of the horizon
+    bh.r=BH_MAXR+Math.sin(bh.age*2.2)*3;
+  }
+}
+// the hole slowly pulls docked letters out of the top-right panel, one at a time. Each
+// letter that is taken leaves an EMPTY slot in the tray frame — the frame itself never
+// shrinks or breaks apart (its 4x4 grid rows are fixed in CSS, and each letter is pinned
+// to its own cell by sortPanel/dockSlotEl).
+function ensurePanelEat(bh){
+  if(bh.panelEat)return;
+  bh.panelEat={t:0.45+Math.random()*0.35};
+}
+function stepBlackHolePanel(B,bh,dt){
+  ensurePanelEat(bh);
+  var pe=bh.panelEat;
+  if(!pe)return;
+  pe.t-=dt;
+  if(pe.t>0)return;
+  var pool=[];
+  var chars=[].slice.call(panel.querySelectorAll('.char'));
+  for(var i=0;i<chars.length;i++){
+    var r=chars[i].getBoundingClientRect();
+    var ref=chars[i]._letterRef;
+    if(ref&&ref.state==='dock'&&ref.el===chars[i]){
+      pool.push({cx:r.x+r.width/2,cy:r.y+r.height/2,d:ref});
+    }
+  }
+  if(!pool.length)return;   // tray fully emptied — the hole moves on to its finale
+  // RANDOM batch: sometimes a single letter slips away, sometimes two or three go at once,
+  // always picked at random across the whole tray (no fixed near-to-far order).
+  var rr=Math.random();
+  var count=rr<0.38?1:rr<0.68?2:rr<0.88?3:4;
+  if(count>pool.length)count=pool.length;
+  for(var c=0;c<count;c++){
+    var idx=Math.floor(Math.random()*pool.length);
+    var cell=pool[idx];
+    pool.splice(idx,1);
+    if(!cell||!cell.d)continue;
+    var dx=B.x-cell.cx,dy=B.y-cell.cy,dd=Math.hypot(dx,dy)||1;
+    var sp=180+Math.random()*300;
+    // jitter so a multi-letter batch fans out instead of overlapping
+    var jx=(Math.random()-0.5)*130,jy=(Math.random()-0.5)*130;
+    freeLetter(cell.d,cell.cx,cell.cy,(dx/dd)*sp+jx,(dy/dd)*sp+jy,1);
+  }
+  pe.t=0.5+Math.random()*1.15;   // irregular pause between events
+}
+// ================= black-hole finale =================
+// Once the hole has devoured EVERYTHING (all tray letters, all bodies, no free letters),
+// it pulls the trash bin across the screen, gets swallowed by the bin, the bin shakes twice
+// ("something trying to get out"), then the bin BURSTS — every tray letter flies out of it
+// and glides back into its own slot, and the bin returns home to the bottom-right corner.
+var BH_FINALE=null;
+var BH_CHARS=['m','M','g','a','v','r','½','μ','c','G','t','B','E','q','I'];
+function finaleSlot(i,pr){
+  var col=i%4,row=Math.floor(i/4);
+  return {x:pr.left+10+col*50+22,y:pr.top+10+row*50+22};
+}
+function resetTrashPos(){
+  trash.style.left='';trash.style.top='';trash.style.transform='';
+  trash.style.right='24px';trash.style.bottom='24px';
+}
+function trashTo(px,py){
+  trash.style.right='auto';trash.style.bottom='auto';
+  trash.style.left=px+'px';trash.style.top=py+'px';
+}
+function trashCenter(){
+  var r=trash.getBoundingClientRect();
+  return {x:r.left+r.width/2,y:r.top+r.height/2};
+}
+function maybeStartFinale(){
+  if(BH_FINALE)return;
+  if(grab.kind||trashDrag.active)return;
+  var hole=null;
+  for(var i=0;i<bodies.length;i++){
+    var Bx=bodies[i];
+    if(Bx.bh&&Bx.bh.stage===1){hole=Bx;break;}
+  }
+  if(!hole)return;
+  var docked=false;
+  var chars=panel.querySelectorAll('.char');
+  for(var j=0;j<chars.length;j++){
+    var ref=chars[j]._letterRef;
+    if(ref&&ref.state==='dock'){docked=true;break;}
+  }
+  if(docked)return;                 // tray letters still remain to be eaten
+  if(bodies.length>1)return;        // other bodies still being devoured
+  if(freeL.length||formulas.length)return;   // debris still in flight
+  // everything is consumed — begin the finale
+  var bin=trash.getBoundingClientRect();
+  hole.bh.finalizing=true;
+  BH_FINALE={ph:'pull',t:0,hole:hole,
+    hx:hole.x,hy:hole.y,
+    bl:bin.left,bt:bin.top,bw:bin.width,bhh:bin.height,
+    pullD:1.05,suckD:0.55,shakeD:0.85,letters:[],removed:false};
+}
+function suckPuff(x,y,tx,ty){
+  for(var n=0;n<3;n++){
+    var a=Math.random()*6.2832;
+    particles.push({x:x+(Math.random()*10-5),y:y+(Math.random()*10-5),
+      vx:Math.cos(a)*60+(tx-x)*1.6,vy:Math.sin(a)*60+(ty-y)*1.6,
+      age:0,life:0.28+Math.random()*0.22,r:1+Math.random()*1.4,alpha:1});
+  }
+}
+function finaleBurst(){
+  var F=BH_FINALE;
+  var pr=panel.getBoundingClientRect();
+  var names=['mO','M2O','gO','aO','vO','rO','halfO','muO','cO','GO','tO','BO','EO','qO','IO'];
+  var refs=[mO,M2O,gO,aO,vO,rO,halfO,muO,cO,GO,tO,BO,EO,qO,IO];
+  for(var i=0;i<BH_CHARS.length;i++){
+    var old=refs[i];
+    if(old&&old.el&&old.el.parentNode)old.el.parentNode.removeChild(old.el);
+    var nd=GD(BH_CHARS[i]);
+    nd.cat=1;nd.pop=0;
+    switch(names[i]){
+      case 'mO':mO=nd;break;case 'M2O':M2O=nd;break;case 'gO':gO=nd;break;case 'aO':aO=nd;break;
+      case 'vO':vO=nd;break;case 'rO':rO=nd;break;case 'halfO':halfO=nd;break;case 'muO':muO=nd;break;
+      case 'cO':cO=nd;break;case 'GO':GO=nd;break;case 'tO':tO=nd;break;case 'BO':BO=nd;break;
+      case 'EO':EO=nd;break;case 'qO':qO=nd;break;case 'IO':IO=nd;break;
+    }
+    nd.el.style.fontSize='34px';
+    nd.el.style.pointerEvents='none';
+    DD.body.appendChild(nd.el);
+    var a=Math.random()*6.2832,sp=240+Math.random()*360;
+    var tgt=finaleSlot(i,pr);
+    F.letters.push({d:nd,el:nd.el,x:F.bx||F.hx,y:F.by||F.hy,
+                    vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,tx:tgt.x,ty:tgt.y,arr:false});
+    place(nd,F.hx,F.hy,0,1,true);
+  }
+  burstParticles(F.hx,F.hy,24,1.5);
+  ringGo(F.hx,F.hy);
+}
+function stepFinale(dt){
+  if(!BH_FINALE){maybeStartFinale();return;}
+  var F=BH_FINALE;
+  F.t+=dt;
+  if(F.ph==='pull'){
+    // the hole drags the bin across the screen toward itself (accelerating)
+    var e=Math.min(1,F.t/F.pullD);e=e*e;
+    var bc=trashCenter();
+    var sx=F.bl+F.bw/2,sy=F.bt+F.bhh/2;
+    var cx=sx+(F.hx-sx)*e,cy=sy+(F.hy-sy)*e;
+    trashTo(cx-F.bw/2,cy-F.bhh/2);
+    if(F.t>=F.pullD){
+      F.ph='suck';F.t=0;
+    }
+  }else if(F.ph==='suck'){
+    // the hole shrinks and streams into the bin, then vanishes inside it
+    var e2=Math.min(1,F.t/F.suckD);
+    var h=F.hole;
+    if(h.bh)h.bh.r=Math.max(1.5,BH_MAXR*(1-e2));
+    if(Math.random()<0.8)suckPuff(h.x,h.y,F.hx,F.hy);
+    if(F.t>=F.suckD){
+      var hx=h.x,hy=h.y;
+      var bi=bodies.indexOf(h);if(bi>=0)bodies.splice(bi,1);
+      if(h.bh){h.bh.dead=true;}
+      F.removed=true;
+      burstParticles(hx,hy,20,1.2);
+      shake(10,0.35);
+      F.ph='shake';F.t=0;
+    }
+  }else if(F.ph==='shake'){
+    // two diminishing bounces — something inside is trying to break out
+    var p=Math.min(1,F.t/F.shakeD);
+    var cyc=p*2.2,n2=Math.floor(cyc),f2=cyc-n2;
+    var amp=(1-p)*11;
+    var ox=(n2%2===0?1:-1)*Math.sin(f2*Math.PI)*amp;
+    var oy=Math.sin(f2*Math.PI*1.7)*2.4*(1-p);
+    trash.style.transform='translate('+ox.toFixed(1)+'px,'+oy.toFixed(1)+'px)';
+    if(F.t>=F.shakeD){
+      F.ph='fly';F.t=0;
+      finaleBurst();
+    }
+  }else if(F.ph==='fly'){
+    // letters burst out of the bin and glide back into their tray slots
+    var any=false;
+    for(var i=0;i<F.letters.length;i++){
+      var L=F.letters[i];
+      if(L.arr)continue;
+      any=true;
+      L.vx+=(L.tx-L.x)*24*dt;L.vy+=(L.ty-L.y)*24*dt;
+      L.vx*=Math.pow(0.86,dt*60);L.vy*=Math.pow(0.86,dt*60);
+      var sp2=Math.hypot(L.vx,L.vy);
+      if(sp2>1500){L.vx*=1500/sp2;L.vy*=1500/sp2;}
+      L.x+=L.vx*dt;L.y+=L.vy*dt;
+      L.el.style.left=(L.x-L.el.offsetWidth/2)+'px';
+      L.el.style.top=(L.y-L.el.offsetHeight/2)+'px';
+      var d2=Math.hypot(L.tx-L.x,L.ty-L.y);
+      if(d2<4&&sp2<140){
+        L.arr=true;L.el.style.pointerEvents='';
+        dockLetter(L.d);
+      }
+    }
+    // the bin flies home while the letters do
+    var e4=Math.min(1,F.t/1.1);
+    var sc=trashCenter();
+    var hx0=F.hx,hy0=F.hy;
+    var hcx=F.bl+F.bw/2,hcy=F.bt+F.bhh/2;
+    var cx2=hx0+(hcx-hx0)*e4,cy2=hy0+(hcy-hy0)*e4;
+    trashTo(cx2-F.bw/2,cy2-F.bhh/2);
+    var arrN=0;for(var k=0;k<F.letters.length;k++)if(F.letters[k].arr)arrN++;
+    if(!any&&arrN===F.letters.length||F.t>4.5){
+      for(var m2=0;m2<F.letters.length;m2++){
+        var L2=F.letters[m2];
+        if(!L2.arr){L2.arr=true;L2.el.style.pointerEvents='';dockLetter(L2.d);}
+      }
+      resetTrashPos();
+      BH_FINALE=null;
+      return;
+    }
+  }
+}
+function annihBody(O,idx){
+  // the body is swallowed: it particleizes (letters burst) and merges into the hole
+  var cx=O.x,cy=O.y;
+  burstParticles(cx,cy,22,1.2);
+  ringGo(cx,cy);
+  var i=bodies.indexOf(O);if(i>=0)bodies.splice(i,1);
+  if(O.go){var gD=O.go;if(gD.bin){var P2=gD.by;if(P2&&bodies.indexOf(P2)>=0){P2.vx=-Math.sin(gD.ang)*gD.w*gD.rad*gD.rP;P2.vy=Math.cos(gD.ang)*gD.w*gD.rad*gD.rP;P2.goB=null;}}O.go=null;}
+  if(O.goB&&bodies.indexOf(O.goB)>=0){var H2=O.goB,gH2=H2.go;if(gH2){H2.vx=-Math.sin(gH2.ang)*gH2.w*gH2.rad*gH2.rB;H2.vy=Math.cos(gH2.ang)*gH2.w*gH2.rad*gH2.rB;H2.go=null;}O.goB.goB=null;}
+  O.diss=true;
+  for(var j=0;j<O.glyphs.length;j++){
+    var g=O.glyphs[j];
+    if(g.body===O){g.body=null;g.inBody=false;killLetter(g);}
+  }
+  O.glyphs=[];O.mem=[];
+}
+function burstParticles(cx,cy,n,sp){
+  for(var i=0;i<n;i++){
+    var ang=Math.random()*6.2832;
+    var v=140+Math.random()*320*sp;
+    particles.push({x:cx+(Math.random()*16-8),y:cy+(Math.random()*16-8),vx:Math.cos(ang)*v,vy:Math.sin(ang)*v,age:0,life:0.7+Math.random()*0.8,r:1.2+Math.random()*2.2,alpha:1});
+  }
+}
+// a field source (B / E) or a charge/current (q / I) swallowed by the hole: its field dies
+// with it, so it is simply destroyed in a last puff of debris.
+function killFieldBody(O,idx){
+  burstParticles(O.x,O.y,16,1.1);
+  ringGo(O.x,O.y);
+  killBody(O);
+}
+// kill (trash / double-click) of a LIVE black hole: it "explodes" — a blast wave
+// shatters whole bodies in range into their own letters (flung outward, fast decay),
+// free letters are vaporized outright, and formulas are blown away.
+var BLAST_R=500;
+function explodeBlackHole(B){
+  var cx=B.x,cy=B.y;
+  var i=bodies.indexOf(B);if(i>=0)bodies.splice(i,1);
+  if(B.bh)B.bh.dead=true;
+  B.diss=true;
+  B.glyphs.slice().forEach(function(g){if(g.body===B){g.body=null;g.inBody=false;killLetter(g);}});
+  B.glyphs=[];B.mem=[];
+  // flash: 240 dark + 120 white-hot particles
+  spawnExplosion(cx,cy);
+  for(var w=0;w<120;w++){
+    var wa=Math.random()*6.2832,ws=200+Math.random()*900;
+    particles.push({x:cx,y:cy,vx:Math.cos(wa)*ws,vy:Math.sin(wa)*ws,age:0,life:0.5+Math.random()*0.7,r:1+Math.random()*2,alpha:1,hot:true});
+  }
+  shake(22,0.8);
+  blastAt(cx,cy,BLAST_R);   // blast wave: shatter wholes, vaporize letters, blow shards
+}
+function drawParticles(){
+  for(var i=0;i<particles.length;i++){
+    var p=particles[i];
+    cvx.fillStyle=p.hot?('rgba(255,224,150,'+p.alpha+')'):('rgba(38,34,28,'+p.alpha+')');
+    cvx.beginPath();cvx.arc(p.x,p.y,p.r,0,6.2832);cvx.fill();
+  }
+}
+function drawFieldDots(cx,cy,R){
+  cvx.fillStyle='rgba(38,34,28,0.16)';
+  var sp=26;
+  for(var gx=-R;gx<=R;gx+=sp){
+    for(var gy=-R;gy<=R;gy+=sp){
+      if(gx*gx+gy*gy<=R*R){
+        cvx.beginPath();
+        cvx.arc(cx+gx,cy+gy,1.7,0,6.2832);
+        cvx.fill();
+      }
+    }
+  }
+  cvx.strokeStyle='rgba(38,34,28,0.10)';
+  cvx.lineWidth=1;
+  cvx.beginPath();
+  cvx.arc(cx,cy,R,0,6.2832);
+  cvx.stroke();
+}
+function drawFieldE(cx,cy,R,th){
+  // E field: a SQUARE range (half-side hs) crossed by 9 LONG parallel arrows whose arrowheads
+  // TOUCH the dashed border. Colour and alpha match the B field (38,34,28 @ ~0.18) so the
+  // electric field is just as understated as the magnetic field rather than shouting for
+  // attention.
+  var hs=R/2;
+  var dx=Math.cos(th),dy=Math.sin(th);        // field direction
+  var px=-dy,py=dx;                           // perpendicular (spacing direction)
+  var n=9,margin=3,al=11;                     // 9 long arrows; small margin so arrowhead reaches the border
+  var ah=Math.atan2(dy,dx);
+  cvx.strokeStyle='rgba(38,34,28,0.18)';      // matches B dots' ink
+  cvx.fillStyle='rgba(38,34,28,0.18)';
+  cvx.lineWidth=1.4;cvx.lineCap='round';
+  for(var i=0;i<n;i++){
+    var off=(i-(n-1)/2)*(2*hs/n);
+    var ox=cx+px*off,oy=cy+py*off;            // anchor of this field line
+    // clip the infinite line (ox,oy)+t*(dx,dy) to the square (slab method) so every arrow
+    // spans exactly the part of the square it crosses — same length apart from the corners.
+    var t0=-1e9,t1=1e9,okk=true;
+    if(Math.abs(dx)>1e-6){
+      var a1=(-hs-(ox-cx))/dx,a2=(hs-(ox-cx))/dx;
+      t0=Math.max(t0,Math.min(a1,a2));t1=Math.min(t1,Math.max(a1,a2));
+    }else if(Math.abs(ox-cx)>hs)okk=false;
+    if(okk){
+      if(Math.abs(dy)>1e-6){
+        var b1=(-hs-(oy-cy))/dy,b2=(hs-(oy-cy))/dy;
+        t0=Math.max(t0,Math.min(b1,b2));t1=Math.min(t1,Math.max(b1,b2));
+      }else if(Math.abs(oy-cy)>hs)okk=false;
+    }
+    if(!okk||t1-t0<26)continue;
+    var ax=ox+dx*(t0+margin),ay=oy+dy*(t0+margin);
+    var bx=ox+dx*(t1-margin),by=oy+dy*(t1-margin);
+    cvx.beginPath();cvx.moveTo(ax,ay);cvx.lineTo(bx,by);cvx.stroke();
+    cvx.beginPath();
+    cvx.moveTo(bx,by);
+    cvx.lineTo(bx-al*Math.cos(ah-0.42),by-al*Math.sin(ah-0.42));
+    cvx.lineTo(bx-al*Math.cos(ah+0.42),by-al*Math.sin(ah+0.42));
+    cvx.closePath();cvx.fill();
+  }
+  cvx.strokeStyle='rgba(38,34,28,0.12)';      // matches the B circle border (0.10–0.12)
+  cvx.lineWidth=1.2;
+  cvx.setLineDash([7,6]);
+  cvx.strokeRect(cx-hs,cy-hs,hs*2,hs*2);
+  cvx.setLineDash([]);
+}
+function stepShake(dt){
+  if(!shakeOn)return;
+  shakeT+=dt;
+  var k=clamp(1-shakeT/shakeDur,0,1);
+  var a=shakeAmp*k;
+  var dx=(Math.random()*2-1)*a;
+  var dy=(Math.random()*2-1)*a;
+  document.body.style.transform='translate('+dx+'px,'+dy+'px)';
+  if(shakeT>=shakeDur){document.body.style.transform='';shakeOn=false;shakeAmp=0;shakeDur=0;}
+}
+function resize(){
+  W=window.innerWidth;H=window.innerHeight;
+  groundY=Math.round(H*0.8);
+  // full-screen reach: every point inside the canvas is influenced; pull tapers to 0 at the
+  // diagonal so the boundary force is exactly zero and the influence feels total elsewhere
+  BH_REACH=Math.hypot(W,groundY)+240;
+  cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
+  cv.style.width=W+'px';cv.style.height=H+'px';
+  cvx.setTransform(dpr,0,0,dpr,0,0);
+}
+function eOut(x){
+  x=clamp(x,0,1);
+  var c1=1.70158,c3=c1+1;
+  return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2);
+}
+function cubE(x){
+  x=clamp(x,0,1);
+  return 1-Math.pow(1-x,3);
+}
+function popScale(p){
+  var x=1-clamp(p,0,1);
+  var c1=1.70158,c3=c1+1;
+  var v=1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2);
+  return 0.25+0.75*v;
+}
+function arrow(B,gx,gy,Cx,Cy,ddn){
+  var dx=Cx-gx,dy=Cy-gy;
+  var L=Math.hypot(dx,dy);
+  if(L<26)return;
+  var ux=dx/L,uy=dy/L;
+  var al=0.3+0.45*ddn;
+  var hl=11;
+  var sl=Math.min(Math.max((B.hw||60)+4,10),L-hl-2);
+  var a0=gx+ux*sl,b0=gy+uy*sl;
+  var bx=Cx-ux*hl,by=Cy-uy*hl;
+  cvx.strokeStyle='rgba(38,34,28,'+al+')';
+  cvx.lineWidth=2;
+  cvx.lineCap='round';
+  cvx.beginPath();
+  cvx.moveTo(a0,b0);
+  cvx.lineTo(bx,by);
+  cvx.stroke();
+  cvx.fillStyle='rgba(38,34,28,'+al+')';
+  cvx.beginPath();
+  cvx.moveTo(Cx,Cy);
+  cvx.lineTo(bx-uy*5.5,by+ux*5.5);
+  cvx.lineTo(bx+uy*5.5,by-ux*5.5);
+  cvx.closePath();
+  cvx.fill();
+}
+function orbGeom(B){
+  var o=B.orb;
+  if(!o||o.k<0.02)return;
+  var R=o.R||120;
+  var Cx=B.x, Cy=B.y-R;
+  var Rk=R*Math.max(o.k,0.001);
+  var n=72,i;
+  var pts=[];
+  for(i=0;i<n;i++){
+    var b=i/n*6.2832;
+    pts.push([Cx+Rk*Math.cos(b),Cy+Rk*Math.sin(b)]);
+  }
+  cvx.strokeStyle='rgba(38,34,28,'+(0.45*Math.max(o.e,0.001))+')';
+  cvx.lineWidth=1.6;
+  cvx.setLineDash([7,6]);
+  cvx.beginPath();
+  for(i=0;i<n;i++){
+    if(i)cvx.lineTo(pts[i][0],pts[i][1]);else cvx.moveTo(pts[i][0],pts[i][1]);
+  }
+  cvx.closePath();
+  cvx.stroke();
+  cvx.setLineDash([]);
+  arrow(B,o.gx!=null?o.gx:B.x,o.gy!=null?o.gy:B.y,Cx,Cy,1);
+}
+function tickOrbs(dt){
+  for(var i=0;i<bodies.length;i++){
+    var B=bodies[i];
+    if(B.pop&&B.pop>0)B.pop=Math.max(0,B.pop-dt*3.2);
+    var o=B.orb;
+    if(!o)continue;
+    o.age+=dt;
+    o.k=eOut(Math.min(o.age/0.55,1));
+    o.e=cubE((o.age-0.18)/0.55);
+    var R=o.R||120;
+    var Rk=R*Math.max(o.k,0.001);
+    if(!(grab.kind==='body'&&grab.obj===B))o.spin+=dt*0.8;
+    o.gx=B.x+Rk*Math.cos(o.spin);
+    o.gy=B.y-R+Rk*Math.sin(o.spin);
+  }
+}
+function render(){
+  cvx.clearRect(0,0,W,H);
+  for(var i=0;i<bodies.length;i++){
+    var B=bodies[i];
+    if(B.frac&&B.st.bar&&!B.st.bar.dead){
+      var ob=B.orb,oxB=(ob&&ob.k>=0.02&&ob.gx!=null)?(ob.gx-B.x):0,oyB=(ob&&ob.k>=0.02&&ob.gy!=null)?(ob.gy-B.y):0;
+      var b=B.st.bar,th=B.th||0,sc=B.sc||1,ct=Math.cos(th),st=Math.sin(th);
+      var s=slot(B,b);
+      var hw=(b.w/2)*sc;
+      cvx.strokeStyle='rgba(38,34,28,0.85)';
+      cvx.lineWidth=1.6;cvx.lineCap='round';
+      cvx.beginPath();
+      cvx.moveTo(s.x+oxB-Math.cos(th)*hw,s.y+oyB-Math.sin(th)*hw);
+      cvx.lineTo(s.x+oxB+Math.cos(th)*hw,s.y+oyB+Math.sin(th)*hw);
+      cvx.stroke();
+      if(B.subBar){
+        var sb=B.subBar,shw=(sb.w/2)*sc;
+        var spx=B.x+oxB+(-sb.y*st)*sc,spy=B.y+oyB+(sb.y*ct)*sc;
+        cvx.beginPath();
+        cvx.moveTo(spx-Math.cos(th)*shw,spy-Math.sin(th)*shw);
+        cvx.lineTo(spx+Math.cos(th)*shw,spy+Math.sin(th)*shw);
+        cvx.stroke();
+      }
+    }
+  }
+  for(var q=0;q<bodies.length;q++){
+    var B2=bodies[q];
+    if(B2.orb)orbGeom(B2);
+  }
+  // gravity formulas (GMm/r^n, complete): draw their attraction-range wireframe (dashed circle)
+  for(var gv=0;gv<bodies.length;gv++){
+    var GV=bodies[gv];
+    if(GV.kind||!GV.isWell)continue;
+    cvx.strokeStyle='rgba(120,80,30,0.38)';
+    cvx.lineWidth=1.5;
+    cvx.setLineDash([9,7]);
+    cvx.beginPath();
+    cvx.arc(GV.x,GV.y,G_RANGE,0,6.2832);
+    cvx.stroke();
+    cvx.setLineDash([]);
+  }
+  // t-rods (vt->plank): a thin line like the ground, but draggable & rotatable
+  for(var tr=0;tr<bodies.length;tr++){
+    var TB=bodies[tr];
+    if(TB.kind!=='T')continue;
+    var tht=TB.th||0,cth=Math.cos(tht),sth=Math.sin(tht),hl=TB.len/2;
+    var x1=TB.x-cth*hl,y1=TB.y-sth*hl,x2=TB.x+cth*hl,y2=TB.y+sth*hl;
+    cvx.strokeStyle='rgba(38,34,28,0.85)';
+    cvx.lineWidth=3;
+    cvx.lineCap='round';
+    cvx.beginPath();cvx.moveTo(x1,y1);cvx.lineTo(x2,y2);cvx.stroke();
+  }
+  // magnetic fields: dotted disc, q orbital paths, I Ampere force arrows
+  for(var fb=0;fb<bodies.length;fb++){
+    var FB=bodies[fb];
+    if(FB.kind==='B')drawFieldDots(FB.x,FB.y,FB.fieldR);
+    else if(FB.kind==='E')drawFieldE(FB.x,FB.y,FB.fieldR,FB.th||0);
+  }
+  for(var qo=0;qo<bodies.length;qo++){
+    var OB=bodies[qo];
+    if(OB.kind==='q'&&OB.fieldState){
+      // no orbit guide ring (motion is derived from release position + velocity)
+    }else if(OB.kind==='I'){
+      var s2=null,bd2=1e9;
+      for(var ss=0;ss<bodies.length;ss++){
+        var S3=bodies[ss];
+        if(S3.kind!=='B')continue;
+        var d2=Math.hypot(OB.x-S3.x,OB.y-S3.y);
+        if(d2<=S3.fieldR&&d2<bd2){bd2=d2;s2=S3;}
+      }
+      if(s2){
+        var dir2=s2.Bz>0?1:-1;
+        var fy2=Math.sign(A_FORCE*OB.Isign*dir2);
+        arrow(OB,OB.x,OB.y,OB.x,OB.y+fy2*36,0.6);
+      }
+    }
+  }
+  for(var fi=0;fi<formulas.length;fi++){
+    var F=formulas[fi];
+    if(!F.bar)continue;
+    var fsc=F.sc||1;
+    cvx.strokeStyle='rgba(38,34,28,'+(0.85*F.alpha)+')';
+    cvx.lineWidth=1.8;
+    cvx.lineCap='round';
+    cvx.beginPath();
+    cvx.moveTo(F.x+F.bar.x1*fsc,F.y+F.bar.y*fsc);
+    cvx.lineTo(F.x+F.bar.x2*fsc,F.y+F.bar.y*fsc);
+    cvx.stroke();
+  }
+  // black holes: gravitational-lens rings (warped space) + dark hole + accretion ring
+  for(var bhv=0;bhv<bodies.length;bhv++){
+    var HB=bodies[bhv];
+    if(HB.bh){
+      drawBlackHole(HB);
+    }
+  }
+  drawParticles();
+}
+function drawBlackHole(B){
+  var bh=B.bh,cx=B.x,cy=B.y;
+  var r=Math.max(4,bh.r);
+  // ---- 1) gravitational lens: concentric distorted rings around the hole ----
+  var rings=5;
+  for(var li=0;li<rings;li++){
+    var lr=r*1.15+li*13+Math.sin(bh.spin*1.4+li*1.9)*3;
+    var wob=1+0.10*Math.sin(bh.spin*2.1+li*2.4);
+    cvx.strokeStyle='rgba(38,34,28,'+(0.30-li*0.045)+')';
+    cvx.lineWidth=1.6-li*0.18;
+    cvx.beginPath();
+    // a ring drawn as a wobbly ellipse: space is "stretched" tangentially
+    var N=26;
+    for(var n=0;n<=N;n++){
+      var a=n/N*6.2832;
+      var rr=lr*(wob+(0.05*Math.sin(3*a+bh.spin*1.7))*li*0.4);
+      var xx=cx+Math.cos(a)*rr;
+      var yy=cy+Math.sin(a)*rr*(0.92+0.06*Math.sin(2*a+bh.spin));
+      if(n===0)cvx.moveTo(xx,yy);else cvx.lineTo(xx,yy);
+    }
+    cvx.stroke();
+  }
+  // lens streaks: short arcs tangentially smeared (space warping streaks)
+  cvx.strokeStyle='rgba(38,34,28,0.22)';
+  cvx.lineWidth=1.2;
+  for(var s2=0;s2<8;s2++){
+    var sa=bh.spin*0.9+s2*0.7854;
+    var sr=r*1.3+(s2%3)*10;
+    cvx.beginPath();
+    cvx.arc(cx,cy,sr,sa,sa+0.9);
+    cvx.stroke();
+  }
+  // ---- 2) accretion disk: a MONOCHROME swirl of dark streaks just outside the horizon.
+  // Everything on this canvas is ink-black line art — no colour anywhere.
+  for(var ai=0;ai<3;ai++){
+    var ar=r+4+ai*4;
+    cvx.strokeStyle='rgba(38,34,28,'+(0.55-ai*0.13)+')';
+    cvx.lineWidth=3.4-ai*0.9;
+    cvx.beginPath();
+    cvx.arc(cx,cy,ar,bh.spin*2+ai*0.5,bh.spin*2+ai*0.5+4.6-ai*1.1);
+    cvx.stroke();
+  }
+  // ---- 3) the hole itself: pure black core with a soft dark falloff ----
+  var grd=cvx.createRadialGradient(cx,cy,r*0.2,cx,cy,r*1.05);
+  grd.addColorStop(0,'rgba(0,0,0,1)');
+  grd.addColorStop(0.78,'rgba(12,10,14,0.96)');
+  grd.addColorStop(1,'rgba(20,18,22,0)');
+  cvx.fillStyle=grd;
+  cvx.beginPath();
+  cvx.arc(cx,cy,r*1.05,0,6.2832);
+  cvx.fill();
+  // thin photon-ring edge (ink, not colour)
+  cvx.strokeStyle='rgba(38,34,28,0.75)';
+  cvx.lineWidth=1.4;
+  cvx.beginPath();
+  cvx.arc(cx,cy,r+1,0,6.2832);
+  cvx.stroke();
+}
+function syncGlyphs(){
+  var i,j,k;
+  for(i=0;i<bodies.length;i++){
+    var B=bodies[i];
+    var bar=B.st.bar;
+    if(bar&&!bar.dead)bar.el.style.display='none';
+      var extra=(B.pop&&B.pop>0)?popScale(B.pop):1;
+      var sc2=extra*(B.sc||1)*(B.infl||1);
+      var th2=(B.th||0)+(B.wob||0);
+      var ox=0,oy=0;
+      if(B.orb&&B.orb.k>=0.02&&B.orb.gx!=null){ox=B.orb.gx-B.x;oy=B.orb.gy-B.y;}
+      for(j=0;j<B.glyphs.length;j++){
+        var g2=B.glyphs[j];
+        if(g2.dead||g2.type===BAR)continue;
+        var s2=slot(B,g2);
+        place(g2,s2.x+ox,s2.y+oy,th2,sc2,true);
+        g2.el.style.opacity=(B.bh&&B.bh.fade!=null)?B.bh.fade:(B.bhFade!=null?B.bhFade:'');
+      }
+  }
+  for(k=0;k<freeL.length;k++){
+    var d=freeL[k];
+    if(d.dead){freeL.splice(k,1);k--;continue;}
+    if(d.state==='free')placeLetter(d);
+  }
+}
+function cursorTick(){
+  if(grab.kind==='body'){cv.style.cursor='grabbing';return;}
+  if(grab.kind==='letter'){cv.style.cursor=findMergeTarget(grab.obj)?'copy':'grabbing';return;}
+  if(grab.kind==='rot'){cv.style.cursor='grabbing';return;}
+  cv.style.cursor='default';
+}
+var G_RANGE=360, G_PULL=52000;
+function stepGravity(dt){
+  var gravs=[];
+  for(var g=0;g<bodies.length;g++){var Gb=bodies[g];if(Gb.isWell)gravs.push(Gb);}
+  // NOTE: no early return even without wells — binary-star pairs (two mv²/r wholes)
+  // must be able to form on their own.
+  function releaseGo(Bb){
+    var go=Bb.go;if(!go)return;
+    if(go.bin&&go.by&&bodies.indexOf(go.by)>=0){go.by.goB=null;}
+    var tx=-Math.sin(go.ang),ty=Math.cos(go.ang);
+    Bb.vx=tx*go.w*go.rad;Bb.vy=ty*go.w*go.rad;
+    Bb.go=null;
+  }
+  for(var i=0;i<bodies.length;i++){
+    var B=bodies[i];
+    if(B.kind)continue;
+    if(B.bh)continue;   // black holes do not orbit anything
+    if(B.isWell)continue;
+    if(grab.kind==='body'&&grab.obj===B)continue;
+    if(B.goB){
+      // partner of a binary pair — the holder integrates it; clear stale links only
+      if(bodies.indexOf(B.goB)<0)B.goB=null;
+      continue;
+    }
+    var best=null,bd=1e9,bcx=0,bcy=0;
+    for(var k=0;k<gravs.length;k++){
+      var Gb2=gravs[k];
+      var dx=B.x-Gb2.x,dy=B.y-Gb2.y;
+      var d=Math.hypot(dx,dy);
+      if(d<bd){bd=d;best=Gb2;bcx=Gb2.x;bcy=Gb2.y;}
+    }
+    var isRot=(B.hasV&&B.hasR&&B.vCount>=2);
+    // A COMPLETE gravity well (GMm/r²) DOMINATES anything inside its range: the mv²/r
+    // whole is SIMPLY ATTRACTED to it like every other body — no fixed circular orbit
+    // rail and no binary hijack while it sits inside the well's reach (that "stuck on a
+    // circle" path the well used to force is gone). The binary-star pairing between two
+    // mv²/r wholes is still available as long as no well is pulling on them.
+    var wellHolds=!!(best&&bd<=G_RANGE&&!(grab.kind==='body'&&grab.obj===best));
+    if(isRot&&!wellHolds){
+      // BINARY-STAR pairing: two full mv²/r wholes within range orbit their COMMON
+      // center of mass. m1·r1 = m2·r2 (the lighter one sweeps the wider circle) and
+      // ω ∝ √(m_total / separation) — different M/m mixes visibly change the motion.
+      // keep an existing binary link (don't let the partner-exclusion chatter the pair apart)
+      var P=null,pp=1e9;
+      if(B.go&&B.go.bin){
+        var oldP=B.go.by;
+        if(bodies.indexOf(oldP)>=0){P=oldP;pp=Math.hypot(P.x-B.x,P.y-B.y);}
+        else B.go=null;
+      }
+      if(!P){
+        for(var pk=0;pk<bodies.length;pk++){
+          var C=bodies[pk];
+          if(C===B)continue;
+          if(!(C.hasV&&C.hasR&&C.vCount>=2))continue;
+          if(C.go&&C.go.bin)continue;          // already holding its own pair
+          if(C.goB&&C.goB!==B)continue;        // partner of ANOTHER holder
+          if(grab.kind==='body'&&grab.obj===C)continue;
+          var dp=Math.hypot(C.x-B.x,C.y-B.y);
+          if(dp<pp){pp=dp;P=C;}
+        }
+      }
+      if(P&&pp<=G_RANGE){
+        var m1=B.mass||1,m2=P.mass||1,ms=m1+m2;
+        if(!B.go||B.go.by!==P){
+          var cmx=(m1*B.x+m2*P.x)/ms,cmy=(m1*B.y+m2*P.y)/ms;
+          B.go={by:P,cmx:cmx,cmy:cmy,ang:Math.atan2(B.y-cmy,B.x-cmx),
+                rad:Math.max(pp,10),target:clamp(pp,80,300),
+                rB:m2/ms,rP:m1/ms,
+                w:1.1*Math.sqrt(ms/Math.max(pp,40)),bin:1};
+          P.goB=B;
+        }
+        if(grab.kind==='body'&&grab.obj===P){
+          // partner grabbed -> dissolve the pair, release B tangentially
+          var gX=B.go,txd=-Math.sin(gX.ang),tyd=Math.cos(gX.ang);
+          B.vx=txd*gX.w*(gX.rad*gX.rB);B.vy=tyd*gX.w*(gX.rad*gX.rB);
+          P.goB=null;B.go=null;
+        }else{
+          var go=B.go;
+          go.rad+=(go.target-go.rad)*Math.min(1,dt*0.9);
+          go.ang+=dt*go.w;
+          var cA=Math.cos(go.ang),sA=Math.sin(go.ang);
+          var rB=go.rad*go.rB,rP=go.rad*go.rP;
+          var bx=go.cmx+rB*cA,by=go.cmy+rB*sA;
+          var px=go.cmx-rP*cA,py=go.cmy-rP*sA;
+          // keep the WHOLE pair inside the screen: shift the pair (separation preserved),
+          // never stretch it — nothing may fly off the boundary.
+          var shx=0,shy=0;
+          if(bx>W-B.hw)shx=W-bx-B.hw;else if(bx<B.hw)shx=B.hw-bx;
+          if(by>groundY-B.hh)shy=groundY-by-B.hh;else if(by<B.hh)shy=B.hh-by;
+          if(px>W-P.hw)shx=W-px-P.hw;else if(px<P.hw)shx=P.hw-px;
+          if(py>groundY-P.hh)shy=groundY-py-P.hh;else if(py<P.hh)shy=P.hh-py;
+          if(shx||shy){go.cmx+=shx;go.cmy+=shy;bx+=shx;by+=shy;px+=shx;py+=shy;}
+          B.x=bx;B.y=by;B.vx=0;B.vy=0;
+          P.x=px;P.y=py;
+          P.vx=-go.w*rP*sA;P.vy=go.w*rP*cA;
+          continue;
+        }
+      }
+      // no pair formed / partner left range / pair dissolved -> drop any stale capture
+      if(B.go)releaseGo(B);
+    }else{
+      // a gravity well dominates (or the body is an ordinary one): drop any leftover go
+      // so every body falls under the SAME simple attraction below
+      if(B.go)releaseGo(B);
+    }
+    if(!best||bd>G_RANGE)continue;
+    // ---- SIMPLE ATTRACTION (identical for plain m, mv², mv²/r, …) ----
+    var inv=1/Math.max(bd,24);
+    var ax=(bcx-B.x)*inv, ay=(bcy-B.y)*inv;
+    var a=G_PULL/(bd+80);
+    B.vx+=ax*a*dt; B.vy+=ay*a*dt;
+  }
+}
+function stepField(dt){
+  var bsrcs=[],esrcs=[];
+  for(var i=0;i<bodies.length;i++){var S=bodies[i];if(S.kind==='B')bsrcs.push(S);else if(S.kind==='E')esrcs.push(S);}
+  if(!bsrcs.length&&!esrcs.length){
+    // no field source: no forces, but keep I/q clamped to the screen bounds (everything stays on screen)
+    for(var kb=0;kb<bodies.length;kb++){
+      var Kb=bodies[kb];
+      if(Kb.kind==='B'||Kb.kind==='E'||Kb.kind==='T')continue;
+      if(grab.kind==='body'&&grab.obj===Kb)continue;
+      if(Kb.kind==='q'||Kb.kind==='I'){
+        if(Kb.x<24){Kb.x=24;Kb.vx=Math.abs(Kb.vx)*0.5;}
+        if(Kb.x>W-24){Kb.x=W-24;Kb.vx=-Math.abs(Kb.vx)*0.5;}
+        if(Kb.y<24){Kb.y=24;Kb.vy=Math.abs(Kb.vy)*0.5;}
+        if(Kb.y>groundY-24){Kb.y=groundY-24;Kb.vy=-Math.abs(Kb.vy)*0.5;}
+      }
+    }
+    return;
+  }
+  for(var j=0;j<bodies.length;j++){
+    var O=bodies[j];
+    if(O.kind==='B'||O.kind==='E')continue;   // field sources don't feel their own field
+    if(O.bh)continue;                          // black holes don't feel fields
+    if(grab.kind==='body'&&grab.obj===O)continue;
+    var src=null,bd=1e9;
+    for(var s=0;s<bsrcs.length;s++){
+      var S2=bsrcs[s];
+      var d=Math.hypot(O.x-S2.x,O.y-S2.y);
+      if(d<=S2.fieldR&&d<bd){bd=d;src=S2;}
+    }
+    var esrc=null,ed=1e9;
+    for(var se=0;se<esrcs.length;se++){
+      var SE=esrcs[se],hsE=SE.fieldR/2;
+      // E field range is a SQUARE (half-side hsE), not a circle
+      if(Math.abs(O.x-SE.x)<=hsE&&Math.abs(O.y-SE.y)<=hsE){
+        var de=Math.abs(O.x-SE.x)+Math.abs(O.y-SE.y);
+        if(de<ed){ed=de;esrc=SE;}
+      }
+    }
+    var dir=src?(src.Bz>0?1:-1):1;
+    if(O.kind==='q'){
+      // magnetic Lorentz force (B field): F = q(v×B), always perpendicular -> constant speed, curves.
+      if(src){
+        var qc=O.qsign*dir;
+        var th=-qc*Q_FORCE*dt;
+        var cs=Math.cos(th),sn=Math.sin(th);
+        var nvx=cs*O.vx-sn*O.vy;
+        var nvy=sn*O.vx+cs*O.vy;
+        O.vx=nvx;O.vy=nvy;
+      }
+      // electric force (E field): F = qE along the field direction (SE.th) — accelerates the q.
+      if(esrc){
+        var eth=esrc.th||0, ea=E_FIELD_ACC*O.qsign*dt;
+        O.vx+=Math.cos(eth)*ea;
+        O.vy+=Math.sin(eth)*ea;
+      }
+      O.fieldState=src?{active:true}:null;
+    }else if(O.kind==='I'){
+      if(src){
+        var fy=A_FORCE*O.Isign*dir;
+        O.vy+=fy*dt;
+        var dmp=Math.pow(0.94,dt*60);
+        O.vx*=dmp;O.vy*=dmp;
+      }
+    }
+  }
+  for(var k=0;k<bodies.length;k++){
+    var K=bodies[k];
+    if(K.kind==='B'||K.kind==='E'||K.kind==='T')continue;
+    if(K.bh)continue;
+    if(K.x<24){K.x=24;K.vx=Math.abs(K.vx)*0.5;}
+    if(K.x>W-24){K.x=W-24;K.vx=-Math.abs(K.vx)*0.5;}
+    if(K.y<24){K.y=24;K.vy=Math.abs(K.vy)*0.5;}
+    if(K.y>groundY-24){K.y=groundY-24;K.vy=-Math.abs(K.vy)*0.5;}
+  }
+}
+var lastT=0;
+function frame(now){
+  requestAnimationFrame(frame);
+  if(!lastT)lastT=now;
+  var dt=Math.min(0.033,Math.max(0.008,(now-lastT)/1000));
+  lastT=now;
+  stepPhysics(dt);
+  collideBodies();
+  stepGravity(dt);
+  stepField(dt);
+  tickOrbs(dt);
+  stepExplode(dt);
+  stepBlackHole(dt);
+  stepFinale(dt);
+  stepFormulas(dt);
+  stepParticles(dt);
+  stepShake(dt);
+  refreshHover();
+  render();
+  syncGlyphs();
+  cursorTick();
+}
+function init(){
+  resize();
+  window.addEventListener('resize',resize);
+  [mO,M2O,gO,aO,vO,rO,halfO,muO,cO,GO,tO,BO,qO,IO,EO].forEach(function(d){d.cat=1;});
+  dockLetter(mO);dockLetter(M2O);dockLetter(gO);dockLetter(aO);dockLetter(vO);dockLetter(rO);dockLetter(halfO);dockLetter(muO);dockLetter(cO);dockLetter(GO);dockLetter(tO);
+  dockLetter(BO);dockLetter(EO);dockLetter(qO);dockLetter(IO);
+  requestAnimationFrame(frame);
+}
+init();
+</script>
+</body>
+</html>
