@@ -54,6 +54,8 @@ var ring=document.getElementById('ring');
 var menu=document.getElementById('menu');
 var trash=document.getElementById('trash');
 var pointer={x:-9999,y:-9999};
+// Touch can begin without a pointermove; update before drag handlers read the position.
+document.addEventListener('pointerdown',function(e){pointer.x=e.clientX;pointer.y=e.clientY;},true);
 var W=0,H=0,groundY=0,t=0,menuBody=null;
 var dragBody=null,dragLetter=null,rotBody=null,rotGrab=0,hoverBody=null,handleBody=null;
 var axisBody=null,axisLast=null;
