@@ -30,6 +30,9 @@ body{background:#F4F1EA;font-family:Georgia,'Times New Roman',serif;font-style:i
 .trash{position:fixed;right:24px;bottom:24px;display:flex;align-items:center;justify-content:center;opacity:.5;pointer-events:auto;transition:opacity .15s ease,transform .15s ease;z-index:3;cursor:pointer}
 .trash.on{opacity:1;transform:scale(1.15)}
 .trash svg{pointer-events:none}
+.trail-toggle{position:fixed;left:24px;bottom:24px;z-index:3;padding:8px 14px;border:1px solid rgba(38,34,28,.5);border-radius:20px;background:rgba(255,255,255,.7);color:#26221C;font:italic 15px Georgia,'Times New Roman',serif;cursor:pointer;touch-action:manipulation}
+.trail-toggle[aria-pressed="true"]{background:#26221C;color:#F4F1EA}
+.trail-toggle:focus-visible{outline:2px solid #26221C;outline-offset:3px}
 </style>
 </head>
 <body data-page-node-id="b9AleLmR7rm5yRMONcsoPM">
@@ -40,6 +43,7 @@ body{background:#F4F1EA;font-family:Georgia,'Times New Roman',serif;font-style:i
 <div class="handle" id="handle" data-page-node-id="UWXij0BVCyFd48XE5uApY0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="iq2t982utHvvc3sXaYMC36"><polyline points="22 4 22 10 16 10" data-page-node-id="ohwEGt9cOKw0vOjq0x7pgt"></polyline><path d="M19.5 15a8.5 8.5 0 1 1-2-8.9L22 10" data-page-node-id="BZdi6I8wfnH2vjHAB3pOfe"></path></svg></div>
 <div class="menu" id="menu" data-page-node-id="6VGyPwgjDMxecAgAzNFgq6">复制</div>
 <div class="trash" id="trash" data-page-node-id="tBnA0GugXEjEA4Bj0p78wr"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="Wy6GVFxd8XmDRAEGWhPxXT"><path d="M3 6h18" data-page-node-id="j1e5UDbTiSQX2PRvFn1l0s"/><path d="M19 6l-1.2 13.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 6" data-page-node-id="8vPqrmuPOYVYT5IuSkhrk0"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" data-page-node-id="BOvZg3ANs7YL4AFDi9CQwm"/><path d="M10 11v6M14 11v6" data-page-node-id="UJETdIFnRQ6JfdWxVY1UIM"/></svg></div>
+<button class="trail-toggle" id="trail-toggle" type="button" aria-pressed="false">轨迹 · 关</button>
 <div class="ring" id="ring" data-page-node-id="VE0Y4pdjQvvUddHHV3DAjq"></div>
 <script>
 var ctx2d=document.createElement('canvas').getContext('2d');
@@ -53,11 +57,19 @@ var handle=document.getElementById('handle');
 var ring=document.getElementById('ring');
 var menu=document.getElementById('menu');
 var trash=document.getElementById('trash');
+var trailToggle=document.getElementById('trail-toggle');
 var pointer={x:-9999,y:-9999};
 var W=0,H=0,groundY=0,t=0,menuBody=null;
 var dragBody=null,dragLetter=null,rotBody=null,rotGrab=0,hoverBody=null,handleBody=null;
 var axisBody=null,axisLast=null;
 var bodies=[],freeG=[],parts=[],ALL=[],slots={},samples=[];
+var trailsOn=false,TRAIL_MS=3000,TRAIL_SAMPLE_MS=40,TRAIL_MAX_POINTS=80;
+trailToggle.addEventListener('click',function(){
+  trailsOn=!trailsOn;
+  trailToggle.setAttribute('aria-pressed',String(trailsOn));
+  trailToggle.textContent=trailsOn?'轨迹 · 开':'轨迹 · 关';
+  for(var i=0;i<bodies.length;i++){bodies[i].trail=[];bodies[i].trailAt=0;}
+});
 var OPEN='(',CLOSE=')',PLUS='+',SQ='²',BAR='-',HALF='½',MU='μ',SUB1='₁',SUB2='₂',PRIME='′';
 var SHATTER_SPEED=1100;
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
@@ -127,6 +139,7 @@ function BODY(x,y){
   var B={x:x,y:y,vx:0,vy:0,th:0,sc:1,glyphs:[],mem:[],massG:null,mass:1,hasG:false,hasA:false,hasV:false,hasR:false,family:0,hw:40,hh:26,dv:0,drag:false,diss:false,orbit:null,pendingOrbit:false,
     kind:null,fg:null,fieldR:0,Bz:1,qsign:1,Isign:1,fieldState:null,L:48,
     bh:null,   // black-hole state {stage:0 growing/1 alive, r, R, t, age, spin, seed}
+    trail:[],trailAt:0,
     st:{open:null,close:null,plus:null,sq:null,slash:null}};
   bodies.push(B);
   return B;
@@ -2461,8 +2474,47 @@ function tickOrbs(dt){
     o.gy=B.y-R+Rk*Math.sin(o.spin);
   }
 }
+function updateTrails(now){
+  if(!trailsOn)return;
+  for(var i=0;i<bodies.length;i++){
+    var B=bodies[i],trail=B.trail;
+    if(B.kind==='B'||B.kind==='E'||B.kind==='T'||B.bh||(grab.kind==='body'&&grab.obj===B)){
+      trail.length=0;B.trailAt=0;continue;
+    }
+    while(trail.length&&now-trail[0].t>TRAIL_MS)trail.shift();
+    if(now-B.trailAt<TRAIL_SAMPLE_MS)continue;
+    B.trailAt=now;
+    var last=trail[trail.length-1];
+    if(!last||Math.hypot(B.x-last.x,B.y-last.y)>=2){
+      trail.push({x:B.x,y:B.y,t:now});
+      if(trail.length>TRAIL_MAX_POINTS)trail.shift();
+    }
+  }
+}
+function drawTrails(now){
+  if(!trailsOn)return;
+  cvx.save();
+  cvx.lineWidth=1.6;cvx.lineCap='round';cvx.lineJoin='round';
+  for(var i=0;i<bodies.length;i++){
+    var trail=bodies[i].trail,shade=0;
+    for(var j=1;j<trail.length;j++){
+      var level=Math.ceil(8*(1-(now-trail[j].t)/TRAIL_MS));
+      if(level<1)continue;
+      if(level!==shade){
+        if(shade)cvx.stroke();
+        shade=level;
+        cvx.strokeStyle='rgba(38,34,28,'+(level*0.045)+')';
+        cvx.beginPath();cvx.moveTo(trail[j-1].x,trail[j-1].y);
+      }
+      cvx.lineTo(trail[j].x,trail[j].y);
+    }
+    if(shade)cvx.stroke();
+  }
+  cvx.restore();
+}
 function render(){
   cvx.clearRect(0,0,W,H);
+  drawTrails(lastT);
   for(var i=0;i<bodies.length;i++){
     var B=bodies[i];
     if(B.frac&&B.st.bar&&!B.st.bar.dead){
@@ -2853,6 +2905,7 @@ function frame(now){
   stepFormulas(dt);
   stepParticles(dt);
   stepShake(dt);
+  updateTrails(now);
   refreshHover();
   render();
   syncGlyphs();
