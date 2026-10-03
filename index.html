@@ -7156,10 +7156,20 @@ cv.addEventListener('pointerdown',function(e){
    *  垃圾桶/面板上的按下不走画布触摸逻辑（垃圾桶有自己的 tap×2 清屏与拖动）。 */
   if(e.target&&(e.target.id==='trash'||(e.target.closest&&(e.target.closest('#trash')||e.target.closest('#panel')||e.target.closest('#panelToggle')))))return;
   if(uiTouch()&&e.pointerType==='touch'&&TOUCH_LETTER){
-    /* ★R131-27c：面板符号已选中 ⇒ 这次点画布 = 放置（复用 dock 放置逻辑） */
-    var _dl=TOUCH_LETTER;TOUCH_LETTER=null;
-    if(_dl.el)_dl.el.classList.remove('touch-pick');
-    if(typeof gdDown==='function')gdDown({clientX:pointer.x,clientY:pointer.y,button:0,pointerType:'mouse'},_dl);
+    /* ★★R132-10n（用户 2026-10-03：「手机版那个点击放置，点一下再点一下，
+     *   但是无论点击哪里，放置的位置都是符号表那里」）：**这里只拦下本次按下，不做放置**。
+     *
+     *   旧版在这里直接调 `gdDown(..., _dl)` 走 dock 拖出分支 —— 但 dock 分支的落点取的是
+     *   **面板格子的中心**（`rp=d.el.getBoundingClientRect(); cx=rp.left+rp.width/2`），
+     *   它压根不看 `pointer`。于是符号被放在「面板里那个字符原本的位置」上；而 `TOUCH_LETTER`
+     *   又在这里被清成 null ⇒ 后面 `pointerup` 里那条**带落点修正**的分支（7481 附近）永远
+     *   不生效 —— 用户看到的就是「点哪儿都放回符号表」。
+     *
+     *   R131-28b 修这条路径时只改了 `pointerup` 那条（注释里也写了「不再复用 gdDown 的 dock
+     *   分支」），却漏了 `cv.pointerdown` 这条**优先级更高**的老入口，两条从此打架。
+     *   ⇒ 放置真源统一到 `pointerup`（DD 层，见 `TOUCH_LETTER&&!TOUCH_LETTER.dead!==false`
+     *     那段：它调完 gdDown 会把 grab.obj 显式 `place` 到 `pointer`）。
+     *   本分支保留 `return` 的原因：放置这一次手指不该再落进画布的 grab/长按逻辑。 */
     return;
   }
   if(uiTouch()&&e.pointerType==='touch'){
