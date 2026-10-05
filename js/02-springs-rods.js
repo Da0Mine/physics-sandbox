@@ -213,9 +213,7 @@ function outlineSides(R){
 //     ② 开销：每子步接触条数约降为 1/6，并减少 pairs.list 的建/销抖动。
 // token 由包装 Matter.Engine.update 推进：产品只在 stepMatter 一处调它，所以一个 token = 一个物理子步。
 // 包装失败 ⇒ _ringDedupOK=false ⇒ 去重整体停用（宁可不判重，也不能因 token 不走而让球永远穿透）。
-// RING_DBG 只给探针/负对照读数，不参与物理。
 var _ringTok=0, _ringHit={}, _ringSig={}, _ringDedupOK=false;
-var RING_DBG={tok:0,dedup:0,emit:0,wrap:false,tokWrapPass:0,off:false};
 (function(){
   if(typeof Matter==='undefined'||!Matter.Collision||!Matter.Collision.collides)return;
   var _collides=Matter.Collision.collides;
@@ -224,11 +222,10 @@ var RING_DBG={tok:0,dedup:0,emit:0,wrap:false,tokWrapPass:0,off:false};
     var _engUpd=Matter.Engine.update;
     Matter.Engine.update=function(eng,delta){
       if(++_ringTok>1e9){_ringTok=1;_ringHit={};}   // 溢出保护（240 子步/s 下 ≈48 天）
-      RING_DBG.tok=_ringTok; RING_DBG.tokWrapPass++;
       return _engUpd.apply(this,arguments);
     };
     Matter.Engine._ringTokWrap=true;
-    _ringDedupOK=true; RING_DBG.wrap=true;
+    _ringDedupOK=true;
   }
 
   // 圆心到多边形边界最近点（含顶点接触：线段 t 被夹到 [0,1] 时最近点即端点）
@@ -303,13 +300,9 @@ var RING_DBG={tok:0,dedup:0,emit:0,wrap:false,tokWrapPass:0,off:false};
       //   判据是两条合取：① token 相同（同一物理子步）；② 球心 x 逐位相同。
       //   ② 兜底 token 推进器被摘掉的情况：只用 ① 时 token 冻住会让环再也吐不出接触 ⇒ 球穿环；
       //   加上 ② 后运动中的球照常出接触，只有「token 冻住且球一动不动」才漏一拍，下一子步即补回。
-      //   （RING_DBG.off 是 A/B 负对照开关。）
       var rky=rctr.id+':'+cbo.id, rsig=cbo.position.x;
-      if(_ringDedupOK&&!RING_DBG.off){
-        if(_ringHit[rky]===_ringTok&&_ringSig[rky]===rsig){RING_DBG.dedup++;return null;}
-      }
+      if(_ringDedupOK&&_ringHit[rky]===_ringTok&&_ringSig[rky]===rsig)return null;
       _ringHit[rky]=_ringTok; _ringSig[rky]=rsig;
-      RING_DBG.emit++;
       var pux=pdx/pd,puy=pdy/pd;
       var Aa=(bodyA.id<bodyB.id)?bodyA:bodyB, Bb2=(bodyA.id<bodyB.id)?bodyB:bodyA;
       var rcol=cachedCollision(pairs,Aa,Bb2)||blankCollision(Aa,Bb2);      // 守卫④
@@ -1313,7 +1306,6 @@ function springRailRelaxed(B){
   return true;
 }
 // 能力标记：供外部探针脚本识别该行为是否存在（缺失时 SKIP）。
-springRailRelaxed._r95=true;
 function springRailFollow(B){
   var Lk=B.dirLock;
   /* 单端锚定 + 方向锁：导轨线整体跟随锚定端（mx,my=锚端），自由端摆在「锚端 ± 轴向×自然长度」，
@@ -1436,7 +1428,6 @@ function springRailFollow(B){
 }
 // 能力标记（供外部探针脚本识别）：springRailFollow 每帧把可动宿主锚点绝对对齐到导轨，
 // 且无静止/拖拽参考时法向速度取平均。改语义请一并改它。
-springRailFollow._r93=true;
 // 拖拽轴向约束：被拖物体若挂在某根方向锁弹簧的一端，而另一端是真固定（static / 右键固定），
 //   则本次拖拽只允许沿导轨轴向移动：指针位移的法向分量直接丢掉。
 // 刚性参考只算 static / fixed，不算压在地上（railHostSupported）：两只压地的球组成的水平弹簧
@@ -1444,7 +1435,6 @@ springRailFollow._r93=true;
 // 为什么在拖拽侧守：拖拽默认是「指针决定位姿」，但导轨在法向上对装配体是刚性的，被拖物体横向离开
 //   导轨后弹簧端点仍投影在导轨上 ⇒ 连接点从物体表面滑开。所以法向必须由拖拽侧拦住，指针只能拉长/压缩弹簧。
 // 返回单位方向 {x,y}（导轨轴向）或 null。B 是弹簧自身（kind==='S'）时不约束（拖弹簧 = 搬整体）。
-// dragAxisLock._r94 是能力标记，供外部探针脚本识别。
 function dragAxisLock(B){
   if(!B||B.kind==='S'||!B.mb)return null;
   var found=null;
@@ -1462,7 +1452,6 @@ function dragAxisLock(B){
   }
   return found;
 }
-dragAxisLock._r94=true;
 /* 拖连着杆的宿主（杆另一端是固定体）时，直线拖拽与杆长不可伸长冲突 —— conDragConstrain 的反向钳位
  * 会把拖拽整个吃掉。改为沿弧线拖：指针投影到绕另一端锚点、半径=杆长的圆弧上，跟手且杆长恒定。
  * 返回弧参数 {cx,cy,R}，由 dragPtrAxis 统一投影。 */
@@ -1483,7 +1472,6 @@ function dragArcLock(B){
   }
   return null;
 }
-dragArcLock._r131=true;
 // 把当前指针投影成等效指针：法向分量丢掉，只留导轨轴向分量（弧线锁时投影到圆弧上）。
 // 这个投影必须被所有「把被拖物体摆到指针位置」的写入点共用（pointermove 的即时摆放和 stepMatter
 //   的每帧摆放）：漏掉任一处，另一处会以未投影的指针覆盖，轴锁看起来完全没生效。
@@ -1499,7 +1487,6 @@ function dragPtrAxis(){
   var l=dx*grab.axis.x+dy*grab.axis.y;                 // 只留轴向分量
   return {x:grab.ax0+grab.axis.x*l+grab.gx,y:grab.ay0+grab.axis.y*l+grab.gy};
 }
-dragPtrAxis._r94=true;
 // 方向锁弹簧的宿主冻结自转（与弹簧组成整体，只随整体旋转）。每帧把角速度清零（stepSprings 在
 // stepMatter 的引擎步进之后跑，此刻清零保证渲染与下一帧积分都看到 ω=0，碰撞残余角速度活不过一帧），
 // 且弹簧力通道不再对它产生力矩（springForceOn 里 _lockRot 时把作用点折叠到质心）。
@@ -1667,7 +1654,6 @@ function springCanRotate(B){
   return !!(B&&B.kind==='S'&&(B.dirLock||!(B.anc[0]&&B.anc[1])));
 }
 function springMirror(B){
-  window.__mirN=(window.__mirN||0)+1;
   // 轻绳 / 光滑铰链不参与碰撞，没有 Matter 薄板镜像（绳只传张力，铰链是销钉，都不挡路）。
   if(B&&(B.rope||B.hinge))return;
   // W（画出来的线）与弹簧的碰撞归 Matter 管（和 T 杆同一条规则），所以弹簧也要有一个 Matter
@@ -1725,7 +1711,6 @@ function projHalfExtent(mb,ux,uy){
   return {u:ru,n:rn};
 }
 function springEndCaps(B){
-  window.__capN=(window.__capN||0)+1;
   if(!B||B.rope||B.hinge)return;
   var _nA0=(B.anc&&B.anc[0]&&B.anc[0].B)?1:0,_nA1=(B.anc&&B.anc[1]&&B.anc[1].B)?1:0;
   if(_nA0+_nA1===2)return;                       // 两端都锚定 ⇒ 没有未锚端 ⇒ 没有端帽

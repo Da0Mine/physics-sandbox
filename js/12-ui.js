@@ -234,10 +234,8 @@ function recStop(){
 function recPayload(){
   var payload={v:1,kind:'sandbox-rec',savedAt:new Date().toISOString(),
     meta:{},frames:REC.frames,events:REC.events};
-  ['W','H','groundY','PX_PER_M','GRAV','PHYS_MODE','SPR_KS_DEF','SPR_K_MAX','SPR_DAMP',
-   'SPR_SPAWN_LEN','BALL_REST','CIRCLE_SIDES','BND_INK'].forEach(function(k){
-    try{payload.meta[k]=eval(k);}catch(e){payload.meta[k]=null;}
-  });
+  payload.meta={W:W,H:H,groundY:groundY,PX_PER_M:PX_PER_M,GRAV:GRAV,PHYS_MODE:PHYS_MODE,SPR_KS_DEF:SPR_KS_DEF,
+    SPR_K_MAX:SPR_K_MAX,SPR_DAMP:SPR_DAMP,SPR_SPAWN_LEN:SPR_SPAWN_LEN,BALL_REST:BALL_REST,CIRCLE_SIDES:CIRCLE_SIDES,BND_INK:BND_INK};
   return payload;
 }
 function recDump(){
@@ -260,8 +258,6 @@ if(recbtn)recbtn.addEventListener('click',function(){
   /* 停止录制后弹出提交框（openBugDlg）填写说明并提交到后端；下载降级为弹框里的「仅下载文件」备选。 */
   if(REC.on){recStop();openBugDlg();}else{recStart();}
 });
-window.REC=REC;window.recStart=recStart;window.recStop=recStop;window.recDump=recDump;
-window.recPayload=recPayload;
 
 /* Bug 提交（弹框写说明 → POST 到后端）。
  * 端点契约：POST <BUG_ENDPOINT>，body = {"desc":"...","rec":{…录制 JSON…}}，
@@ -313,7 +309,6 @@ if(bugmask)bugmask.addEventListener('click',closeBugDlg);
 if(bugclose)bugclose.addEventListener('click',closeBugDlg);
 if(bugdl)bugdl.addEventListener('click',function(){recDump();});
 if(bugsubmit)bugsubmit.addEventListener('click',bugSubmit);
-window.openBugDlg=openBugDlg;window.bugSubmit=bugSubmit;window.closeBugDlg=closeBugDlg;
 smask.addEventListener('click',closeSettings);
 sclose.addEventListener('click',closeSettings);
 /* 触屏面板把手（点按展开/收起符号面板） */
@@ -420,7 +415,6 @@ function errTip(x,y,msg){
   el.style.top=Math.round(y)+'px';
   DD.body.appendChild(el);
   el.classList.add('go');           // 新元素首帧即带动画 ⇒ 不需要强制 reflow
-  window.__errTipN=(window.__errTipN||0)+1;
   setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},1900);
   return el;
 }

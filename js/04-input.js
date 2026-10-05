@@ -132,15 +132,16 @@ menu.addEventListener('click',function(e){
 /* 「指针真的按着」标志（只读）：残留的 grab（上次手势没正常收尾）会让拖拽中的磁吸每帧执行，
  * 把铰链连同锚定物体持续匀速平移。磁吸以此门控即可。
  * 不要在 pointerdown 里清 grab 来解决：会破坏触摸拖动。 */
-window.__ptrDown=false;
-DD.addEventListener('pointerdown',function(e){window.__ptrDown=true;},true);
-DD.addEventListener('pointerup',function(e){window.__ptrDown=false;},true);
+var ptrDown=false;       // 指针（鼠标键/手指）当前是否按下
+var touchPending=null;   // 触屏：面板符号按下后待定的拖出手势 {d,x,y}
+DD.addEventListener('pointerdown',function(e){ptrDown=true;},true);
+DD.addEventListener('pointerup',function(e){ptrDown=false;},true);
 /* pointercancel 也要收尾半截手势，不能只清 __ptrDown：浏览器掐断指针流时（touch-action 判成滚动、
  * 系统抢走触摸）pointerup 永远不会来，TOOL.drag / TOOL.stroke / trashDrag.active / grab 全停在
  * 「进行中」，下一个手势落在残骸上（画形状时表现为拉了框不落体、之后工具全坏）。
  * touch-action:none 已防止画布/垃圾桶被掐断，这里是兜底。 */
 DD.addEventListener('pointercancel',function(e){
-  window.__ptrDown=false;
+  ptrDown=false;
   if(TOOL){
     if(TOOL.drag){TOOL.drag=null;}          // 取消的形状框：丢弃（松手才落体，取消不落）
     if(TOOL.stroke){TOOL.stroke=null;}      // 取消的笔画：同上
@@ -168,7 +169,6 @@ function touchLongPressStart(cand){
 }
 function touchLongPressFire(cand){
   TOUCH_LP=null;
-  window.__lpFired=(window.__lpFired||0)+1;   // 调试标记：长按回调是否触发
   if(grab&&grab.kind){grab.kind=null;grab.obj=null;}
   /* 触摸端没有 hover ⇒ hoverB 恒空，必须按按下坐标主动扫墨线命中，否则长按菜单不会弹出。 */
   /* 长按自由字符也要弹菜单（不只扫 bodies）。 */
@@ -219,7 +219,7 @@ function gdDown(e,d){
        * · 按住移动超 12px ⇒ 按原逻辑直接拖出（拖动放置，在 pointermove 里触发）；
        * · 松手时没怎么动（tap）⇒ 面板内选中态（.touch-pick 高亮），下一次点画布放置。 */
       if(TOUCH_LETTER===d){TOUCH_LETTER=null;if(d.el)d.el.classList.remove('touch-pick');return;}
-      window.TOUCH_PENDING={d:d,x:e.clientX,y:e.clientY};
+      touchPending={d:d,x:e.clientX,y:e.clientY};
       return;
     }
     var rp=d.el.getBoundingClientRect();
@@ -466,10 +466,10 @@ DD.addEventListener('pointermove',function(e){
   /* 触摸：一旦移动就不是长按（长按=右键要求手指不动） */
   if(TOUCH_LP){clearTimeout(TOUCH_LP);TOUCH_LP=null;}
   /* 面板符号「按住拖」：待定手势移动超 12px ⇒ 执行原 dock 拖出 */
-  if(window.TOUCH_PENDING){
-    var _tp=window.TOUCH_PENDING;
+  if(touchPending){
+    var _tp=touchPending;
     if(Math.hypot(e.clientX-_tp.x,e.clientY-_tp.y)>12){
-      window.TOUCH_PENDING=null;
+      touchPending=null;
       gdDown({clientX:_tp.x,clientY:_tp.y,button:0,pointerType:'mouse'},_tp.d);
       /* 拖出后把 grab 的锚点校正到当前指针（拖出瞬间指针已移动） */
       if(grab&&grab.kind==='letter'){pointer.x=e.clientX;pointer.y=e.clientY;}
@@ -655,9 +655,9 @@ DD.addEventListener('pointerup',function(e){
     var _moved=0;
     if(grab&&grab.x0!=null)_moved=Math.hypot(pointer.x-grab.x0,pointer.y-grab.y0);
     else if(grab&&grab.start!=null)_moved=Math.abs(pointer.x-grab.start);
-    if(window.TOUCH_PENDING){
+    if(touchPending){
       /* 轻点面板符号 ⇒ 面板内选中态（框+背景变色） */
-      var _tpd=window.TOUCH_PENDING.d;window.TOUCH_PENDING=null;
+      var _tpd=touchPending.d;touchPending=null;
       if(TOUCH_LETTER===_tpd){TOUCH_LETTER=null;if(_tpd.el)_tpd.el.classList.remove('touch-pick');}
       else{
         if(TOUCH_LETTER&&TOUCH_LETTER.el)TOUCH_LETTER.el.classList.remove('touch-pick');
@@ -768,7 +768,6 @@ DD.addEventListener('pointerup',function(e){
       var dsF=dblState,nowF=performance.now();
       /* T/W 分支要先补记 dblState，否则下面的双击拦截看不到第二下（dsF.t 恒 0），解除永不触发。 */
       if(dsF.body!==B){dsF.t=nowF;dsF.body=B;dsF.x=pointer.x;dsF.y=pointer.y;dsF.g=null;}
-      window.__dblHit=(window.__dblHit||0)+1;   // 调试：双击拦截进入次数
       if(dsF.body===B&&dsF.t>0&&nowF-dsF.t<500){
         var mvdF=Math.hypot(pointer.x-dsF.x,pointer.y-dsF.y);
         if(mvdF<14&&springDisconnectAtPoint(pointer.x,pointer.y)){

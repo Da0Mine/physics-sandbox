@@ -100,7 +100,7 @@
     while(asmQ.length>0&&asmT>=INTV){
       asmT-=INTV;var item=asmQ.shift();
       var r=item.ce.getBoundingClientRect();var tx=r.left+r.width/2,ty=r.top+r.height/2;
-      if(!isFinite(tx))tx=W/2; if(!isFinite(ty))ty=gy;
+      if(!isFinite(tx))tx=W/2; if(!isFinite(ty))ty=groundY;
       var el=item.el;
       if(!el){el=document.createElement("div");el.className="bossfrag";
         el.textContent=(item.ce.textContent||"");el.style.fontSize=item.fs;
@@ -143,8 +143,4 @@
   }
   function loop(){requestAnimationFrame(loop);myStep();}
   loop();
-  if(typeof window.__tick==="function"){
-    var _tk=window.__tick;
-    window.__tick=function(n,d){var r=_tk.apply(this,arguments);myStep();return r;};
-  }
 })();

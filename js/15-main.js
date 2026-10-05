@@ -9,7 +9,7 @@ function frame(now){
    *  ① 拖拽跟随逻辑按残留 grab 每帧搬移物体（装了独立铰链的物体凭空匀速漂移）；
    *  ② 新按下被判为已有抓取而拒绝（右键/长按一次后抓不动）。
    * 这里统一清理，只读 __ptrDown、不碰拖动语义；触摸端由 pointerdown/up/cancel 维护该标志。 */
-  if(!window.__ptrDown && grab && grab.kind){grab.kind=null;grab.obj=null;}
+  if(!ptrDown && grab && grab.kind){grab.kind=null;grab.obj=null;}
   var dtReal=Math.min(0.033,Math.max(0.008,(now-lastT)/1000));
   lastT=now;
   var dt=dtReal*TIME_SCALE;
