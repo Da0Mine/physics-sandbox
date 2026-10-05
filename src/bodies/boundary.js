@@ -3,11 +3,11 @@ import Matter from 'matter-js';
 import { app } from '../state.js';
 import { drawBeltBody } from './belt.js';
 import { BODY } from './body.js';
-import { bodies } from '../core/dom.js';
 import { lastDt } from '../core/loop.js';
 import { hull2D, shortAng } from '../core/math.js';
+import { bodies } from '../core/world.js';
 import { drawGroundBody } from '../devices/ground.js';
-import { F } from '../letters/merge.js';
+import { F } from '../letters/glyph.js';
 import { BND_INK, buildMatterBody, rebuildWBody } from '../physics/matter.js';
 import { cvx, groundY } from '../render/render.js';
 
@@ -239,7 +239,7 @@ export function mkBoundary(worldPts,opt){
   // A pen stroke is an OPEN line; a preset shape is a CLOSED ring. Same body, same physics —
   // only the caps and the last segment differ.
   var closed=(opt.closed!==false);
-  var raw=[],i,j;
+  var raw=[],i;
   for(i=0;i<worldPts.length;i++){
     var q=worldPts[i];
     if(q&&isFinite(q[0])&&isFinite(q[1]))raw.push([q[0],q[1]]);

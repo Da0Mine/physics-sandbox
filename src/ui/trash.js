@@ -3,11 +3,13 @@ import Matter from 'matter-js';
 import { app } from '../state.js';
 import { killBody, killLetter } from '../bodies/body.js';
 import { bossAbort } from '../boss/boss.js';
-import { DD, bodies, formulas, freeL, panel, particles, trash } from '../core/dom.js';
+import { DD, panel, trash } from '../core/dom.js';
 import { overlap, segPointDist } from '../core/math.js';
+import { bodies, freeL } from '../core/world.js';
 import { springDisconnectAtPoint } from '../devices/spring.js';
 import { resetTrashPos } from '../effects/blackhole.js';
-import { killFormula } from '../effects/text.js';
+import { particles } from '../effects/particles.js';
+import { formulas, killFormula } from '../effects/text.js';
 import { SPR_GRAB, dblState, grab, trashDrag } from '../input/pointer.js';
 import { GD } from '../letters/glyph.js';
 import { fixPanelSlot, sortPanel } from '../letters/panel.js';
@@ -32,7 +34,7 @@ export function clearAll(){
   }catch(e){}
   /* 清空必须连约束一起清：clearAll 不走 killBody，那里的约束清理跑不到，
    铰链的真 Constraint 会残留并累积。体都没了，直接清空世界的 constraints 列表。 */
-  if(MW&&MW.engine&&MW.engine.world&&typeof Matter!=='undefined'&&Matter.Composite){
+  if(MW&&MW.engine&&MW.engine.world){
     var _cs2=Matter.Composite.allConstraints(MW.engine.world);
     for(var _cj=_cs2.length-1;_cj>=0;_cj--)Matter.Composite.remove(MW.engine.world,_cs2[_cj]);
   }

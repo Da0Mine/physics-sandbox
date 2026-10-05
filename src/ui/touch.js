@@ -1,8 +1,9 @@
 /* 电脑 / 触屏交互模式与触屏点选、长按 */
 import Matter from 'matter-js';
 import { app } from '../state.js';
-import { DD, bodies, freeL } from '../core/dom.js';
+import { DD } from '../core/dom.js';
 import { segPointDist } from '../core/math.js';
+import { bodies, freeL } from '../core/world.js';
 import { distToHost } from '../devices/anchor.js';
 import { SPR_GRAB, grab, pointer } from '../input/pointer.js';
 import { promoteFreeLetter } from '../letters/merge.js';

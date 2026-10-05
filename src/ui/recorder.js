@@ -1,9 +1,9 @@
 /* Bug 记录模式（逐帧快照 + 操作事件） */
 import { rodEndWorld } from '../bodies/rod.js';
-import { bodies, freeL, recbadge, recbtn, recnote } from '../core/dom.js';
+import { recbadge, recbtn, recnote } from '../core/dom.js';
+import { bodies, freeL } from '../core/world.js';
 import { SPR_DAMP, SPR_KS_DEF, SPR_K_MAX } from '../devices/spring.js';
-import { GRAV } from '../params/defs.js';
-import { PX_PER_M, SPR_SPAWN_LEN } from '../params/panel.js';
+import { GRAV, PX_PER_M, SPR_SPAWN_LEN } from '../params/defs.js';
 import { wEffE, wEffMu } from '../physics/material.js';
 import { BALL_REST, BND_INK, CIRCLE_SIDES, MW } from '../physics/matter.js';
 import { H, W, groundY } from '../render/render.js';

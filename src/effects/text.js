@@ -1,12 +1,11 @@
 /* 飘字公式（mc²、动量守恒等文字特效） */
-import { DD, formulas } from '../core/dom.js';
+import { DD } from '../core/dom.js';
 import { clamp } from '../core/math.js';
 import { pointer } from '../input/pointer.js';
-import { metS } from '../letters/glyph.js';
-import { F } from '../letters/merge.js';
+import { F, PRIME, SUB1, SUB2, metS } from '../letters/glyph.js';
 import { W, groundY } from '../render/render.js';
 
-export const SUB1='₁', SUB2='₂', PRIME='′';
+export const formulas=[];
 export function mkFG(ch,size){
   var el=DD.createElement('div');
   el.className='char';

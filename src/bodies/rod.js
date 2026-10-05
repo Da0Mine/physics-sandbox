@@ -1,14 +1,14 @@
 /* 轻质杆：几何、积分、锚点约束与拖拽 */
 import Matter from 'matter-js';
 import { BODY } from './body.js';
-import { bodies } from '../core/dom.js';
 import { clamp, shortAng } from '../core/math.js';
+import { bodies } from '../core/world.js';
 import { distToHost, hostClosestPoint, hostCornerSnapPoint, hostMidSnapPoint } from '../devices/anchor.js';
 import { hostIsAnvil, hostMovableByConstraint } from '../devices/constraint.js';
 import { springAnchorOffset, springAnchoredWorld, springEnd, springHostPinnedByAnvil } from '../devices/spring.js';
 import { grab } from '../input/pointer.js';
+import { F } from '../letters/glyph.js';
 import { refresh, slot } from '../letters/layout.js';
-import { F } from '../letters/merge.js';
 import { GRAV } from '../params/defs.js';
 import { MW, ROD_SUB_DT } from '../physics/matter.js';
 import { cvx } from '../render/render.js';
@@ -143,7 +143,7 @@ export function rodSyncAnchors(B,dt){
      *   _rodL 只在「有意改长度」四处写入：makeRod 初值 / setRodLen（面板）/ rodDragEnds（长度手柄）/
      *   rodTryAnchor（落点吸附）。这里（跟锚点走）绝不写它。 */
     if(B._rodL==null||!(B._rodL>0))B._rodL=B.len||170;
-    var W0=w[0],W1=w[1],Lr=B._rodL;
+    var Lr=B._rodL;
     /* 不要挂 Matter 原生 Constraint：W 体位姿由产品每帧摆放（见 hostMovableByConstraint），Matter 约束的修正
      *   会被下一帧覆盖 ⇒ 正反馈发散。因此用自研 PBD：
      *   A 姿态：杆统一走纯姿态可视化 —— 中心=锚点中点、方向=W1→W0（与 setRodEnds 同惯例）、len 恒 = _rodL。
@@ -726,7 +726,7 @@ export function rodHingeTorque(dt){
         _tw/=(1+6*_rel);
       }
       var p=springAnchoredWorld(R,e);
-      var rx=h.x-p.x, ry=h.y-p.y;                  // rx,ry = C − M（锚点 → 质心）
+      var rx=h.x-p.x;                               // rx = C.x − M.x（锚点 → 质心）
       var m=h.mb.mass||1;
       /* 另一端动态时，物体受到的力矩来自对端载荷的重量（杆传力，两端严格等大反向），
        * 两边力矩成为一对作用反作用。τ = r' × F，r' = 锚点 − 质心 = (−rx, −ry)，F = (0, m_对端·g)

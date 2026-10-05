@@ -74,8 +74,8 @@ export function finishShapeDrag(){
   // （不唤醒的话静止体可能在建体那一帧就被判睡，之后拖不动）。
   if(B&&r.shape==='ring'&&!B.fixed){
     B.fixed=true;
-    if(B.mb&&typeof Matter!=='undefined'&&Matter.Body){Matter.Body.setStatic(B.mb,true);}
-    if(B.mb&&typeof Matter!=='undefined'&&Matter.Sleeping){Matter.Sleeping.set(B.mb,false);}
+    if(B.mb){Matter.Body.setStatic(B.mb,true);}
+    if(B.mb){Matter.Sleeping.set(B.mb,false);}
   }
   if(B)ringGo(B.x,B.y);
   // 单击武装只画一次，画完自动解除；连续模式才保持武装

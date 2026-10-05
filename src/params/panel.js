@@ -1,26 +1,14 @@
 /* 参数面板 UI 与逐对材质表 */
 import { C_LIGHT, bossLightOn, bossLightState } from '../boss/boss.js';
-import { bodies, pbox, pclose, pcontacts, prows, ptitleEl, pvalEl } from '../core/dom.js';
+import { pbox, pclose, pcontacts, prows, ptitleEl, pvalEl } from '../core/dom.js';
 import { clamp } from '../core/math.js';
+import { bodies } from '../core/world.js';
 import { PARAM_DEFS, applyParam, paramDef, paramDefForLetter, paramDefVal, paramLabel, paramV, specIdForLetter } from './defs.js';
 import { wEffE, wEffMu, wMuIdeal } from '../physics/material.js';
 import { MW, refreshWPairs } from '../physics/matter.js';
 import { H, W } from '../render/render.js';
 import { closeMenu } from '../ui/menu.js';
 
-// 比例尺 260 px = 1 m：默认重力 2600 px/s² 显示为 10 m/s²，画布高约 3.5 m。
-// 内部计算全部仍是 px；换算只发生在参数面板的显示/输入层：SI 显示值 = 内部值 / siK。
-// 1 单位质量 = 1 kg；k 的 N/m 是标称值 —— F=ks·Δx 按 F=ma 走加速度通道时，
-// kg/s² 的数值与内部值一致（px 与比例尺在分式里约掉）。
-export const PX_PER_M=260;
-/* 出生尺寸常量区：所有器件的出生尺寸常量都集中在这里。
- * ① PARAM_DEFS 里 slen.def:SPR_SPAWN_LEN 这类写法在对象字面量求值时取值，
- *    var 只提升声明不提升赋值 ⇒ 常量必须声明在参数表之前，否则是 undefined（点「默认」掉到量程下限）。
- * ② 这是「默认值 == 出生值」不变式的唯一真源：只改这里一个数，参数表默认值机械跟随。
- *    不要在别处重复声明或在 PARAM_DEFS 里写死数字，否则两处会漂移（曾出现出生 110 / 默认 170）。 */
-export const SPR_SPAWN_LEN=110;    // 弹簧：= makeSpring 长度钳制 clamp(d,110,340) 的下限
-export const ROPE_SPAWN_LEN=110;   // 轻绳：与弹簧同款「拖出来即可用」的默认长度
-export const ROD_SPAWN_LEN=170;    // 轻质杆：= makeRod 的默认，也是 vt 拼接实际得到的长度
 /* ================= PARAM PANEL (per-letter rows: slider + number + 默认) ================= */
 export let paramBody=null, paramLetter=null, paramRows=[];
 // 当前展开的配对行（'mu' = 摩擦、'e' = 弹性；null = 都没展开，接触区按摩擦口径）。
@@ -526,7 +514,7 @@ export function updateParamContacts(){
     if(O.kind==='T')return 0;            // 杆无弹性
     return null;
   }
-  var rows='',n=0;
+  var rows='';
   function row(name,pr,muOther,restOther,muIdealOther,othMb){
     var txt;
     if(isE){
@@ -552,7 +540,6 @@ export function updateParamContacts(){
   for(i=0;i<bodies.length;i++){
     var O=bodies[i];
     if(!O||O===paramBody||O.dead)continue;
-    n++;
     row(bodyName(O),O.mb?map[O.mb.id]:null,O.mb?muOf(O):null,O.mb?restOf(O):null,wMuIdeal(O),O.mb);
   }
   pcontacts.classList.add('on');

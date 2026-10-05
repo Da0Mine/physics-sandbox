@@ -3,8 +3,8 @@ import Matter from 'matter-js';
 import { wakeSleepNear } from '../bodies/body.js';
 import { BND_HH, bndHullLocal, bndSegs, inflateHull, segCompound } from '../bodies/boundary.js';
 import { rodDragPinChain, rodDragPinHosts, rodIntegrate, rodSyncAnchors, rodXPBDVel } from '../bodies/rod.js';
-import { EL_Z, bodies } from '../core/dom.js';
 import { clamp, shortAng } from '../core/math.js';
+import { bodies } from '../core/world.js';
 import { conDragConstrain } from '../devices/constraint.js';
 import { dragPtrAxis } from '../devices/drag-lock.js';
 import { midMagnetPullGhost, midMagnetPullRig } from '../devices/placement.js';
@@ -12,7 +12,7 @@ import { springAnchoredWorld, springDragPinRig, springLockedAsmOf, springSyncLoc
 import { grab } from '../input/pointer.js';
 import { GRAV } from '../params/defs.js';
 import { bodyOfMb, bodyPid, peerKeyOf } from '../params/panel.js';
-import { circleRestitutionFix, circleRollBodies, circleRollSnap, circleRollStep, elasticContactFix, perfectElasticMB, snapVelocities } from './contact.js';
+import { EL_Z, circleRestitutionFix, circleRollBodies, circleRollSnap, circleRollStep, elasticContactFix, perfectElasticMB, snapVelocities } from './contact.js';
 import { WFRICT_DEF, applyWAir, applyWMul, wAirDef, wMuIdeal, wZeroAir, wfSelfFriction, wfStaticOf } from './material.js';
 import { applyGivenAccel, celCenterY } from './step.js';
 import { W, groundY } from '../render/render.js';

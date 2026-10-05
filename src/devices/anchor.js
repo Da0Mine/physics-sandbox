@@ -78,7 +78,6 @@ export function hostMidSnapPoint(host,px,py){
   var lx=dx*c+dy*s,ly=-dx*s+dy*c;
   var hw=host.hw||30,hh=host.hh||24;
   // 四条边各自的中点（本地坐标），顺带算出端点到该边所在直线的距离，选最近的一条
-  var ex=1e9,ey=1e9,exx=0,eyy=0;
   var dR=hw-lx,dL=lx+hw,dB=hh-ly,dT=ly+hh;
   var mid=null,mind=1e9;
   if(dR<mind){mind=dR;mid=[hw,0];}

@@ -1,12 +1,14 @@
 /* 字形：度量、创建字形元素（GD），以及面板上 17 个符号的单例 */
 import { app } from '../state.js';
-import { ALL, bodies, freeG } from '../core/dom.js';
+import { ALL, bodies, freeG } from '../core/world.js';
 import { gdDown } from '../input/pointer.js';
-import { F, HALF, MU, promoteFreeLetter } from './merge.js';
+import { promoteFreeLetter } from './merge.js';
 import { openMenu } from '../ui/menu.js';
 
 export let ctx2d;
+export const F=48;
 export const MT={};
+export const OPEN='(', CLOSE=')', PLUS='+', SQ='²', BAR='-', HALF='½', MU='μ', SUB1='₁', SUB2='₂', PRIME='′';
 export function met(ch,size){
   size=size||F;
   var key=ch+'@'+size;

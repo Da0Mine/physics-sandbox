@@ -1,7 +1,7 @@
 /* 轻绳 / 铰链共用的两点约束求解 */
 import Matter from 'matter-js';
 import { rodLenFrozen } from '../bodies/rod.js';
-import { bodies } from '../core/dom.js';
+import { bodies } from '../core/world.js';
 import { springAnchoredWorld, springSyncEnds } from './spring.js';
 import { grab } from '../input/pointer.js';
 import { MW } from '../physics/matter.js';

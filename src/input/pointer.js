@@ -6,8 +6,9 @@ import { BODY, killBody, killLetter, spawnField } from '../bodies/body.js';
 import { arcEndWorldAng, arcParamFromWorldAng, arcSetAngle, arcWorldCenter, nearInk } from '../bodies/boundary.js';
 import { rodDragEnds, rodDragPinHosts, rodEndLenDragAllowed, rodEndWorld, rodTryAnchor, tAnchor } from '../bodies/rod.js';
 import { bossFindEkNear, bossPlace } from '../boss/boss.js';
-import { DD, ark, bodies, cv, freeL, handle, rodh, rszHandle, trash } from '../core/dom.js';
+import { DD, ark, cv, handle, rodh, rszHandle, trash } from '../core/dom.js';
 import { clamp, segPointDist, shortAng, snapAngle90, snapAngleDeg } from '../core/math.js';
+import { bodies, freeL } from '../core/world.js';
 import { distToHost } from '../devices/anchor.js';
 import { releaseConstrainVel } from '../devices/constraint.js';
 import { dragArcLock, dragAxisLock, dragPtrAxis } from '../devices/drag-lock.js';
@@ -15,9 +16,9 @@ import { groundDragEnds, setGroundAngle } from '../devices/ground.js';
 import { endDeviceOut, moveDeviceOut, placeDevice } from '../devices/placement.js';
 import { dissolveSpring, springAssemblyRotate, springCanRotate, springDisconnectAtPoint, springLockedAsmOf, springMoveRig, springRotTargetHigh, springRotate, springTryAnchor, springTryAnchorByHost } from '../devices/spring.js';
 import { explodeBlackHole, killFieldBody } from '../effects/blackhole.js';
-import { GD, isMass, killG } from '../letters/glyph.js';
+import { F, GD, isMass, killG } from '../letters/glyph.js';
 import { place, placeLetter, refresh } from '../letters/layout.js';
-import { F, applyKXCombo, applyTCombo, attach, canMerge, detachFieldGlyph, findFreeLetterTarget, findFreeMassTarget, findKXCombo, findMergeTarget, findSolidBodyAt, findTComboTarget, qGiveable, splitOne } from '../letters/merge.js';
+import { applyKXCombo, applyTCombo, attach, canMerge, detachFieldGlyph, findFreeLetterTarget, findFreeMassTarget, findKXCombo, findMergeTarget, findSolidBodyAt, findTComboTarget, qGiveable, splitOne } from '../letters/merge.js';
 import { charDefFill, dockLetter } from '../letters/panel.js';
 import { BND_INK, MW } from '../physics/matter.js';
 import { B_FIELD_RANGE, E_FIELD_RANGE, W, arcHov, groundY, hoverB, rodHov } from '../render/render.js';
@@ -66,13 +67,13 @@ export function gdDown(e,d){
   if(e&&typeof e.clientX==='number'){pointer.x=e.clientX;pointer.y=e.clientY;}
   if(e.button!==0)return;
   /* 字符这条入口也要起长按计时（画布入口收不到压在小字形上的按下，见 touchLongPressStart）。
-   * 面板(dock)字符除外：那边走 TOUCH_PENDING 的点选/拖出分流，长按计时会和它打架。
+   * 面板(dock)字符除外：那边走 touchPending 的点选/拖出分流，长按计时会和它打架。
    * 移动/松手统一取消（两条入口共用 TOUCH_LP）。 */
   if(uiTouch()&&e.pointerType==='touch'&&d.state!=='dock')touchLongPressStart(d);
   if(d.state==='dock'){
     /* 触屏点面板符号：记录 TOUCH_LETTER 并在面板上高亮（.touch-pick），不立即拖出；下一次点画布 ⇒ 放置到该处。 */
     if(uiTouch()&&e.pointerType==='touch'){
-      /* 触屏点面板符号不当场决定，记为待定（TOUCH_PENDING），由后续手势分流：
+      /* 触屏点面板符号不当场决定，记为待定（touchPending），由后续手势分流：
        * · 按住移动超 12px ⇒ 按原逻辑直接拖出（拖动放置，在 pointermove 里触发）；
        * · 松手时没怎么动（tap）⇒ 面板内选中态（.touch-pick 高亮），下一次点画布放置。 */
       if(TOUCH_LETTER===d){TOUCH_LETTER=null;if(d.el)d.el.classList.remove('touch-pick');return;}
@@ -149,7 +150,7 @@ export const trashDrag={active:false};
 export function setupInputPointer(){
   DD.addEventListener('pointerdown',function(e){ptrDown=true;},true);
   DD.addEventListener('pointerup',function(e){ptrDown=false;},true);
-  /* pointercancel 也要收尾半截手势，不能只清 __ptrDown：浏览器掐断指针流时（touch-action 判成滚动、
+  /* pointercancel 也要收尾半截手势，不能只清 ptrDown：浏览器掐断指针流时（touch-action 判成滚动、
    * 系统抢走触摸）pointerup 永远不会来，TOOL.drag / TOOL.stroke / trashDrag.active / grab 全停在
    * 「进行中」，下一个手势落在残骸上（画形状时表现为拉了框不落体、之后工具全坏）。
    * touch-action:none 已防止画布/垃圾桶被掐断，这里是兜底。 */

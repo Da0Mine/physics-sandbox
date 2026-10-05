@@ -37,10 +37,9 @@ export let _ringDedupOK=false;
 
 export function setupPhysicsCollision(){
   (function(){
-    if(typeof Matter==='undefined'||!Matter.Collision||!Matter.Collision.collides)return;
     var _collides=Matter.Collision.collides;
     // —— 先安装 token 推进器（放在 collides 之前，装不上就去重自动停用）——
-    if(Matter.Engine&&typeof Matter.Engine.update==='function'&&!Matter.Engine._ringTokWrap){
+    if(!Matter.Engine._ringTokWrap){
       var _engUpd=Matter.Engine.update;
       Matter.Engine.update=function(eng,delta){
         if(++_ringTok>1e9){_ringTok=1;_ringHit={};}   // 溢出保护（240 子步/s 下 ≈48 天）

@@ -3,14 +3,14 @@ import Matter from 'matter-js';
 import { BODY, killBody, killLetter } from '../bodies/body.js';
 import { makeRod, tAnchor } from '../bodies/rod.js';
 import { bossTryPlace } from '../boss/boss.js';
-import { bodies, freeL } from '../core/dom.js';
 import { clamp } from '../core/math.js';
+import { bodies, freeL } from '../core/world.js';
 import { distToHost } from '../devices/anchor.js';
 import { makeSpring } from '../devices/spring.js';
 import { killFieldBody } from '../effects/blackhole.js';
 import { burstParticles } from '../effects/particles.js';
 import { pointer } from '../input/pointer.js';
-import { GD, isMass } from './glyph.js';
+import { F, GD, HALF, MU, isMass } from './glyph.js';
 import { initWorld, place, refresh, slot } from './layout.js';
 import { dockLetter, freeLetter } from './panel.js';
 import { specIdForLetter } from '../params/defs.js';
@@ -19,8 +19,6 @@ import { groundY } from '../render/render.js';
 import { ringGo } from '../ui/menu.js';
 import { vLightReject } from '../ui/toolbar.js';
 
-export const F=48;
-export const HALF='½', MU='μ';
 // promote a FREE (unmerged) letter in place to a single-letter body at its current position,
 // so right-clicking any free adjustable letter (r/g/a/v/μ…) can open the param panel.
 // Note: for SHATTER-derived stray letters this may feel invasive; we keep it minimal and
@@ -561,7 +559,6 @@ export function bodyFillHit(B,x,y,pad){
   /* 容差：把点向内/外扩 pad（凸包是凸的 ⇒ 「到凸包距离 ≤ pad」等价于「膨胀 pad 后的凸包含」） */
   var n=H.length,inPoly=false,px=0,py=0;
   for(i=0;i<n;i++){px+=H[i][0];py+=H[i][1];}
-  var cx=px/n,cy=py/n;
   function outEdge(ax,ay,bx,by,qx,qy){
     var ex=bx-ax,ey=by-ay,rel=(ex*(qx-ax)+ey*(qy-ay));
     if(rel<-pad)return -1;                         /* 在边外侧太远 */
@@ -610,7 +607,7 @@ export function findSolidBodyAt(x,y){
      * 墙和 ensureMatter 的 ground/wl/wr/wt 静态框不在 bodies[] 里，本函数天然看不见。 */
     if(B.gnd||B.belt||B.bh)continue;
     var inside=false;
-    try{ if(B.mb&&MW&&MW.engine&&typeof Matter!=='undefined'&&Matter.Query&&Matter.Query.point)
+    try{ if(B.mb&&MW&&MW.engine)
            inside=Matter.Query.point([B.mb],{x:x,y:y}).length>0; }catch(e){inside=false;}
     /* Matter.Query.point 对空心形状环心判否，补一层 W 体凸包内判定（含 22px 容差），否则 q 会退化成场源体。 */
     if(!inside){try{inside=bodyFillHit(B,x,y,22);}catch(e2){inside=false;}}

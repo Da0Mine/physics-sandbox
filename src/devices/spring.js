@@ -2,8 +2,8 @@
 import Matter from 'matter-js';
 import { BODY, killBody } from '../bodies/body.js';
 import { rodEndWorld, rodHingeTorque, rodLenFrozen, rodPlaceEnds, rodResyncRodPose, rodSyncLocks, rodSyncNoCollide, rodTryAnchor } from '../bodies/rod.js';
-import { SPR_KHOST, bodies } from '../core/dom.js';
 import { SNAP_DEG, clamp, shortAng } from '../core/math.js';
+import { bodies } from '../core/world.js';
 import { distToHost, hingeSurfacePoint, hostClosestPoint, hostCornerSnapPoint, hostMidSnapPoint } from './anchor.js';
 import { hostIsAnvil } from './constraint.js';
 import { dragPtrAxis } from './drag-lock.js';
@@ -78,6 +78,9 @@ export function springKEff(ks){
   var k=(ks>0?ks:SPR_KS_DEF);
   return k>SPR_K_MAX?SPR_K_MAX:k;
 }
+// 宿主刚度账本：把「一个宿主身上所有弹簧的有效刚度之和」算出来，超预算时同比例缩水
+// （所有挂在同一宿主上的弹簧用同一个 share，力的大小才不会在两端违反牛顿第三定律）。
+export const SPR_KHOST=[];
 export function springKBook(){
   var i,e,S,a;
   for(i=0;i<SPR_KHOST.length;i++)SPR_KHOST[i]._kS=0;
@@ -329,7 +332,6 @@ export function springSyncEnds(B){
 // 走 springForceOn（作用点 = 真实锚点）：水平/竖直限幅与力矩上限自动生效，不会掀翻宿主。
 // 必须放在 stepSprings（有 dt）而不是 springSyncEnds（它被拖拽/复制等无 dt 的路径调用）。
 export function springGuideForce(B,dt){
-  var Lk=B.dirLock;
   for(var i=0;i<2;i++){
     var a=B.anc[i];
     if(!a||!a.B||a.B.dead)continue;

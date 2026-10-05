@@ -4,14 +4,14 @@ import { app } from '../state.js';
 import { setBeltAngle } from '../bodies/belt.js';
 import { rodMassOf, setRodLen } from '../bodies/rod.js';
 import { bossLightReset, bossLightState } from '../boss/boss.js';
-import { bodies } from '../core/dom.js';
 import { clamp, shortAng } from '../core/math.js';
-import { GROUND_MAX_LEN, GROUND_MIN_LEN, GROUND_SPAWN_LEN, setGroundAngle, setGroundEnds } from '../devices/ground.js';
+import { bodies } from '../core/world.js';
+import { GROUND_MAX_LEN, GROUND_MIN_LEN, setGroundAngle, setGroundEnds } from '../devices/ground.js';
 import { SPR_DAMP, SPR_KS_DEF, springSetLen } from '../devices/spring.js';
+import { MU } from '../letters/glyph.js';
 import { isMVR, refresh } from '../letters/layout.js';
-import { MU } from '../letters/merge.js';
 import { charDefWrite } from '../letters/panel.js';
-import { PX_PER_M, ROD_SPAWN_LEN, ROPE_SPAWN_LEN, SPR_SPAWN_LEN, paramLetter } from './panel.js';
+import { paramLetter } from './panel.js';
 import { WFRICT_DEF, applyWAir, applyWBounc, applyWFrict } from '../physics/material.js';
 import { BALL_REST, MW } from '../physics/matter.js';
 import { PHYS_MODE } from '../ui/settings.js';
@@ -19,11 +19,29 @@ import { PHYS_MODE } from '../ui/settings.js';
 export let GRAV=2600;
 export let WAIR_GLOBAL=0;       // 全局空气阻力（面板 wair 的唯一真源）
 export function pv(B,k,d){var v=B.param?B.param[k]:null;return (v===null||v===undefined||isNaN(v))?d:v;}
+// 比例尺 260 px = 1 m：默认重力 2600 px/s² 显示为 10 m/s²，画布高约 3.5 m。
+// 内部计算全部仍是 px；换算只发生在参数面板的显示/输入层：SI 显示值 = 内部值 / siK。
+// 1 单位质量 = 1 kg；k 的 N/m 是标称值 —— F=ks·Δx 按 F=ma 走加速度通道时，
+// kg/s² 的数值与内部值一致（px 与比例尺在分式里约掉）。
+export const PX_PER_M=260;
 /* 传送带默认带速 CONV_DEF = 130 px/s = 0.5 m/s（内部一律 px/s，面板显示时才除以 PX_PER_M）。
  * 必须声明在 PARAM_DEFS 之前：参数表的 def:CONV_DEF 在对象字面量求值时取值，
  * var 只提升声明不提升赋值，声明在后面会取到 undefined。全文件只此一处声明。
  * 取 0.5 而非 1.0：传送带放下去电机就在转，默认太快货物会被甩远，用户容易误判为器件坏了。 */
 export let CONV_DEF;
+/* 必须声明在 PARAM_DEFS 之前（同 CONV_DEF）：gndlen 的 def 在对象字面量求值时取值，
+ * 声明在后则为 undefined ⇒ 点「默认」时 applyParam 把它当 0 ⇒ 被 clamp 到量程下限 60px 而非 260px。
+ * 全文件只此一处声明。 */
+export const GROUND_SPAWN_LEN=260;
+/* 出生尺寸常量区：所有器件的出生尺寸常量都集中在这里。
+ * ① PARAM_DEFS 里 slen.def:SPR_SPAWN_LEN 这类写法在对象字面量求值时取值，
+ *    var 只提升声明不提升赋值 ⇒ 常量必须声明在参数表之前，否则是 undefined（点「默认」掉到量程下限）。
+ * ② 这是「默认值 == 出生值」不变式的唯一真源：只改这里一个数，参数表默认值机械跟随。
+ *    不要在别处重复声明或在 PARAM_DEFS 里写死数字，否则两处会漂移（曾出现出生 110 / 默认 170）。 */
+export const SPR_SPAWN_LEN=110;    // 弹簧：= makeSpring 长度钳制 clamp(d,110,340) 的下限
+export const ROPE_SPAWN_LEN=110;   // 轻绳：与弹簧同款「拖出来即可用」的默认长度
+export const ROD_SPAWN_LEN=170;    // 轻质杆：= makeRod 的默认，也是 vt 拼接实际得到的长度
+export const BELT_SPAWN_LEN=260;   // 传送带：矩形宽（带子长度暂不可调，只影响出生尺寸）
 // 上限只保留物理上真实存在的：弹性 e∈[0,1]、空气阻力 <1（它是每帧速度占比，≥1 会把速度反向）；
 // μ>1 是物理的（橡胶-玻璃 ≈2），质量/长度/刚度/阻尼均无上限。
 // 滑块 min/max 只是可视化量程（数字输入框不受限），真正的硬边界在 applyParam。
@@ -250,7 +268,7 @@ export function applyParam(B,spec,val){
   }else if(key==='gndlen'){
     // 绕质心对称伸缩（与 setRodLen 语义一致），统一走 setGroundEnds
     if(B.gnd){
-      var gh=B.len/2,gu=Math.cos(B.th||0),gv=Math.sin(B.th||0);
+      var gu=Math.cos(B.th||0),gv=Math.sin(B.th||0);
       var glen=clamp(val,GROUND_MIN_LEN,GROUND_MAX_LEN);
       setGroundEnds(B,B.x-gu*glen/2,B.y-gv*glen/2,B.x+gu*glen/2,B.y+gv*glen/2,true);
     }

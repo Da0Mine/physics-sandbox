@@ -1,5 +1,5 @@
 /* 拖拽时的导轨轴向 / 圆弧约束 */
-import { bodies } from '../core/dom.js';
+import { bodies } from '../core/world.js';
 import { springAnchoredWorld } from './spring.js';
 import { grab, pointer } from '../input/pointer.js';
 

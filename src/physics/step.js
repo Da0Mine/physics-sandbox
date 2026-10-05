@@ -4,14 +4,14 @@ import { beltDragMatter, beltTract } from '../bodies/belt.js';
 import { killLetter } from '../bodies/body.js';
 import { ROD_PAD, bndHit, bndSolidHit } from '../bodies/boundary.js';
 import { rodLenFrozen, rodMassOf } from '../bodies/rod.js';
-import { bodies, freeL } from '../core/dom.js';
 import { lastDt } from '../core/loop.js';
 import { clamp } from '../core/math.js';
+import { bodies, freeL } from '../core/world.js';
 import { spawnFormula, spawnText } from '../effects/text.js';
 import { grab } from '../input/pointer.js';
-import { killG } from '../letters/glyph.js';
+import { F, killG } from '../letters/glyph.js';
 import { isMVR } from '../letters/layout.js';
-import { F, isGravityLetterOnly } from '../letters/merge.js';
+import { isGravityLetterOnly } from '../letters/merge.js';
 import { freeLetter } from '../letters/panel.js';
 import { GRAV } from '../params/defs.js';
 import { pairOvAB } from '../params/panel.js';
@@ -318,7 +318,7 @@ export function collideBodies(){
       var aox=0,aoy=0; if(A.orb&&A.orb.k>=0.02&&A.orb.gx!=null){aox=A.orb.gx-A.x;aoy=A.orb.gy-A.y;}
       var box=0,boy=0; if(B.orb&&B.orb.k>=0.02&&B.orb.gx!=null){box=B.orb.gx-B.x;boy=B.orb.gy-B.y;}
       var dx=(B.x+box)-(A.x+aox),dy=(B.y+boy)-(A.y+aoy);
-      var nx=0,ny=0,ov=0,hitSeg=null;
+      var nx=0,ny=0,ov=0;
       var AT=(A.kind==='T'),BT=(B.kind==='T');
       var AW=(A.kind==='W'),BW=(B.kind==='W');
       // 弹簧（kind 'S'）：接触几何与 T 杆同型（细长条），走同一条 SAT 分支。
@@ -346,7 +346,6 @@ export function collideBodies(){
         else wr=bndSolidHit(A,B);                        // (no longer reachable; kept as a guard)
         if(!wr)continue;
         ov=wr.ov;nx=wr.nx;ny=wr.ny;
-        hitSeg=AW?A:B;
         // 传送带表面牵引（唯一有效的写入点，见 beltTract 上方注释）。放在法向冲量之前：牵引只改切向，
         // 不影响 vn 判定。切向由法向转 90° 得到，法向取反时 vt 与 t 同时反号，牵引量不变 ⇒ 无需翻转。
         if(AW)beltTract(A,B,nx,ny,ov);else beltTract(B,A,nx,ny,ov);
@@ -451,7 +450,6 @@ export function collideBodies(){
           if(ovc>ov){ov=ovc;nx=isSegA?qnx:-qnx;ny=isSegA?qny:-qny;}
         }
         if(ov<=0)continue;                             // no glyph is touching the plank
-        hitSeg=seg;
       }else{
         var ox=ea.ex+eb.ex-Math.abs(dx);
         if(ox<=0)continue;
@@ -782,7 +780,7 @@ export function stepField(dt){
          （那样 4 个子步只有 1 个吃到力，实测只得到约 5.7 px/s²，被地面摩擦 208 px/s² 完全吃掉）。
          Matter 每步给 (F/m)·deltaTime²（deltaTime=4.1667ms ⇒ ×17.36）；帧级一次要产生 a/60 px/s
          的增量 = a/14400 px/step ⇒ F = m·a/(17.36·14400) ≈ m·a/250000（理论推导值）；
-         * 实际使用的 QFIELD_K=112500 是实测标定值，见 01-core.js。 */
+         * 实际使用的 QFIELD_K=112500 是实测标定值（见本文件顶部 QFIELD_K 的说明）。 */
         if(_afx||_afy)Matter.Body.applyForce(O.mb,{x:O.mb.position.x,y:O.mb.position.y},
                                             {x:_fm*_afx/QFIELD_K,y:_fm*_afy/QFIELD_K});
         O.vx=O.mb.velocity.x*60;O.vy=O.mb.velocity.y*60;

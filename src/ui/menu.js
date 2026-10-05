@@ -1,7 +1,8 @@
 /* 右键菜单 */
 import Matter from 'matter-js';
-import { freeL, menu, ring } from '../core/dom.js';
+import { menu, ring } from '../core/dom.js';
 import { clamp } from '../core/math.js';
+import { freeL } from '../core/world.js';
 import { refreshSpringGeom } from '../devices/spring.js';
 import { GD } from '../letters/glyph.js';
 import { placeLetter } from '../letters/layout.js';

@@ -2,11 +2,13 @@
 import { app } from '../state.js';
 import { killBody, killLetter } from '../bodies/body.js';
 import { bossBuildPlat, bossPlatLayout } from './platform.js';
-import { ALL, DD, bodies, freeL, particles } from '../core/dom.js';
+import { DD } from '../core/dom.js';
 import { clamp } from '../core/math.js';
-import { burstParticles, shake, spawnExplosion } from '../effects/particles.js';
+import { ALL, bodies, freeL } from '../core/world.js';
+import { burstParticles, particles, shake, spawnExplosion } from '../effects/particles.js';
 import { placeLetter, slot } from '../letters/layout.js';
-import { PX_PER_M, paramBody, paramLetter, paramRows, renderParamPanel } from '../params/panel.js';
+import { PX_PER_M } from '../params/defs.js';
+import { paramBody, paramLetter, paramRows, renderParamPanel } from '../params/panel.js';
 import { removeMatterBody } from '../physics/matter.js';
 import { H, W } from '../render/render.js';
 import { ringGo } from '../ui/menu.js';
@@ -225,7 +227,6 @@ export function bossStartRise(Ek,d){
   /* 融合时把前两次被弹飞的游离 v 收进爆发（粒子 + 销毁）：否则它们落地后永久留在画面上，
    * 平台升起后还看得到孤立的 v。语义上是散出去的 v 被 Ek 吸收。
    * 只收 ch==='v'、state==='free' 且不在任何 body 里的，不动用户别处的字母和面板 dock 里的。 */
-  var absorbed=0;
   for(var i=freeL.length-1;i>=0;i--){
     var f=freeL[i];
     if(!f||f.dead||f===d)continue;
@@ -235,7 +236,6 @@ export function bossStartRise(Ek,d){
     if(f.state&&f.state!=='free')continue;
     burstParticles(f.wx!=null?f.wx:Ek.x,f.wy!=null?f.wy:Ek.y,10,0.75);
     killLetter(f);
-    absorbed++;
   }
   /* 融合时同样不弹文字提示。 */
   burstParticles(Ek.x,Ek.y,34,1.25);

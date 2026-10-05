@@ -57,7 +57,6 @@ export function bossBuildPlat(){
   var probeA=document.createElement('span');
   probeA.className='bossterm';                       // [ + ][项] 合成盒
   meas.appendChild(probeT);meas.appendChild(probeP);meas.appendChild(probeA);
-  var PW=probeP.getBoundingClientRect().width||22;
   /* 除 E_k= 与第 1 项外，每一项都自带 ` + ` 前缀，保证项与项之间视觉结构一致。 */
   var head='<span class="mth"> + </span>';
   var EQ='E_{k}=';

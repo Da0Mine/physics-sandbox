@@ -1,7 +1,6 @@
 /* 物体（公式体 / 场源）的创建与销毁 */
 import Matter from 'matter-js';
-import { ALL, bodies, freeG, freeL } from '../core/dom.js';
-import { clamp } from '../core/math.js';
+import { ALL, bodies, freeG, freeL } from '../core/world.js';
 import { hingeConstraintDrop } from '../devices/hinge.js';
 import { GD } from '../letters/glyph.js';
 import { refresh } from '../letters/layout.js';
@@ -30,8 +29,6 @@ export function spawnField(kind,x,y,svx,svy){
   g.gx=0;g.gy=0;g.wx=B.x;g.wy=B.y;
   B.fg=g;
   B.glyphs=[g];
-  var sp=Math.hypot(svx||0,svy||0);
-  var f=sp>20?clamp(1-sp/6000,0.5,1):0;
   if(kind==='B'){B.fieldR=B_FIELD_RANGE;B.Bz=BZ_DIR;B.vx=0;B.vy=0;}
   else if(kind==='E'){B.er={l:160,r:160,t:160,b:160};B.fieldR=320;B.th=0;B.vx=0;B.vy=0;}   // E field: uniform direction, rotatable via th; 4 independent edges
   /* 场（电荷场 q / 电流场 I）没有惯性：与 B/E 一致速度清零，落在松手点。
@@ -51,7 +48,7 @@ export function spawnField(kind,x,y,svx,svy){
  * 否则会悬在空中（是否睡着有随机性，所以表现为「有概率」）。删除体的同类处理见 killBody。
  * 只唤醒附近的：拖动是交互态，全场唤醒会白费休眠。 */
 export function wakeSleepNear(x,y,rad){
-  if(!MW||!MW.engine||typeof Matter==='undefined'||!Matter.Sleeping)return 0;
+  if(!MW||!MW.engine)return 0;
   var bs=Matter.Composite.allBodies(MW.engine.world),n=0;
   for(var i=0;i<bs.length;i++){var b=bs[i];
     if(!b||b.isStatic||!b.isSleeping)continue;
@@ -70,7 +67,7 @@ export function killBody(B){
   if(B&&B._hcon)hingeConstraintDrop(B);
   /* 删体 ⇒ 世界里任何引用它的约束都要摘掉。放在删除源头而非 hingeSolve / springSyncEnds：
    宿主被删后 hingeSolve 第一行就返回，springSyncEnds 也可能跑不到，约束会残留并隐形地钉住另一个体。 */
-  if(B&&B.mb&&MW&&typeof Matter!=='undefined'&&Matter.Composite&&Matter.Composite.allConstraints){
+  if(B&&B.mb&&MW){
     var _cs=Matter.Composite.allConstraints(MW.engine.world);
     for(var _ci=0;_ci<_cs.length;_ci++){
       var _c=_cs[_ci];
@@ -82,7 +79,7 @@ export function killBody(B){
   /* 删掉支撑体后唤醒世界里所有睡眠的非静止体，否则它们会挂在空中
    （实测删平台后方块停在 y=561 且 isSleeping=true，唤醒后落到地面 y=693）。
    只在删体时做一次，不影响每帧开销。 */
-  if(MW&&typeof Matter!=='undefined'&&Matter.Composite&&Matter.Composite.allBodies&&Matter.Sleeping){
+  if(MW){
     var _bs=Matter.Composite.allBodies(MW.engine.world);
     for(var _bi=0;_bi<_bs.length;_bi++){
       var _b=_bs[_bi];

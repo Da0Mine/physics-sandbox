@@ -1,7 +1,8 @@
 /* 右上角符号面板：停靠、排序、槽位布局 */
 import { app } from '../state.js';
 import { killLetter } from '../bodies/body.js';
-import { DD, freeL, panel } from '../core/dom.js';
+import { DD, panel } from '../core/dom.js';
+import { freeL } from '../core/world.js';
 import { placeLetter } from './layout.js';
 
 /* 面板第 1 行第 4 格留给把手（否则展开后挡住字符 a），第 4 个字符换到第 2 行开头，后续顺延。

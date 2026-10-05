@@ -3,13 +3,14 @@ import Matter from 'matter-js';
 import { BODY, spawnField } from '../bodies/body.js';
 import { mkBoundary } from '../bodies/boundary.js';
 import { makeRod } from '../bodies/rod.js';
-import { GROUND_SPAWN_LEN, GROUND_TH } from '../devices/ground.js';
+import { GROUND_TH } from '../devices/ground.js';
 import { makeHinge } from '../devices/hinge.js';
 import { makeRope } from '../devices/rope.js';
 import { makeSpring, refreshSpringGeom, springAssemblyOf, springSyncEnds, springSyncGroups } from '../devices/spring.js';
 import { GD } from '../letters/glyph.js';
 import { refresh, slot } from '../letters/layout.js';
 import { sortPanel } from '../letters/panel.js';
+import { GROUND_SPAWN_LEN } from './defs.js';
 import { applyWMul } from '../physics/material.js';
 import { MW } from '../physics/matter.js';
 import { ringGo } from '../ui/menu.js';
@@ -149,7 +150,6 @@ export function copyBody(src){
   var B=BODY(src.x+40+Math.random()*60-30,src.y+30+Math.random()*40-20);
   B.massG=massN;
   massN.body=B;
-  var old=B.glyphs;
   B.glyphs=[];B.mem=[];
   var mm=[];
   for(var i=0;i<src.mem.length;i++){

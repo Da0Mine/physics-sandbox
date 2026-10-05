@@ -1,6 +1,6 @@
 /* 完全弹性接触守卫与圆的滚动摩擦 */
 import Matter from 'matter-js';
-import { EL_Z, bodies } from '../core/dom.js';
+import { bodies } from '../core/world.js';
 import { grab } from '../input/pointer.js';
 import { GRAV } from '../params/defs.js';
 import { wEffE, wEffMu, wMuIdeal } from './material.js';
@@ -37,6 +37,9 @@ export function substepGravityDelta(){
   var dt=1000/240;                    // 与 stepMatter 的子步完全一致
   return MW.engine.gravity.y*MW.engine.gravity.scale*dt*dt;
 }
+// μ=0 极值体名单（与 EL 并列，perfectElasticMB 每帧一起重算）。μ=0 对的 pair.restitution 虽被 refreshAllPairs⑥ 置 1，
+// 求解器仍复现不了 e=1，曲面 41 段接缝实测 ΔE≈130~150/半周期；用同一台补偿机器修，门控多一条「双方均非地面/墙」（见 elasticContactFix）。
+export const EL_Z=[];
 export function perfectElasticMB(){
   var out=[];
   EL_Z.length=0;
@@ -84,7 +87,6 @@ export const REST_FIX_VMIN=8;        // px/s：低于此按静置处理（球贴
 export const REST_FIX_COS=0.5;       // |Un|/|vRel| 下限：正面撞击才算
 export function circleRestitutionFix(ev){
   if(!MW||!MW.engine||PHYS_MODE==='high')return;
-  if(typeof window!=='undefined'&&window.__L&&window.__L.restFix===false)return;  // 探针 A/B 开关
   var list=(ev&&ev.pairs)||(MW.engine.pairs&&MW.engine.pairs.collisionStart);
   if(!list||!list.length)return;
   for(var pi=0;pi<list.length;pi++){
@@ -180,7 +182,7 @@ export function circleRollStep(list,dt){
       continue;
     }
     // 主接触 = 法向最「竖直」的那一对（最像地面的支撑）—— 地面+墙同时接触时取地面。
-    var best=-1,ptx=0,pty=0,pnx=0,pny=0,pca=0,pcb=0,PO=null,PSt=false;
+    var best=-1,ptx=0,pty=0,pca=0,pcb=0,PO=null,PSt=false;
     for(k=0;k<pln;k++){
       var p2=pl[k];
       if(!p2.isActive||p2.isSensor||!p2.collision)continue;
@@ -194,7 +196,7 @@ export function circleRollStep(list,dt){
       var nx2=rx/rl,ny2=ry/rl;
       if(Math.abs(ny2)<=best)continue;
       PO=(a2===mb)?b2:a2;PSt=!!(PO.isStatic||PO.isSleeping);
-      best=Math.abs(ny2);pnx=nx2;pny=ny2;ptx=-ny2;pty=nx2;  // t = n 逆时针 90°
+      best=Math.abs(ny2);ptx=-ny2;pty=nx2;  // t = n 逆时针 90°
       pca=rx*pty-ry*ptx;                            // (r_A × t)_z（圆 ⇒ = R）
       pcb=(P.x-PO.position.x)*pty-(P.y-PO.position.y)*ptx;
     }
@@ -334,7 +336,6 @@ export function elasticContactFix(pre,EL){
         var qx=bd.position.x-bd.positionPrev.x,qy=bd.position.y-bd.positionPrev.y;
         var s1sq=qx*qx+qy*qy;
         if(s1sq<1e-18)continue;
-        var s0=Math.sqrt(s0sq),s1=Math.sqrt(s1sq);
         var KE0b=0.5*bd.mass*s0sq;
         var KE1b=0.5*bd.mass*s1sq;
         var dKE=KE0b-KE1b;

@@ -1,5 +1,6 @@
 /* 左上角工具栏、提示条、全屏 */
-import { DD, cv, dSub, freeL, tRow, tSub, tToggle } from '../core/dom.js';
+import { DD, cv, dSub, tRow, tSub, tToggle } from '../core/dom.js';
+import { freeL } from '../core/world.js';
 import { burstParticles, shake } from '../effects/particles.js';
 import { openFormulaMenu } from '../formula/presets.js';
 import { pointer } from '../input/pointer.js';
@@ -54,8 +55,7 @@ export function flashHint(msg){
 /* 在 (x,y) 处冒一行红字代码，上浮 + 横扫 + 淡出，1.9s 后自毁。
  *  · 不用 flashHint：那是屏幕底部居中的固定条（同一时刻只有一条），语义是提示当前模式；这里要表达落点上的错误。
  *  · 元素挂在 <body> 下：canvas 画不出 DOM 文字；面板有 transform，会成为 fixed 后代的包含块（见 #qpop）。
- *  · CSS 里 pointer-events:none，不吃掉随后的手势。
- *  · 返回计数给守卫读（window.__errTipN），实现里没有测试专用分支。 */
+ *  · CSS 里 pointer-events:none，不吃掉随后的手势。 */
 export function errTip(x,y,msg){
   var el=DD.createElement('div');
   el.className='errtip';

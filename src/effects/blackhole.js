@@ -2,11 +2,12 @@
 import Matter from 'matter-js';
 import { app } from '../state.js';
 import { killBody, killLetter } from '../bodies/body.js';
-import { DD, bodies, formulas, freeL, panel, particles, trash } from '../core/dom.js';
+import { DD, panel, trash } from '../core/dom.js';
 import { clamp } from '../core/math.js';
+import { bodies, freeL } from '../core/world.js';
 import { blastAt } from './explosion.js';
-import { burstParticles, shake, spawnExplosion } from './particles.js';
-import { killFormula } from './text.js';
+import { burstParticles, particles, shake, spawnExplosion } from './particles.js';
+import { formulas, killFormula } from './text.js';
 import { grab, trashDrag } from '../input/pointer.js';
 import { GD } from '../letters/glyph.js';
 import { place } from '../letters/layout.js';
@@ -295,8 +296,6 @@ export function maybeStartFinale(){
     if(Bx.bh&&Bx.bh.stage===1){if(!hole)hole=Bx;holes.push(Bx);}
   }
   if(!hole)return;
-  var otherBodies=0;
-  for(i=0;i<bodies.length;i++){var By=bodies[i];if(!(By.bh&&By.bh.stage===1))otherBodies++;}
   /* 不做两黑洞合并：出生处已门控同时只能有一个黑洞；万一出现两个也各自独立存在。 */
   if(holes.length>=2)return;
   var docked=false;
@@ -359,7 +358,6 @@ export function stepFinale(dt){
   if(F.ph==='pull'){
     // the hole drags the bin across the screen toward itself (accelerating)
     var e=Math.min(1,F.t/F.pullD);e=e*e;
-    var bc=trashCenter();
     var sx=F.bl+F.bw/2,sy=F.bt+F.bhh/2;
     var cx=sx+(F.hx-sx)*e,cy=sy+(F.hy-sy)*e;
     trashTo(cx-F.bw/2,cy-F.bhh/2);
@@ -417,7 +415,6 @@ export function stepFinale(dt){
     }
     // the bin flies home while the letters do
     var e4=Math.min(1,F.t/1.1);
-    var sc=trashCenter();
     var hx0=F.hx,hy0=F.hy;
     var hcx=F.bl+F.bw/2,hcy=F.bt+F.bhh/2;
     var cx2=hx0+(hcx-hx0)*e4,cy2=hy0+(hcy-hy0)*e4;

@@ -306,8 +306,8 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .fmnote{font-size:12px;font-style:normal;font-family:Georgia,'Times New Roman',serif;color:#8A7F6B;letter-spacing:.2px}
 /* ---- proper written (LaTeX-style) maths, not "computer" inline notation --------------
    The menu must SHOW a formula the way it is written on paper: a numerator stacked over a
-   denominator with a rule between, superscripts raised — never "a/b". Hand-rolled so the
-   file stays a single offline document (no KaTeX/CDN dependency). */
+   denominator with a rule between, superscripts raised — never "a/b". Hand-rolled: no KaTeX/CDN
+   dependency, so the page works offline. */
 .mth{font-family:Georgia,'Times New Roman',serif;font-style:italic;line-height:1;white-space:nowrap}
 .mth i{font-style:italic}
 .mth sup{font-size:.6em;font-style:italic;vertical-align:super;line-height:0;position:relative;top:-.12em}

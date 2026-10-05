@@ -1,12 +1,12 @@
 /* 公式体的排版（分式、括号、引力式等） */
-import { DD, bodies, panel } from '../core/dom.js';
+import { DD, panel } from '../core/dom.js';
 import { clamp } from '../core/math.js';
+import { bodies } from '../core/world.js';
 import { refreshSpringGeom } from '../devices/spring.js';
-import { isMass, killG, stGD } from './glyph.js';
-import { BOX_PAD, F, HALF, MU } from './merge.js';
+import { BAR, CLOSE, F, HALF, MU, OPEN, PLUS, SQ, isMass, killG, stGD } from './glyph.js';
+import { BOX_PAD } from './merge.js';
 import { ringGo } from '../ui/menu.js';
 
-export const OPEN='(', CLOSE=')', PLUS='+', SQ='²', BAR='-';
 export function layoutField(B){
   if(B.kind==='S'){
     // 弹簧：没有字母、不排公式，几何完全由两端点决定（refreshSpringGeom 负责）
@@ -84,7 +84,6 @@ export function gravModeOf(B){
 export function wLet(x){if(x==='g')return 0;if(x==='a')return 1;if(x==='v')return 2;return 3;}
 export function ensureSt(B){
   var p1=(B.family===1&&B.mem.length>=2&&B.cCount<2&&!(B.hasGrav||B.hasR));
-  var p2=(B.family===2&&B.vCount>=2);
   var pFrac=(B.family===2&&(B.hasR||B.hasHalf)&&B.vCount>=2)||(B.hasGrav&&B.hasR);
   var keeps=[];
   function live(k,ch,sc){
@@ -208,11 +207,11 @@ export function layoutFrac(B, vG, rG){
   // 分子随后被 numShift=-dGap-nBot 搬走、底已落到 -dGap；用旧 nBot 会把分母推到线下约 24px，
   // 而分子离线只有 7px。正确写法是 dShift = barGap - dTop。
   var denTop=dGap;
-  var dTop,dBot,subBarY=null;
+  var dBot,subBarY=null;
   if(rows.length===1){
     var r0=rows[0];var sh=denTop-r0.top;
     r0.parts.forEach(function(p){p.g.sy=sh+p.dy;});
-    dTop=r0.top+sh;dBot=r0.bot+sh;
+    dBot=r0.bot+sh;
   }else{
     var A=rows[0],Bb=rows[1];
     var ah=A.bot-A.top;
@@ -221,7 +220,7 @@ export function layoutFrac(B, vG, rG){
     A.parts.forEach(function(p){p.g.sy=shA+p.dy;});
     var shB=subBarY+subGap/2-Bb.top;
     Bb.parts.forEach(function(p){p.g.sy=shB+p.dy;});
-    dTop=A.top+shA;dBot=Bb.bot+shB;
+    dBot=Bb.bot+shB;
   }
   var numShift=-dGap-nBot;
   numR.parts.forEach(function(p){p.g.sx=p.cx-numR.w/2;p.g.sy=numShift+p.dy;});

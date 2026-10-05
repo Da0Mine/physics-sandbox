@@ -62,7 +62,6 @@ export const HINGE_UF_MAXDTH=0.35;    // 牛顿单步限幅（rad）
 export const HINGE_UF_IT=14;          // 牛顿迭代上限（欠转 ⇒ 需要多几步；实测 5~6 步收敛）
 export function hingePairCollision(a,b){
   if(!a||!b)return null;
-  if(typeof Matter==='undefined'||!Matter.Collision||!Matter.Collision.collides)return null;
   try{var c=Matter.Collision.collides(a,b);return (c&&c.collided&&c.depth>0)?c:null;}catch(e){return null;}
 }
 export function hingePairDepth(a,b){var c=hingePairCollision(a,b);return c?c.depth:0;}

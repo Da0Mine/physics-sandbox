@@ -1,9 +1,8 @@
 /* 公式示例菜单与 LaTeX 子集排版（mthHTML） */
 import { BODY } from '../bodies/body.js';
 import { DD, fmask, fmclose, fmenu, fmgrid } from '../core/dom.js';
-import { GD } from '../letters/glyph.js';
+import { GD, HALF, MU } from '../letters/glyph.js';
 import { refresh } from '../letters/layout.js';
-import { HALF, MU } from '../letters/merge.js';
 import { H, W } from '../render/render.js';
 import { ringGo } from '../ui/menu.js';
 import { setToolsOpen } from '../ui/toolbar.js';
@@ -18,7 +17,7 @@ import { setToolsOpen } from '../ui/toolbar.js';
 // notation and it is exactly what the menu must never show.
 export let WHOLE_PRESETS;
 /* ---- written maths (a LaTeX subset -> HTML) -------------------------------------------
-   Hand-rolled so the page stays ONE offline file (no KaTeX, no CDN, no network):
+   Hand-rolled so the page works offline (no KaTeX, no CDN, no network):
      \frac{mv^{2}}{r} -> mv² stacked over r with a rule between them
      mv^{2}           -> mv with a raised superscript 2
      \mu              -> μ

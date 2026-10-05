@@ -1,8 +1,8 @@
 /* 轻绳（verlet 链） */
 import Matter from 'matter-js';
 import { BODY } from '../bodies/body.js';
-import { _ropeHitBuf, bodies } from '../core/dom.js';
 import { clamp } from '../core/math.js';
+import { bodies } from '../core/world.js';
 import { hostClosestPoint } from './anchor.js';
 import { conProj, conPull } from './constraint.js';
 import { ROPE_TAUT_EPS, refreshSpringGeom, springAnchoredWorld, springEnd, springSetEnd, springSyncEnds } from './spring.js';
@@ -87,6 +87,7 @@ export function initRopeNodes(B){
   }
   B.nodes=ns;
 }
+export const _ropeHitBuf=[];
 export function ropeCollidables(B){           // 可碰撞实体：一切有 Matter 体的非 S 族（W/杆镜像/带子/字母刚体）
   /* 排除绳自己的锚宿主：绳端钉在宿主表面，端旁节点落进宿主内部属正常几何；
    * 若推出，会与钉死端的段约束打架 ⇒ 端部锯齿跳动。 */
@@ -108,7 +109,7 @@ export function ropeVerletStep(B,dt){
    * 直接铺点并清速度、跳过积分 —— 出生即直、绷直期间零晃动。 */
   var dxe=B.e1.x-B.e0.x,dye=B.e1.y-B.e0.y,de=Math.hypot(dxe,dye)||1e-6;
   if(de>=(B.len||0)-ROPE_TAUT_EPS){
-    var uxe=dxe/de,uye=dye/de,nn=ns.length+1;
+    var nn=ns.length+1;
     for(var i0=0;i0<ns.length;i0++){var tt=(i0+1)/nn,nd0=ns[i0];
       nd0.x=B.e0.x+dxe*tt;nd0.y=B.e0.y+dye*tt;nd0.px=nd0.x;nd0.py=nd0.y;}
     /* 绷直 ≠ 免碰撞：铺完直线后仍要做一次推出，否则障碍压在绳线上时节点全在物体内、

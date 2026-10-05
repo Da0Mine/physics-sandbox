@@ -1,6 +1,7 @@
 /* 设置面板与问号气泡 */
 import Matter from 'matter-js';
-import { DD, bodies, sclose, smask, smenu } from '../core/dom.js';
+import { DD, sclose, smask, smenu } from '../core/dom.js';
+import { bodies } from '../core/world.js';
 import { refreshSpringGeom, springAnchorOffset } from '../devices/spring.js';
 import { applyWBounc, applyWFrict } from '../physics/material.js';
 import { UI_MODE, setUIMode, touchClearSel, uiTouch } from './touch.js';

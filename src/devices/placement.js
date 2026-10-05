@@ -1,16 +1,16 @@
 /* 器件表、放置、从面板拖出、吸附提示与边中点磁吸 */
 import Matter from 'matter-js';
-import { BELT_SPAWN_LEN, BELT_TH, drawBeltBody, makeBelt } from '../bodies/belt.js';
+import { BELT_TH, drawBeltBody, makeBelt } from '../bodies/belt.js';
 import { drawRodPlank, makeRod, rodDragPinHosts, rodEndWorld, rodTryAnchor, setRodLen } from '../bodies/rod.js';
-import { DD, bodies, dSub } from '../core/dom.js';
+import { DD, dSub } from '../core/dom.js';
+import { bodies } from '../core/world.js';
 import { SPR_MID_ZONE, distToHost, hostCornerSnapPoint, hostMidSnapPoint } from './anchor.js';
-import { GROUND_SPAWN_LEN, makeGround } from './ground.js';
+import { makeGround } from './ground.js';
 import { drawHinge, makeHinge } from './hinge.js';
 import { drawRope, makeRope } from './rope.js';
 import { SPR_PAD, drawSpring, makeSpring, springMoveRig } from './spring.js';
 import { grab } from '../input/pointer.js';
-import { CONV_DEF } from '../params/defs.js';
-import { ROD_SPAWN_LEN, ROPE_SPAWN_LEN, SPR_SPAWN_LEN } from '../params/panel.js';
+import { BELT_SPAWN_LEN, CONV_DEF, GROUND_SPAWN_LEN, ROD_SPAWN_LEN, ROPE_SPAWN_LEN, SPR_SPAWN_LEN } from '../params/defs.js';
 import { cvx } from '../render/render.js';
 import { ringGo } from '../ui/menu.js';
 import { TOOL, setToolMode, toolTap } from '../ui/toolbar.js';

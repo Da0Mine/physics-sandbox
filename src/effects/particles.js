@@ -1,8 +1,8 @@
 /* 粒子与屏幕震动 */
-import { particles } from '../core/dom.js';
 import { clamp } from '../core/math.js';
 import { cvx } from '../render/render.js';
 
+export const particles=[];
 export let shakeAmp=0, shakeDur=0, shakeT=0, shakeOn=false;
 export function shake(a,d){shakeAmp=Math.max(shakeAmp,a);shakeDur=Math.max(shakeDur,d);shakeT=0;shakeOn=true;}
 export function stepParticles(dt){

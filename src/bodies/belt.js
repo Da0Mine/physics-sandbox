@@ -3,7 +3,7 @@ import Matter from 'matter-js';
 import { BND_HH, mkBoundary } from './boundary.js';
 import { lastDt } from '../core/loop.js';
 import { clamp } from '../core/math.js';
-import { CONV_DEF, paramV } from '../params/defs.js';
+import { BELT_SPAWN_LEN, CONV_DEF, paramV } from '../params/defs.js';
 import { applyWFrict } from '../physics/material.js';
 import { MW, rebuildWBody } from '../physics/matter.js';
 import { cvx } from '../render/render.js';
@@ -158,7 +158,6 @@ export function beltDragMatter(WB,oth){
   oth._snap&&(oth._snap.n=0);                         // 别让 20 帧静置判据本帧就把它睡回去
   if(mb.isSleeping)Matter.Sleeping.set(mb,false);     // 睡着的体不参与积分，注了也白注
 }
-export const BELT_SPAWN_LEN=260;   // 传送带：矩形宽（带子长度暂不可调，只影响出生尺寸）
 /* ================= 器件（DEVICES）：从面板直接拖出 =================
  * 不新造物理：每个器件复用已有的构造函数（弹簧 = makeSpring，与「把 k 和 x 拖到一起」拼出来的
  * 逐字段相同：同一默认 ks/阻尼/长度钳制，高中模式下同样拿到 auto 导轨）。器件表里每一项只需回答

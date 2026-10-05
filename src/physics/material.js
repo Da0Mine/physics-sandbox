@@ -1,6 +1,6 @@
 /* 摩擦 / 弹性 / 空气阻力等材质参数映射到 Matter */
 import Matter from 'matter-js';
-import { bodies } from '../core/dom.js';
+import { bodies } from '../core/world.js';
 import { GRAV, WAIR_GLOBAL } from '../params/defs.js';
 import { BALL_REST, MW, refreshWPairs } from './matter.js';
 import { PHYS_MODE } from '../ui/settings.js';
@@ -68,7 +68,7 @@ export function wfSelfFriction(dt){
     /* Matter 0.19 的 Body.setVelocity 入参是 _baseDelta(16.667ms) 单位，内部乘 deltaTime/_baseDelta
      * （子步 4.1667ms ⇒ 0.25）再存，而 body.velocity 读出的是 px/子步，两者差这个因子。
      * 不补的话实测减速度只有 μ·g 的 1/4。用 Matter 自己的换算因子，别写死 4。 */
-    var _bd=(typeof Matter!=='undefined'&&Matter.Body&&Matter.Body._baseDelta)||16.6667;
+    var _bd=Matter.Body._baseDelta||16.6667;
     var _ts=(B.mb.deltaTime||_bd)/_bd;
     if(!(Math.abs(_ts)>1e-6))_ts=1;
     var kIn=kk/_ts;

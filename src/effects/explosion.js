@@ -2,10 +2,11 @@
 import Matter from 'matter-js';
 import { killBody, killLetter } from '../bodies/body.js';
 import { bndPts, mkBoundary } from '../bodies/boundary.js';
-import { bodies, formulas, freeL } from '../core/dom.js';
 import { clamp } from '../core/math.js';
+import { bodies, freeL } from '../core/world.js';
 import { annihBody } from './blackhole.js';
 import { burstParticles, shake, spawnExplosion } from './particles.js';
+import { formulas } from './text.js';
 import { grab } from '../input/pointer.js';
 import { removeMatterBody } from '../physics/matter.js';
 

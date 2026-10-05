@@ -2,13 +2,10 @@
 import Matter from 'matter-js';
 import { BND_HH, mkBoundary } from '../bodies/boundary.js';
 import { clamp, shortAng } from '../core/math.js';
+import { GROUND_SPAWN_LEN } from '../params/defs.js';
 import { MW, rebuildWBody } from '../physics/matter.js';
 import { cvx } from '../render/render.js';
 
-/* 必须声明在 PARAM_DEFS 之前（同 CONV_DEF）：gndlen 的 def 在对象字面量求值时取值，
- * 声明在后则为 undefined ⇒ 点「默认」时 applyParam 把它当 0 ⇒ 被 clamp 到量程下限 60px 而非 260px。
- * 全文件只此一处声明。 */
-export const GROUND_SPAWN_LEN=260;
 /* ================= 器件「地面 / 墙面」 =================
  * 一个器件：一块可任意摆角的静态板，转 90° 自然读作墙面。可拖动、悬浮旋转（45° 吸附），
  * 拖两端改长度，参数里可调长度和角度。
