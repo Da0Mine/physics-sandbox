@@ -13,17 +13,13 @@ function openMenu(x,y,B,d){
   if(fb)fb.classList.toggle('hide',!(B.kind==='W'));
   var fx=menu.querySelector('[data-act="fix"] .fix-lab');
   if(fx)fx.textContent=(B.fixed)?'取消固定':'固定';
-  // R64：「固定方向」只对弹簧显示 —— 锁定那一刻的弹簧朝向成为导轨，之后只能沿它伸缩
-  // ★R104-3（用户：「绳子不需要有固定方向的选项」）：把这个门收成 **kind==='S' 且不是绳/铰链**。
-  //   'S' 一族现在有三个成员：弹簧（有朝向、可锁导轨）、轻绳（没有「方向」可言，几何完全由两个
-  //   锚点决定）、光滑铰链（长度恒 0，连方向都没有）。旧判据只看 kind ⇒ 后两者也弹出这一行，
-  //   而 dirLock 对它们做的事是**冻结宿主自转 + 用弹簧力把锚点拽回导轨** —— 对一条只传张力的绳
-  //   或一个销钉来说是纯破坏（铰链会被拽成一根有向的杆）。所以直接在**显示层**收口，
-  //   并在下面 menu click 的分派里加同一条守卫（双通道，漏一处就会出现「点得到但没反应」）。
+  // 「固定方向」只对弹簧显示（kind==='S' 且不是绳/铰链）：锁定那一刻的弹簧朝向成为导轨，之后只能沿它伸缩。
+  // 绳的几何完全由两锚点决定、铰链长度恒 0，都没有「方向」；dirLock 会冻结宿主自转并把锚点拽回导轨，
+  // 对它们是纯破坏（铰链会被拽成有向的杆）。下面 menu click 分派里有同一条守卫，两处须同步，
+  // 漏一处就会出现「点得到但没反应」。
   var db=menu.querySelector('[data-act="dirlock"]');
   if(db)db.classList.toggle('hide',B.kind!=='S'||!!B.rope||!!B.hinge);
-  /* ★R131-33（用户：「右键铰链显示固定角度按钮，点击后铰链固定角度」）：杆（铰链）显示
-   *  「固定角度」——锁定后**物体随杆一起转**（连接点仍不动，相对姿态锁死）。 */
+  /* 杆（铰链）显示「固定角度」：锁定后物体随杆一起转（连接点不动，相对姿态锁死）。 */
   var rb=menu.querySelector('[data-act="rodlock"]');
   if(rb){
     var rk=(B.kind==='T'&&B.anc&&(B.anc[0]||B.anc[1]));
@@ -33,25 +29,15 @@ function openMenu(x,y,B,d){
   }
   var dl=menu.querySelector('[data-act="dirlock"] .dl-lab');
   if(dl)dl.textContent=(B.dirLock)?'取消固定方向':'固定方向';
-  // R65（用户：「右键的那些按钮有时太靠近下面会导致被屏幕截断点不到」）：固定偏移的 clamp
-  // 在菜单条目变多后会失守（H-90 是按 3 条目估的）。先显示、再量**实际**渲染尺寸、按视口收 ——
-  // 菜单永远整条落在窗口内。
+  // 先显示、再量实际渲染尺寸、按视口收：菜单条目数会变，按固定条目数估的偏移会让菜单被屏幕截断。
   menu.classList.add('on');
   var mr=menu.getBoundingClientRect();
   var ax=clamp(x,0,window.innerWidth-mr.width-6);
   var ay=clamp(y,0,window.innerHeight-mr.height-6);
-  /* ★★R132-9za（用户 2026-10-03：「那些物体，比如方形，圆形啥的都不行，
-   *   **只有右键点击了 q 字符，这个字符就无法赋予了**」）。
-   *   病根：菜单的定位是「左上角放在光标处、向右下展开」⇒ **会盖住刚被右键的那个字符**
-   *   （实测面板最下一排的 q：菜单 [1264,207,130,39] 压在字符格 [1271,185,44,44] 上，
-   *    重叠 968px²、`elementFromPoint(字符中心)` 返回的是 `menu`；而 m/v/E 只是边缘重叠、
-   *    字符中心仍可点 ⇒ 只有最下面一排的字符合格）。
-   *   后果：用户接着想「抓住这个 q 拖到物体上」的那一下 `pointerdown` **被菜单吃掉**
-   *   ⇒ 拖拽根本没开始（`grab` 始终是 null）⇒ 后面当然「赋不上」，
-   *   而且**与目标物体是什么（方块/圆/任何）完全无关** —— 这正是「方形圆形都不行」的原因。
-   *   修：菜单**避开**被右键的元素。候选顺序 = 元素下方 → 上方 → 右侧 → 左侧，
-   *   取第一个「整条在视口内且与元素矩形不相交」的；都不行才退回原位（宁可挡也别丢菜单）。
-   *   ★对**画布上的物体**右键不避让（`d` 为空 ⇒ `el` 为空 ⇒ 行为逐字节不变）。 */
+  /* 菜单避开被右键的元素：若左上角放在光标处向右下展开，会盖住刚右键的字符（面板最下一排尤甚，
+   * elementFromPoint(字符中心) 返回 menu），用户接着拖这个字符的 pointerdown 被菜单吃掉，grab 始终为 null。
+   * 候选顺序 = 元素下方 → 上方 → 右侧 → 左侧，取第一个整条在视口内且与元素矩形不相交的；
+   * 都不行才退回原位（宁可挡也别丢菜单）。对画布上的物体右键（d 为空 ⇒ el 为空）不避让。 */
   var _el=(d&&d.el&&d.el.getBoundingClientRect)?d.el:null;
   if(_el){
     var ar=_el.getBoundingClientRect();
@@ -82,16 +68,11 @@ menu.addEventListener('click',function(e){
   var act=it.getAttribute('data-act');
   if(act==='param'&&menuBody){openParams(menuBody,menuLetter);}
   else if(act==='copy'&&menuBody){
-    /* ★★R131-49（用户：「对 a 复制，怎么复制出来的是 m？还有复制完之后面板里的 a 又退回
-     *  原位、画布上的 a 拖不动」）：真因——右键 a 时 `menuBody` 是**临时参数宿主体**（为
-     *  打开参数面板而造），它**没有字形信息**（y 的赋予型字符不进 glyphs/mem）⇒ copyBody
-     *  复制宿主体时字形回退到**字符表第一个 'm'**。
-     *  修：**右键的是字符（menuLetter 非空）⇒ 复制那个字符本身**（在它旁边生成同字符的
-     *  自由字符），完全不碰临时宿主；同时保持原字符的状态（不回面板、仍可拖动）。 */
-    /* ★★R131-55（用户：「组合体的复制失效了，只复制里面的一个元素」）：上一版无条件
-     *  按"复制字符本身"处理 ⇒ **把组合体的整体复制也吃掉了**。
-     *  修：**只有"独立的赋予型字符"（v/a/q/t 且不构成表达式）才复制字符**；
-     *  其余（真正的组合体/物体）走原来的 copyBody（整体复制）。 */
+    /* 右键的是字符（menuLetter 非空）时复制字符本身：此时 menuBody 是为打开参数面板临时造的宿主体，
+     * 没有字形信息（赋予型字符不进 glyphs/mem），copyBody 会把字形回退成字符表第一个 'm'。
+     * 在旁边生成同字符的自由字符，不碰临时宿主，原字符状态不变（不回面板、仍可拖动）。 */
+    /* 只有独立的赋予型字符（v/a/q/t 且不构成表达式）才复制字符本身；
+     * 其余（组合体/物体）走 copyBody 整体复制，否则组合体只会复制出其中一个元素。 */
     var _ml=menuLetter;
     var _isLoneGiveChar=!!(_ml&&_ml.ch&&!_ml.dead&&
         (_ml.ch==='v'||_ml.ch==='a'||_ml.ch==='q'||_ml.ch==='t')&&
@@ -106,7 +87,7 @@ menu.addEventListener('click',function(e){
       if(typeof _ml.aGive!=='undefined')_nd.aGive=_ml.aGive;
       if(typeof _ml.aAng!=='undefined')_nd.aAng=_ml.aAng;
       if(typeof _ml.qCharge!=='undefined')_nd.qCharge=_ml.qCharge;
-      charDefFill(_nd);   // ★R132-9m：同上 —— 面板上改过的默认值在这里补齐
+      charDefFill(_nd);   // 面板上改过的默认值（CHAR_DEF）在这里补齐
       if(freeL.indexOf(_nd)<0)freeL.push(_nd);
       placeLetter(_nd);
     }else{
@@ -121,7 +102,7 @@ menu.addEventListener('click',function(e){
     }
   }
   else if(act==='rodlock'&&menuBody&&menuBody.kind==='T'){
-    /* ★R131-33：切换铰链的「固定角度」——锁定 ⇒ 宿主随杆一起转（力矩关闭、ω 重建恢复） */
+    /* 切换铰链的「固定角度」：锁定 ⇒ 宿主随杆一起转（力矩关闭、ω 重建恢复） */
     menuBody._rodAngleLock=!menuBody._rodAngleLock;
     var rl2=menu.querySelector('[data-act="rodlock"] .rl-lab');
     if(rl2)rl2.textContent=menuBody._rodAngleLock?'解除角度固定':'固定角度';
@@ -135,7 +116,7 @@ menu.addEventListener('click',function(e){
     }
   }
   else if(act==='dirlock'&&menuBody&&menuBody.kind==='S'&&!menuBody.rope&&!menuBody.hinge){
-    // R64：锁定 = 把**此刻**的中点与方向冻结成导轨线。解除 = 清掉，几何回到「跟着宿主走」。
+    // 锁定 = 把此刻的中点与方向冻结成导轨线；解除 = 清掉，几何回到「跟着宿主走」。
     if(menuBody.dirLock){
       menuBody.dirLock=null;
     }else{
@@ -148,23 +129,20 @@ menu.addEventListener('click',function(e){
   }
   closeMenu();
 });
-/* ★★R131-54b：**"指针真的按着"标志**（只读用途）——修复「物体装了独立铰链就凭空匀速漂移」：
- *  残留的 grab（上一次手势没正常收尾）会让**拖拽中的磁吸**每帧执行 ⇒ 铰链连同锚定物体
- *  被持续平移（REC 实测：x 544→639 匀速、21~42px/s）。磁吸加这个门控即可根治，
- *  且**不动 grab 本体**（上一版在 pointerdown 清 grab 破坏了触摸拖动，已回退）。 */
+/* 「指针真的按着」标志（只读）：残留的 grab（上次手势没正常收尾）会让拖拽中的磁吸每帧执行，
+ * 把铰链连同锚定物体持续匀速平移。磁吸以此门控即可。
+ * 不要在 pointerdown 里清 grab 来解决：会破坏触摸拖动。 */
 window.__ptrDown=false;
 DD.addEventListener('pointerdown',function(e){window.__ptrDown=true;},true);
 DD.addEventListener('pointerup',function(e){window.__ptrDown=false;},true);
-/* ★★R132-9：`pointercancel` 也要**收尾半截手势**，不能只把 __ptrDown 抹掉。
-   为什么必须补（`_tmp_r314` 实测）：浏览器掐断指针流时（touch-action 判成滚动手势、
-   或系统抢走触摸）pointerup **永远不会来** —— 于是 `TOOL.drag` / `TOOL.stroke` /
-   `trashDrag.active` / `grab` 全部停在「手势进行中」，下一个手势直接落在残骸上
-   （画形状时表现为「拉了个框却不落体，之后整个工具都是坏的」）。
-   注意：`touch-action:none` 已让画布/垃圾桶不该再被掐断，这里是**兜底**，不是主修。 */
+/* pointercancel 也要收尾半截手势，不能只清 __ptrDown：浏览器掐断指针流时（touch-action 判成滚动、
+ * 系统抢走触摸）pointerup 永远不会来，TOOL.drag / TOOL.stroke / trashDrag.active / grab 全停在
+ * 「进行中」，下一个手势落在残骸上（画形状时表现为拉了框不落体、之后工具全坏）。
+ * touch-action:none 已防止画布/垃圾桶被掐断，这里是兜底。 */
 DD.addEventListener('pointercancel',function(e){
   window.__ptrDown=false;
   if(typeof TOOL!=='undefined'&&TOOL){
-    if(TOOL.drag){TOOL.drag=null;}          // 取消的形状框：**丢弃**（松手才落体，取消不落）
+    if(TOOL.drag){TOOL.drag=null;}          // 取消的形状框：丢弃（松手才落体，取消不落）
     if(TOOL.stroke){TOOL.stroke=null;}      // 取消的笔画：同上
     if(TOOL.devDrag){try{endDeviceOut();}catch(_e){}}
   }
@@ -181,12 +159,10 @@ var grab={kind:null,obj:null,gx:0,gy:0,lx:0,ly:0,t:0,svx:0,svy:0,start:0};
 var dblState={t:0,x:0,y:0,body:null};
 var hoverB=null;
 function easeOutBack(k){k-=1;return 1+k*k*((2.2)*k+1+2.2);}
-var TOUCH_LETTER=null;   // ★R131-27c：触屏下面板中被点选的符号（等第二次点画布放置）
-/* ★★R131-59：把「触摸长按 = 右键菜单」的动作体从**画布**的 pointerdown 里抽出来。
- *  原来它只挂在 cv 上 ⇒ 手指**正好压在小字形上**时（`.char` 自己吃掉了 pointerdown，
- *  画布那条入口根本收不到）长按**完全没有反应**（_diag_r153 ② 实测 菜单=False）。
- *  现在画布与字符两条入口共用同一个动作体 + 同一个计时器 TOUCH_LP
- *  （所以 pointermove / pointerup 里的 `clearTimeout(TOUCH_LP)` 对两条入口一样有效）。 */
+var TOUCH_LETTER=null;   // 触屏下面板中被点选的符号（等第二次点画布放置）
+/* 「触摸长按 = 右键菜单」的动作体，画布与字符两条入口共用：手指压在小字形上时 .char 自己吃掉
+ * pointerdown，只挂在 cv 上的话长按无反应。两条入口共用计时器 TOUCH_LP，
+ * 因此 pointermove / pointerup 里的 clearTimeout(TOUCH_LP) 对两者都有效。 */
 function touchLongPressStart(cand){
   if(typeof TOUCH_LP!=='undefined'&&TOUCH_LP)clearTimeout(TOUCH_LP);
   TOUCH_LP=setTimeout(function(){touchLongPressFire(cand);},450);
@@ -195,13 +171,10 @@ function touchLongPressFire(cand){
   TOUCH_LP=null;
   window.__lpFired=(window.__lpFired||0)+1;   // 调试标记：长按回调是否触发
   if(grab&&grab.kind){grab.kind=null;grab.obj=null;}
-  /* 触摸端没有 hover ⇒ hoverB 恒空，必须**按按下坐标主动扫墨线命中**
-   * （_diag_r131u 实测：hoverB=None 导致长按菜单从未弹出）。 */
-  /* ★R131-51：长按**自由字符**也要弹菜单（原来只扫 bodies ⇒ 长按 a/t 无反应）。 */
-  /* ★★R131-59：**按下就命中的那个字符**直接当候选 —— 不能再靠「按下坐标 ±26px 扫描」：
-   *  自由字符是有速度的（松手会被抛出/自己漂），450ms 长按期间它能飞出扫描半径，
-   *  于是「长按自由字符」在字符刚动过之后**永远不弹菜单**（_diag_r153c 实证：
-   *  lpFired=1 但 _fl=null ⇒ 菜单=False）。 */
+  /* 触摸端没有 hover ⇒ hoverB 恒空，必须按按下坐标主动扫墨线命中，否则长按菜单不会弹出。 */
+  /* 长按自由字符也要弹菜单（不只扫 bodies）。 */
+  /* 按下就命中的那个字符直接当候选，不能只靠「按下坐标 ±26px 扫描」：自由字符有速度，
+   * 450ms 长按期间可能飞出扫描半径，导致字符刚动过时长按永远不弹菜单。 */
   var _fl=null;
   if(cand&&cand.ch&&!cand.dead&&freeL.indexOf(cand)>=0)_fl=cand;
   if(!_fl)for(var _fi=0;_fi<freeL.length;_fi++){
@@ -217,7 +190,7 @@ function touchLongPressFire(cand){
   if(!_mb){
     for(var _mi=0;_mi<bodies.length;_mi++){
       var _B2=bodies[_mi];
-      /* 触摸放宽：手指粗 ⇒ 用「距表面 <15px」，不用严格的墨线命中（实测差 2px 就漏） */
+      /* 触摸放宽：手指粗 ⇒ 用「距表面 <15px」，不用严格的墨线命中（差 2px 就漏） */
       if(_B2&&!_B2.dead&&_B2.kind==='W'&&distToHost(_B2,pointer.x,pointer.y)<15){_mb=_B2;break;}
     }
     if(!_mb){
@@ -230,29 +203,22 @@ function touchLongPressFire(cand){
   if(_mb&&!_mb.dead){openMenu(pointer.x,pointer.y,_mb,null);}
 }
 function gdDown(e,d){
-  /* ★R131-58c（**撤销"每次按下都清 grab"**）：实测它会**打断正在进行的拖动**（连续操作/
-   *  多指/合成事件下尤甚）⇒ 正是"时能拖时不能拖、抓两次才动"。残留清理交给 frame 里
-   *  那条（只在**指针没按着**时才清，绝不会打断真拖动）。 */
-  /* ★★R131-27（用户：「触摸屏上手指按压位置与字符实际位置偏离一段距离、没有跟手」）：
-   *  触摸没有 hover ⇒ pointerdown 时 pointer 仍是**上一次**的坐标；抓点偏移
-   *  gx=pointer.x−cx 因此算成「旧指针到字符中心的距离」，拖动时字符与手指就永远
-   *  保持这段距离（鼠标路径因为 mousemove 持续更新 pointer 所以看不出来）。
-   *  修：按下时**先按本次事件坐标刷新 pointer**，再算抓点偏移。 */
+  /* 不要在每次按下时清 grab：会打断正在进行的拖动（连续操作/多指/合成事件下尤甚），
+   * 表现为时能拖时不能拖、抓两次才动。残留清理由 frame 里那条负责（只在指针没按着时才清）。 */
+  /* 按下时先按本次事件坐标刷新 pointer，再算抓点偏移：触摸没有 hover，pointerdown 时 pointer
+   * 还是上一次的坐标，gx=pointer.x−cx 会变成旧指针到字符中心的距离，拖动时字符与手指始终偏开这段距离。 */
   if(e&&typeof e.clientX==='number'){pointer.x=e.clientX;pointer.y=e.clientY;}
   if(e.button!==0)return;
-  /* ★★R131-59：字符这条入口也要起**长按计时**——手指压在小字形上时画布那条入口收不到
-   *  （见 touchLongPressStart 的注释）。面板(dock)字符除外：那边走 TOUCH_PENDING 的点选/
-   *  拖出分流，长按计时会和它打架。移动/松手会统一取消（两条入口共用 TOUCH_LP）。 */
+  /* 字符这条入口也要起长按计时（画布入口收不到压在小字形上的按下，见 touchLongPressStart）。
+   * 面板(dock)字符除外：那边走 TOUCH_PENDING 的点选/拖出分流，长按计时会和它打架。
+   * 移动/松手统一取消（两条入口共用 TOUCH_LP）。 */
   if(uiTouch()&&e.pointerType==='touch'&&d.state!=='dock')touchLongPressStart(d);
   if(d.state==='dock'){
-    /* ★★R131-27c（用户：「触屏下点符号应该变成面板内选中态（框+背景变色），
-     *  再点一下屏幕位置才放置」）：触屏时点面板符号 ⇒ 记录 TOUCH_LETTER 并在
-     *  面板上高亮（.touch-pick），**不立即拖出**；下一次点画布 ⇒ 放置到该处。 */
+    /* 触屏点面板符号：记录 TOUCH_LETTER 并在面板上高亮（.touch-pick），不立即拖出；下一次点画布 ⇒ 放置到该处。 */
     if(uiTouch()&&e.pointerType==='touch'){
-      /* ★★R131-28b（用户：「要保留两种放置功能」）：触屏点面板符号**不当场决定**——
-       *  记为待定（TOUCH_PENDING），由后续手势分流：
-       *  · 按住**移动超 12px** ⇒ 按原逻辑直接拖出（拖动放置，pointermove 里触发）；
-       *  · 松手时**没怎么动**（tap）⇒ 面板内选中态（.touch-pick 高亮），下一次点画布放置。 */
+      /* 触屏点面板符号不当场决定，记为待定（TOUCH_PENDING），由后续手势分流：
+       * · 按住移动超 12px ⇒ 按原逻辑直接拖出（拖动放置，在 pointermove 里触发）；
+       * · 松手时没怎么动（tap）⇒ 面板内选中态（.touch-pick 高亮），下一次点画布放置。 */
       if(TOUCH_LETTER===d){TOUCH_LETTER=null;if(d.el)d.el.classList.remove('touch-pick');return;}
       window.TOUCH_PENDING={d:d,x:e.clientX,y:e.clientY};
       return;
@@ -277,20 +243,16 @@ function gdDown(e,d){
     t2.body=null;
     t2.wx=cx;t2.wy=cy;
     t2.w=F*0.7;t2.h=F;
-    /* ★★R132 BOSS（接入点⑥）：**面板 v 的光速态必须传给拖出的克隆**。
-     *  用户的操作正是「把 v 给召唤出来」——先在面板里把 v 调成光速，再从面板拖到 ½mv² 上。
-     *  而 dock 拖出走的是 `GD(d.ch)` 造**新字符**，属性不会自动带过来 ⇒ 光速态在拖出那一刻
-     *  就丢了，落下去只会当成普通"赋予速度 v"融进公式（公式就毁了）。
-     *  这里与菜单「复制」分支（copyBody 那段）保持同一份拷贝清单，少一个都会出现
-     *  「同一个 v 走不同入口行为不同」的诡异差异。 */
+    /* 面板 v 的光速态必须传给拖出的克隆：dock 拖出走 GD(d.ch) 造新字符，属性不会自动带过来，
+     * 丢了光速态落到 ½mv² 上只会当普通「赋予速度 v」融进公式（公式就毁了）。
+     * 拷贝清单与菜单「复制」分支（copyBody 那段）保持一致，否则同一个 v 走不同入口行为不同。 */
     if(typeof d.vGive!=='undefined')t2.vGive=d.vGive;
     if(typeof d.vAng!=='undefined')t2.vAng=d.vAng;
     if(typeof d.aGive!=='undefined')t2.aGive=d.aGive;
     if(typeof d.aAng!=='undefined')t2.aAng=d.aAng;
     if(typeof d.qCharge!=='undefined')t2.qCharge=d.qCharge;
     if(d.vLight){t2.vLight=true;t2.vGive=d.vGive;}
-    /* ★R132-9m：dock 模板自身**不带**数值（W1 契约），面板上改过的值记在 `CHAR_DEF` 里
-     *  ⇒ 从面板拖出的克隆用 `CHAR_DEF` 补齐缺省字段（已有值的不覆盖）。 */
+    /* dock 模板自身不带数值，面板上改过的值记在 CHAR_DEF 里 ⇒ 拖出的克隆用 CHAR_DEF 补齐缺省字段（已有值不覆盖）。 */
     charDefFill(t2);
     grab={kind:'letter',obj:t2,gx:pointer.x-cx,gy:pointer.y-cy,lx:pointer.x,ly:pointer.y,t:performance.now(),start:pointer.x};
     DD.body.appendChild(t2.el);
@@ -301,41 +263,38 @@ function gdDown(e,d){
     var B=d.body;
     if(dblState.body!==B){dblState.t=0;dblState.body=B;dblState.g=d;dblState.x=pointer.x;dblState.y=pointer.y;}
     grab={kind:'body',obj:B,gx:pointer.x-B.x,gy:pointer.y-B.y,lx:pointer.x,ly:pointer.y,t:performance.now(),svx:B.vx,svy:B.vy,start:pointer.x,x0:pointer.x,y0:pointer.y};
-    grab.ax0=B.x;grab.ay0=B.y;grab.axis=dragAxisLock(B);   // R94：轴向约束在**按下那一刻**定死
+    grab.ax0=B.x;grab.ay0=B.y;grab.axis=dragAxisLock(B);   // 轴向约束在按下那一刻定死
     DD.body.appendChild(d.el);
     return;
   }
-  /* ★★R131-46（用户：「t 每次要抓两次才能拖动，拖两次只有一次动」）：赋予型字符
-   *  （v/a/q/t）被 promote 过之后**有宿主但不在任何 glyphs 列表里** ⇒ 上面的分支都不命中、
-   *  而这里的自由字符分支要求 state 恰为 free/grab ⇒ 第一次抓为空抓。
-   *  修：**赋予型字符无条件走自由字符抓取**（不管 state，也不管有没有临时宿主）。 */
+  /* 赋予型字符（v/a/q/t）无条件走自由字符抓取（不管 state、有没有临时宿主）：
+   * 它们 promote 后有宿主但不在任何 glyphs 列表里，上面分支都不命中，
+   * 而自由字符分支又要求 state 为 free/grab ⇒ 第一次抓会落空（要抓两次才动）。 */
   if((d.ch==='v'||d.ch==='a'||d.ch==='q'||d.ch==='t')&&d.state!=='dock'){
-    detachFieldGlyph(d);          /* ★R132-9ze：场源体的字形先摘成自由字符（否则拖了没反应） */
-    /* ★R131-58c：**不再强行改状态/摘 mem**（那会破坏正在进行的状态机）——只保证抓取成立。
-     * ★★R131-59：**抓起即清速度** —— 自由字符松手会被抛出（pointerup 用 grab.svx 赋 L.vx），
-     *  不在这里清掉的话，下一次抓起来时它还在按上次的速度飞 ⇒ 拖拽中从指针下"滑走"。 */
+    detachFieldGlyph(d);          /* 场源体的字形先摘成自由字符（否则拖了没反应） */
+    /* 不强行改状态/摘 mem（会破坏正在进行的状态机），只保证抓取成立。
+     * 抓起即清速度：松手时会用 grab.svx 赋 L.vx 抛出，不清的话下次抓起它还带着上次速度，从指针下滑走。 */
     d.vx=0;d.vy=0;
     grab={kind:'letter',obj:d,gx:pointer.x-d.wx,gy:pointer.y-d.wy,lx:pointer.x,ly:pointer.y,t:performance.now(),start:pointer.x};
-    /* ★R131-55g（诊断发现 lastDown=None ⇒ 自愈拿不到锚点）：**这条分支也要记录** */
+    /* 这条分支也要记录本次按下命中的字符 */
     window.__lastDownLetter={d:d,x:pointer.x,y:pointer.y,t:performance.now()};
     return;
   }
-  /* ★★R131-51（触摸/快速连操实测：长按或快速点两次之后字母**抓不动**；间隔 1.2s 再拖就正常
-   *  ⇒ 是「快速连续操作被双击判定吞掉」）：**自由字符的抓取放宽到所有非面板状态**
-   *  （原来是 free/grab 两个状态 —— 双击/上一轮操作的中间态（如 idle）会落空 ⇒ 抓不动）。 */
+  /* 自由字符的抓取放宽到所有非面板状态（不只 free/grab）：双击判定/上一轮操作留下的中间态（如 idle）
+   * 会让快速连续操作后的抓取落空。 */
   if(d.state!=='dock'){
-    detachFieldGlyph(d);          /* ★R132-9ze：同上，任何「像字符但属于场源体」的字形都先摘 */
+    detachFieldGlyph(d);          /* 任何「像字符但属于场源体」的字形都先摘成自由字符 */
     d.state='free';
-    d.vx=0;d.vy=0;      // ★R131-59：抓起即清速度（同上一分支；否则带着上次抛出的速度滑走）
+    d.vx=0;d.vy=0;      // 抓起即清速度（否则带着上次抛出的速度滑走）
     grab={kind:'letter',obj:d,gx:pointer.x-d.wx,gy:pointer.y-d.wy,lx:pointer.x,ly:pointer.y,t:performance.now(),start:pointer.x};
-    /* ★R131-55d：记录"本次按下命中的字符"，供 pointermove 的**自愈式抓取**使用。 */
+    /* 记录本次按下命中的字符（window.__lastDownLetter） */
     window.__lastDownLetter={d:d,x:pointer.x,y:pointer.y,t:performance.now()};
     return;
   }
 }
 handle.addEventListener('pointerdown',function(e){
-  // R56：固定的 W 边界也用这个旋转手柄（悬浮固定的线/图形时出现）
-  /* ★R131-51：含 a 的表达式体（ma 组合）不响应旋转手柄 */
+  // 固定的 W 边界也用这个旋转手柄（悬浮固定的线/图形时出现）
+  /* 含 a 的表达式体（ma 组合）不响应旋转手柄 */
   var _hasA2=!!(hoverB&&((hoverB.glyphs&&hoverB.glyphs.some(function(x){return x&&(x.ch==='a'||x.type==='a');}))
               ||(hoverB.mem&&hoverB.mem.some(function(x){return x&&(x.ch==='a'||x.type==='a');}))
               ||(hoverB.massG&&(hoverB.massG.ch==='a'||hoverB.massG.type==='a'))
@@ -351,9 +310,9 @@ handle.addEventListener('pointerdown',function(e){
   grab={kind:'rot',obj:hoverB,lx:pointer.x,ly:pointer.y,t:performance.now(),
         th0:hoverB.th||0,a0:Math.atan2(pointer.y-s0.y,pointer.x-s0.x)};
 });
-// R56：圆弧端点手柄——按住哪个端点，拖到哪角度就到哪（PPT 黄控制点交互）
-// R57（用户 #2）：按住期间整条弧进入「编辑固定」态（editLock + Matter static），
-// 不会一边改角度一边往下掉；松开（pointerup）才解除，恢复它原本的固定/自由状态。
+// 圆弧端点手柄：按住哪个端点，拖到哪角度就到哪（类似 PPT 黄色控制点）。
+// 按住期间整条弧进入「编辑固定」态（editLock + Matter static），不会边改角度边下落；
+// pointerup 时解除，恢复原本的固定/自由状态。
 ark.forEach(function(kn,i){
   kn.addEventListener('pointerdown',function(e){
     if(!arcHov||arcHov.dead)return;
@@ -364,24 +323,18 @@ ark.forEach(function(kn,i){
     if(arcHov.mb)Matter.Body.setStatic(arcHov.mb,true);
   });
 });
-// R98-3：轻质杆的**两端长度手柄** —— 按住端点 i 拖，改的是杆长（+ 朝向），**另一端钉死不动**。
+// 轻质杆的两端长度手柄：按住端点 i 拖，改杆长（+ 朝向），另一端钉死不动。
 // 与 setRodLen（参数面板：质心不动、两端对称伸缩）语义不同，手柄走 setRodEnds。
-// 远端坐标在**按下那一刻**存进 grab.fx/fy 一次，之后每帧都拿它当固定端 —— 不能每帧从
-// rodEndWorld 现取：setRodEnds 会同时改写中心与角度，现取的远端会随上一帧的结果一起漂
-// （拖 200px 实测远端累计漂走 30+px，正是「想调长短结果整根杆被推走」）。
+// 远端坐标在按下时存进 grab.fx/fy 一次，之后每帧用它当固定端。不要每帧从 rodEndWorld 现取：
+// setRodEnds 同时改写中心与角度，现取的远端会随上一帧结果漂移（拖 200px 远端漂 30+px）。
 rodh.forEach(function(kn,i){
   kn.addEventListener('pointerdown',function(e){
     if(!rodHov||rodHov.dead)return;
-    /* ★★R131-31（用户实测：「杆和圆的中心连接还能在那一侧调节长度」）：端点已锚定 ⇒
-     *  该端的长度手柄**不响应**（锚定端的长度由约束决定，不是用户拖出来的），
-     *  避免干扰双击解除。 */
+    /* 端点已锚定 ⇒ 该端的长度手柄不响应（长度由约束决定），也避免干扰双击解除。 */
     if(typeof rodEndLenDragAllowed==='function'&&!rodEndLenDragAllowed(rodHov,i))return;
-    /* ★★R131-32（用户：「杆固定一端后双击无法解除，第二下又出现拉伸标记」）：若这是
-     *  双击的**第二下**（500ms 内、同一根杆）⇒ 不启动长度拖拽，让事件冒泡给双击
-     *  解除逻辑处理——否则 rodlen 的 grab 会把第二下吃掉（stopPropagation）⇒ 解除失败。 */
+    /* 若这是双击的第二下（500ms 内、同一根杆）⇒ 不启动长度拖拽：rodlen 的 grab 会 stopPropagation 吃掉第二下，双击解除失败。 */
     if(dblState&&dblState.body===rodHov&&dblState.t&&(performance.now()-dblState.t)<520){
-      /* ★★R131-32e（用户：「双击无法解除」）：手柄会吃掉第二下的点击（主画布收不到）
-       *  ⇒ **在这里直接执行解除**（该端锚定则断开），不依赖冒泡。 */
+      /* 手柄会吃掉第二下点击（主画布收不到）⇒ 在这里直接执行解除（该端锚定则断开），不依赖冒泡。 */
       if(typeof springDisconnectAtPoint==='function'&&springDisconnectAtPoint(pointer.x,pointer.y)){
         dblState.t=0;dblState.body=null;
       }
@@ -414,64 +367,49 @@ rszHandle.addEventListener('pointerdown',function(e){
   rszHandle.classList.add('on');
 });
 cv.addEventListener('pointerdown',function(e){
-  // R65：只认左键。此前右键的 pointerdown 也会走 grab/dblState —— 后果是「500ms 内在同一
-  // 位置连按两次右键」被 pointerup 的 S 分支当成**双击解散**（dissolveSpring 把弹簧拆回 k/x，
-  // 而 contextmenu 打开的菜单还开着、menuBody 已死）：想用菜单解除方向锁的用户，快速两次
-  // 右键就会凭空拆掉弹簧。字母的 gdDown 一直有 e.button!==0 守卫，cv 是漏网的那个。
-  // 右键的全部语义归 contextmenu 处理，这里不掺和。
+  // 只认左键，右键语义全部归 contextmenu。否则 500ms 内同位置连按两次右键会被 pointerup 的 S 分支
+  // 当成双击解散（dissolveSpring 把弹簧拆回 k/x，而菜单还开着、menuBody 已死）。
+  // 字母的 gdDown 也有 e.button!==0 守卫。
   if(e.button!==0)return;
   // drawing tools own the canvas while they are armed — never fall through to a grab
   if(TOOL.mode==='brush'){e.preventDefault();startStroke(e);return;}
   if(TOOL.mode==='shape'){e.preventDefault();startShapeDrag(e);return;}
-  // R96：器件模式 —— 每点一次就在指针处放一个（弹簧没有「拖出尺寸」这一步，所以按下即落，
-  // 与形状的「按下开始拖框」不同）。连续模式下不放完就继续武装（由 TOOL.cont 决定）。
+  // 器件模式：每点一次就在指针处放一个（弹簧没有「拖出尺寸」这一步，按下即落，与形状的拖框不同）。
+  // 是否继续武装由 TOOL.cont 决定。
   if(TOOL.mode==='device'){
     e.preventDefault();
     var dspB=placeDevice(TOOL.device,pointer.x,pointer.y);
     if(dspB&&!TOOL.cont)setToolMode(null);
     return;
   }
-  /* ★★R131-59：**按下必须先用本次事件的坐标刷新 pointer，再做命中扫描**。
-   *  原来这行排在 hit 扫描**之后** ⇒ 扫描用的是**上一次移动留下的旧坐标**：
-   *   · 鼠标有 hover（move 一直更新 pointer）⇒ 看不出问题；
-   *   · **触屏按下前不会有任何 pointermove** ⇒ 指针是一段旧坐标（甚至上一次手指抬起的位置）
-   *     ⇒ `hit` 恒空 ⇒ 摸 стояния 到画布上的物体/杆**抓不起来**（用户报的触摸"时能拖时不能拖"）。
-   *  与 gdDown（5490 附近）和触摸分支的做法统一：**先进坐标，再判定**。 */
+  /* 按下必须先用本次事件坐标刷新 pointer，再做命中扫描：触屏按下前没有 pointermove，
+   * pointer 是旧坐标（甚至上次抬指的位置）⇒ hit 恒空、物体/杆抓不起来。鼠标因 hover 持续更新而看不出。
+   * 与 gdDown 和触摸分支的做法一致：先进坐标，再判定。 */
   if(e&&typeof e.clientX==='number'){pointer.x=e.clientX;pointer.y=e.clientY;}
   var hit=null;
   for(var i=0;i<bodies.length;i++){
     var B=bodies[i];
-    // R57：W 体（画出的线/空心图形）只认「线」，不认外接框的空白区。原来用 AABB 判定，
-    // 于是点空心矩形正中间也能把它拖走 —— 和「只有线才是边界」的模型不一致（用户 #4）。
-    // 判定与 refreshHover() 共用 nearInk()，保证「高亮得起来 = 抓得住」完全一致。
+    // W 体（画出的线/空心图形）只认「线」，不认外接框的空白区（点空心矩形中间不能拖走它）。
+    // 判定与 refreshHover() 共用 nearInk()，保证「高亮得起来 = 抓得住」。
     if(B.kind==='W'){if(nearInk(B,pointer.x,pointer.y))hit=B;continue;}
-    // R57 弹簧：整条线圈都是可抓区（线段 + SPR_GRAB 容差），和画笔线一样「只有线上才响应」
+    // 弹簧：整条线圈都是可抓区（线段 + SPR_GRAB 容差），和画笔线一样只有线上才响应
     if(B.kind==='S'){if(segPointDist(B.e0.x,B.e0.y,B.e1.x,B.e1.y,pointer.x,pointer.y)<SPR_GRAB)hit=B;continue;}
     var dx=pointer.x-B.x,dy=pointer.y-B.y;
     var th=B.th||0,c=Math.cos(th),s=Math.sin(th);
     var lx=c*dx+s*dy,ly=-s*dx+c*dy;
     if(Math.abs(lx)<(B.hw||30)+10&&Math.abs(ly)<(B.hh||24)+10)hit=B;
   }
-  /* ★R131-27：同上——画布抓取前先按本次事件坐标刷新 pointer（触摸端跟手）；见上面的统一入口。 */
+  /* 画布抓取前先按本次事件坐标刷新 pointer（触摸端跟手），见上面的统一入口。 */
   if(typeof e.clientX==='number'){pointer.x=e.clientX;pointer.y=e.clientY;}
-  /* ★R131-27 触摸版：按下即启动长按计时（450ms 未移动 ⇒ 当右键弹菜单）
-   *  垃圾桶/面板上的按下不走画布触摸逻辑（垃圾桶有自己的 tap×2 清屏与拖动）。 */
+  /* 触摸：按下即启动长按计时（450ms 未移动 ⇒ 当右键弹菜单）。
+   * 垃圾桶/面板上的按下不走画布触摸逻辑（垃圾桶有自己的 tap×2 清屏与拖动）。 */
   if(e.target&&(e.target.id==='trash'||(e.target.closest&&(e.target.closest('#trash')||e.target.closest('#panel')||e.target.closest('#panelToggle')))))return;
   if(uiTouch()&&e.pointerType==='touch'&&TOUCH_LETTER){
-    /* ★★R132-10n（用户 2026-10-03：「手机版那个点击放置，点一下再点一下，
-     *   但是无论点击哪里，放置的位置都是符号表那里」）：**这里只拦下本次按下，不做放置**。
-     *
-     *   旧版在这里直接调 `gdDown(..., _dl)` 走 dock 拖出分支 —— 但 dock 分支的落点取的是
-     *   **面板格子的中心**（`rp=d.el.getBoundingClientRect(); cx=rp.left+rp.width/2`），
-     *   它压根不看 `pointer`。于是符号被放在「面板里那个字符原本的位置」上；而 `TOUCH_LETTER`
-     *   又在这里被清成 null ⇒ 后面 `pointerup` 里那条**带落点修正**的分支（7481 附近）永远
-     *   不生效 —— 用户看到的就是「点哪儿都放回符号表」。
-     *
-     *   R131-28b 修这条路径时只改了 `pointerup` 那条（注释里也写了「不再复用 gdDown 的 dock
-     *   分支」），却漏了 `cv.pointerdown` 这条**优先级更高**的老入口，两条从此打架。
-     *   ⇒ 放置真源统一到 `pointerup`（DD 层，见 `TOUCH_LETTER&&!TOUCH_LETTER.dead!==false`
-     *     那段：它调完 gdDown 会把 grab.obj 显式 `place` 到 `pointer`）。
-     *   本分支保留 `return` 的原因：放置这一次手指不该再落进画布的 grab/长按逻辑。 */
+    /* 面板符号已点选时，这里只拦下本次按下，不做放置；放置统一在 pointerup（见 TOUCH_LETTER 分支：
+     * 调完 gdDown 把 grab.obj 显式 place 到 pointer）。
+     * 不要在这里调 gdDown(..., _dl)：dock 分支落点取面板格子中心、不看 pointer，且这里会把 TOUCH_LETTER
+     * 清成 null，pointerup 的落点修正永不生效 ⇒ 点哪儿都放回符号表。
+     * 保留 return：放置这一次手指不该再落进画布的 grab/长按逻辑。 */
     return;
   }
   if(uiTouch()&&e.pointerType==='touch'){
@@ -479,31 +417,26 @@ cv.addEventListener('pointerdown',function(e){
   }
   if(hit&&!hit.bh){
     if(dblState.body!==hit){dblState.t=0;dblState.body=hit;dblState.g=hit.massG;}
-    /* ★R131-15f：x/y **每次按下都刷新**——原来只在「换物体」时记，同体连点两次时
-     *  dsS.x/y 停在**很久以前**的那次按下位置 ⇒ mvdS 虚大 ⇒ 双击解散永不触发
-     *  （_verify_r57 57-9 间歇 FAIL：miss1=8.3px、双击判定 mvdS 超限）。 */
+    /* x/y 每次按下都刷新（不只在换物体时）：否则同体连点两次时 dsS.x/y 是很久以前的按下位置，
+     * mvdS 虚大，双击解散永不触发。 */
     dblState.x=pointer.x;dblState.y=pointer.y;
-    // R66 拖拽悬摆：抓点相对质心的偏移要存**本地系**（glx/gly）——物体转动后世界偏移 (gx/gy)
-    // 会失效，本地偏移不随旋转变，抓的始终是同一块材料。
+    // 拖拽悬摆：抓点相对质心的偏移存本地系（glx/gly）——物体转动后世界偏移 (gx/gy) 会失效，
+    // 本地偏移不随旋转变，抓的始终是同一块材料。
     var gth66=hit.th||0,gc66=Math.cos(gth66),gs66=Math.sin(gth66),gdx66=pointer.x-hit.x,gdy66=pointer.y-hit.y;
     grab={kind:'body',obj:hit,gx:gdx66,gy:gdy66,glx:gc66*gdx66+gs66*gdy66,gly:-gs66*gdx66+gc66*gdy66,lx:pointer.x,ly:pointer.y,t:performance.now(),svx:hit.vx,svy:hit.vy,start:pointer.x,x0:pointer.x,y0:pointer.y};
-    // R94：拖拽轴向约束（被固定/被支撑端拴住时只能沿弹簧方向拖）—— 按下那一刻定死，
-    // 免得拖拽过程中「支撑」状态抖动导致约束忽有忽无。null = 不约束。
+    // 拖拽轴向约束（被固定/被支撑端拴住时只能沿弹簧方向拖）：按下时定死，
+    // 免得拖拽中「支撑」状态抖动导致约束忽有忽无。null = 不约束。
     grab.ax0=hit.x;grab.ay0=hit.y;grab.axis=dragAxisLock(hit);
-    grab.arc=dragArcLock(hit);   // ★R131-19b：杆宿主被抓 ⇒ 弧线拖拽参数
+    grab.arc=dragArcLock(hit);   // 杆宿主被抓 ⇒ 弧线拖拽参数
   }
 });
 // right-click a T-rod on the canvas: the rod has no letter glyphs, so the menu opens for
 // the BODY itself (参数 = rod length via v/rodlen). Only T is routed here — field sources
 // B/E/q/I and formula bodies are handled by their own letter contextmenu.
-// R67：**命中优先级按类型分层（三趟扫描）**，不能按 bodies 的数组顺序「先到先得」。
-// 旧实现一趟循环里对同一个 body 依次判 W→S→T、命中即 return，于是**先建的弹簧会抢走后建
-// 物体的右键**：bodies=[W,S,W]（先画盒子 A → 再画弹簧 → 后画盒子 B 并把弹簧另一端挂上去）
-// 时，右键 B 的墨线（正好贴着弹簧端点）弹出的是**弹簧**菜单，参数只剩 2 条（k / L₀），
-// B 自己的 3 条（质量/摩擦/弹性）被挡住 —— 用户原话「参数没有之前那么多了，去哪里了」。
-// 规则：**物体永远优先于弹簧**（贴着物体的那段线圈归物体；弹簧中段仍归弹簧自己可右键）。
-// 左键拖拽**不改**（后者覆盖 = 后建的弹簧优先）—— 拖弹簧是刚需，贴着物体时抓弹簧正是
-// 「拖整体」的手感，改成物体优先会让弹簧在物体附近拖不动。
+// 命中优先级按类型分三趟扫描（W → S → T），不按 bodies 数组顺序先到先得：
+// 物体永远优先于弹簧（贴着物体的那段线圈归物体，弹簧中段仍可右键）。否则先建的弹簧会抢走
+// 后建物体的右键（墨线贴着弹簧端点时弹出弹簧菜单，物体自己的质量/摩擦/弹性参数被挡住）。
+// 左键拖拽不改（后建的弹簧优先）：贴着物体时抓弹簧正是「拖整体」的手感。
 cv.addEventListener('contextmenu',function(e){
   e.preventDefault();
   var ci,CB;
@@ -535,14 +468,7 @@ cv.addEventListener('contextmenu',function(e){
 });
 DD.addEventListener('pointermove',function(e){
   pointer.x=e.clientX;pointer.y=e.clientY;
-  /* ★★R131-55e（**根治"抓两次才动/时能拖时不能拖"的竞态**）：实测同一段合成手势
-   *  两次运行一次成功一次失败 ⇒ 说明"按下建立了 grab、但移动时 grab 已被清掉"存在竞态。
-   *  这里做**自愈**：指针按着、上一帧又没有生效的抓取、且本次按下确实命中过一个自由字符
-   *  ⇒ 立刻重建 letter 抓取（只补 letter，不碰其它语义）。 */
-  /* ★R131-55f：自愈条件扩展到「**不是 letter 抓取**」（残留的 body/rodlen 等也会挡住字符
-   *  拖动——实测同一手势 3 次里 2 次失败就是这个原因）。只要本次按下确实命中了一个自由
-   *  字符、且当前抓取不是针对它的 letter ⇒ 重建。 */
-  if(false&&window.__lastDownLetter){   /* ★R131-57：自愈抓取已撤销（它可能加重竞态） */
+  if(false&&window.__lastDownLetter){   /* 自愈抓取已停用（可能加重 grab 竞态） */
     var _ld=window.__lastDownLetter;
     if(_ld.d&&!_ld.d.dead&&_ld.d.state!=='dock'&&(performance.now()-_ld.t)<3000){
       if(_ld.d.state!=='grab')_ld.d.state='free';
@@ -551,9 +477,9 @@ DD.addEventListener('pointermove',function(e){
       window.__healCount=(window.__healCount||0)+1;
     }
   }
-  /* ★R131-27 触摸版：一旦移动就不是长按（长按=右键的语义要求手指不动） */
+  /* 触摸：一旦移动就不是长按（长按=右键要求手指不动） */
   if(TOUCH_LP){clearTimeout(TOUCH_LP);TOUCH_LP=null;}
-  /* ★R131-28b：面板符号「按住拖」——待定手势移动超 12px ⇒ 执行原 dock 拖出 */
+  /* 面板符号「按住拖」：待定手势移动超 12px ⇒ 执行原 dock 拖出 */
   if(window.TOUCH_PENDING){
     var _tp=window.TOUCH_PENDING;
     if(Math.hypot(e.clientX-_tp.x,e.clientY-_tp.y)>12){
@@ -564,13 +490,11 @@ DD.addEventListener('pointermove',function(e){
     }
     return;
   }
-  // R96：器件从面板拖出 —— 优先级最高：这是唯一「按下发生在面板、移动发生在画布」的手势，
-  // 后面那些分支全都是「抓画布上的东西」，一旦让它落进去就会被当成 grab。
+  // 器件从面板拖出，优先级最高：这是唯一「按下在面板、移动在画布」的手势，
+  // 落进后面的分支会被当成 grab。
   if(TOOL.devDrag){moveDeviceOut(e);return;}
-  // R57：W 体的悬浮命中**不再在这里算**。原因见 refreshHover()：这里的判定只在 pointermove
-  // 里跑，而画笔落笔期间它被 TOOL.stroke 挡掉，松手后又没有新的 pointermove —— 于是刚画完的
-  // 东西指针停在上面也不亮（用户：「画笔模式下鼠标悬浮没有效果」）。改由每帧都跑的
-  // refreshHover() 统一负责。
+  // W 体的悬浮命中不在这里算，统一由每帧都跑的 refreshHover() 负责：pointermove 在落笔期间被
+  // TOOL.stroke 挡掉、松手后又没有新的 pointermove，刚画完的东西指针停在上面也不会亮。
   if(TOOL.stroke){TOOL.stroke.pts.push([pointer.x,pointer.y]);return;}
   if(TOOL.drag){TOOL.drag.x1=pointer.x;TOOL.drag.y1=pointer.y;return;}
   if(trashDrag.active){
@@ -583,9 +507,8 @@ DD.addEventListener('pointermove',function(e){
   trash.classList.toggle('on',onT);
   if(grab.kind==='body'){
     var B=grab.obj;
-    // R57 弹簧：拖动 = 平移整条弹簧 + 它拴住的宿主（用户规格④「一起拖动这个整体」）。
-    // 必须在这里早退：下面那段 B.x=pointer.x-grab.gx 只认「= 指针位置」的模型，弹簧的两端
-    // 由 e0/e1 决定，直接改中心会把两端信息丢掉。
+    // 弹簧：拖动 = 平移整条弹簧 + 它拴住的宿主。必须在这里早退：下面 B.x=pointer.x-grab.gx
+    // 只认「中心 = 指针」的模型，弹簧两端由 e0/e1 决定，直接改中心会丢掉端点信息。
     if(B.kind==='S'){
       var sdx=pointer.x-grab.lx,sdy=pointer.y-grab.ly;
       if(sdx||sdy)springMoveRig(B,sdx,sdy);
@@ -594,24 +517,17 @@ DD.addEventListener('pointermove',function(e){
       cv.style.cursor='grabbing';
       return;
     }
-    // R94：轴向约束（见 dragAxisLock / dragPtrAxis）。指针位置先投影成**等效指针** (epx,epy)，
-    // 后半段的位置与「抓取速度」全部走等效指针 —— 否则松手那一刻会把丢掉的**法向**分量
-    // 当成真实速度抛出去（位置被约束了、速度没有 = 自己打自己脸）。
-    // ★stepMatter 里每帧还有一处摆放（grab.obj.kind==='W'）必须用**同一个** dragPtrAxis()，
-    //   否则那处会用未投影的指针覆盖这里 —— R94 第一版就是这么失效的。
+    // 轴向约束（见 dragAxisLock / dragPtrAxis）：指针先投影成等效指针 (epx,epy)，位置与抓取速度
+    // 都用它，否则松手时会把被约束掉的法向分量当速度抛出去。
+    // stepMatter 里每帧还有一处摆放（grab.obj.kind==='W'）必须用同一个 dragPtrAxis()，
+    // 否则那处会用未投影的指针覆盖这里。
     var ep=dragPtrAxis(),epx=ep.x,epy=ep.y;
     B.x=epx-grab.gx;B.y=epy-grab.gy;
     if(B.kind==='T'){
-      // R103-5（用户：「拖动杆，不能带动物体一起动？杆是连接物体的啊」）：
-      // 杆是**刚体** —— 拖杆 = 平移整个装配体（已锚定的宿主跟走），与弹簧的 springMoveRig
-      // 同一手感。旧实现只动杆自己：锚定端下一帧被 rodSyncAnchors 拽回宿主表面，
-      // 松手后杆绕锚点甩到悬挂位 —— 用户看到的「拖不动/杆自己动」都是它。
-      // ★R105-4：原来这里按「本帧指针位移」把宿主搬一次（增量跟随）。增量对**事件**负责、
-      //   对**时间**不负责：指针停住不动时一个 pointermove 都没有，宿主的位姿归 Matter，
-      //   于是它在子步里被重力带下去 ⇒ 实测停顿 1.5s 残差 231px（方块落地、杆留在半空），
-      //   松手才被 rodSyncAnchors 拉回 = 用户报的「脱离下落 / 松手才回弹」。
-      //   改成**精确投影**（rodDragPinHosts）：宿主摆到「锚点正好落在杆端」的唯一解，
-      //   幂等、可重复调用 —— pointermove 与 stepMatter 的 240Hz 子步共用它，两处同一份实现。
+      // 杆是刚体：拖杆 = 平移整个装配体（已锚定宿主跟走），与弹簧 springMoveRig 同一手感。
+      // 用精确投影（rodDragPinHosts）把宿主摆到「锚点正好落在杆端」的唯一解，幂等，pointermove 与
+      // stepMatter 的 240Hz 子步共用。不要按本帧指针位移增量搬宿主：指针停住时没有 pointermove，
+      // 宿主在子步里被重力带走（停顿 1.5s 残差 231px），松手才被 rodSyncAnchors 拉回。
       rodDragPinHosts(B);
       if(B.mb){Matter.Body.setPosition(B.mb,{x:B.x,y:B.y});Matter.Body.setAngle(B.mb,B.th||0);}
       grab.svx=0;grab.svy=0;
@@ -623,10 +539,8 @@ DD.addEventListener('pointermove',function(e){
       B.x=clamp(B.x,-B.hw*0.6,W+B.hw*0.6);
       B.y=clamp(B.y,-B.hh*0.6,groundY+B.hh*0.9);
       B.vx=0;B.vy=0;B.om=0;grab.svx=0;grab.svy=0;
-      // R71⑩ 真因：原来只有「圆形」在这里累计指针速度，其它边界体每帧都被清成 0，
-      // 于是 pointerup 里读到的 grab.svx 恒为 0 —— 松开带初速度的分支无论怎么写都拿不到速度。
-      // 「拖拽中不攒动量」（B.vx=0）与「记录指针速度」（grab.svx）是两件事：
-      // 前者保证被拖的物体老实跟手，后者只是给松开那一刻留个记录。所有边界体一律累计。
+      // 所有边界体都累计指针速度（grab.svx），供 pointerup 松手带初速度用。
+      // 「拖拽中不攒动量」（B.vx=0）与「记录指针速度」是两件事：前者保证跟手，后者只给松手那一刻留记录。
       var dtc=(performance.now()-grab.t)/1000||0.016;
       if(dtc>0){grab.svx=(epx-grab.lx)/dtc;grab.svy=(epy-grab.ly)/dtc;}
       grab.lx=epx;grab.ly=epy;grab.t=performance.now();
@@ -661,26 +575,18 @@ DD.addEventListener('pointermove',function(e){
     var a1=Math.atan2(pointer.y-s.y,pointer.x-s.x);
     var raw=th0+shortAng(a1-a0);
     var tgt=shortAng(snapAngle90(raw));   // LIVE snap while the button is still held
-    // R84（用户：「高中模式下，弹簧和物体连接后，则不可再旋转弹簧，除非拆分」）：
-    //   高中不能取「raw 最近的 90° 倍数」（raw 与 th0 夹角 <45° 时算回原角度 ⇒ dth=0 ⇒ 拖不动），
-    //   改用「以按下时角度 th0 为基准跨一格」。推导与实测见 springRotTargetHigh。
-    /* ★★R132-9m（用户：「高中模式下，怎么器件杆还是只能旋转那几个角度？是不是没和弹簧分清楚？」
-     *  以及「绳子的模型改成高中模式和大学模式一样，不需要高中模式单独对绳子模型进行约束了」）：
-     *  **真因就是这一行没和弹簧分清楚** —— 旧版对**所有 kind** 都用 `springRotTargetHigh`，
-     *  于是高中模式下「任何**被旋转手柄操作的**物体」（器件杆 T、绳 S+rope、圆弧、圆、方块…）
-     *  的目标角都被量化成 90° 整数倍 ⇒ 全场只有 4 个朝向。
-     *  这与 R132-9g 在 `springRotate` 里那条 `!B.rope` 是**同一类口径错误**的两处：
-     *  那边守的是「旋转手柄松手时不再吸 90°」，这边守的是「拖拽过程中目标角不被量化」。
-     *  ⇒ 与 `springRotate` 完全同口径：**只有真弹簧（kind==='S' 且不是绳）**才受高中模式的
-     *    轴向约束。绳、杆、弧、圆等一切其它物体在大/高中模式下行为一致。 */
+    // 高中模式：弹簧与物体连接后只能以按下时角度 th0 为基准跨一格（90°）。不能取「raw 最近的 90° 倍数」：
+    // raw 与 th0 夹角 <45° 时算回原角度，dth=0 拖不动。推导见 springRotTargetHigh。
+    /* 只有真弹簧（kind==='S' 且不是绳）在高中模式下用 springRotTargetHigh 量化目标角，
+     * 与 springRotate 里的 !B.rope 同口径。对所有 kind 都量化的话，高中模式下杆、绳、弧、圆、方块等
+     * 一切被旋转手柄操作的物体都只剩 4 个朝向。 */
     if(PHYS_MODE==='high'&&Rb.kind==='S'&&!Rb.rope)tgt=springRotTargetHigh(th0,raw);
-    // R58：弹簧不认 B.th（派生量），要把角度写进端点
-    // R65：seed 属于含方向锁弹簧的装配体 -> 旋转落到整个整体（含导轨朝向），返回 false 才走单体力学的旧路径
-    // R101③：带子（传送带）走**量化角度**（BELT_ANG_SNAP=45° 的整数倍）+ setBeltAngle 咽喉。
-    // 放在 springAssemblyRotate 之前：带子不是弹簧装配体，但它也是 W 体，必须先被认出来。
-    // 拖拽期间 stepMatter 每帧还会 setAngle 兜一次姿态（那条通道保持不变）。
-    /* R108：地面/墙面按用户要求吸 **45°** 整数倍（带子 BELT_ANG_SNAP 的先例同款）。
-     *   面板里改角度不吸附（那是数值输入，用户说了算）。 */
+    // 弹簧不认 B.th（派生量），要把角度写进端点。
+    // seed 属于含方向锁弹簧的装配体 -> 旋转落到整个整体（含导轨朝向），返回 false 才走单体力学的旧路径。
+    // 带子（传送带）走量化角度（BELT_ANG_SNAP=45° 的整数倍）+ setBeltAngle；必须放在
+    // springAssemblyRotate 之前：带子不是弹簧装配体，但也是 W 体，须先被认出来。
+    // 拖拽期间 stepMatter 每帧还会 setAngle 兜一次姿态。
+    /* 地面/墙面吸 45° 整数倍（同带子 BELT_ANG_SNAP）。面板里改角度不吸附（数值输入以用户为准）。 */
     if(Rb.kind==='W'&&Rb.gnd){
       setGroundAngle(Rb,shortAng(snapAngleDeg(raw,45)));
     }else if(Rb.kind==='W'&&Rb.belt){
@@ -690,35 +596,29 @@ DD.addEventListener('pointermove',function(e){
     }
     grab.lx=pointer.x;grab.ly=pointer.y;
   }else if(grab.kind==='arcedit'){
-    // R56：拖圆弧端点手柄——指针相对椭圆中心的角度（椭圆参数角）直接成为该端点的角度
+    // 拖圆弧端点手柄：指针相对椭圆中心的角度（椭圆参数角）直接成为该端点的角度
     var Ab=grab.obj;
     if(Ab&&!Ab.dead&&Ab.ell){
       var wcA=arcWorldCenter(Ab);
       var dxA=pointer.x-wcA.x,dyA=pointer.y-wcA.y;
-      // R75（用户⑫：「每 90 度倍数的角度吸附偏移了」）—— 吸附必须在**世界系**里做。
-      // 旧版把 body 本地的参数角 paA=atan2(ly/ry,lx/rx) 直接喂给 snapAngle90，于是弧一旦
-      // 自己转过 th（自由体落地翻滚 / 被旋转手柄拧过），吸的就是「跟着体一起斜过去的
-      // 0/90/180/270」：实测 th=30° 时「世界角 − 参数角 = 恰好 30.000°」，用户看着屏幕把
-      // 端点拖到正下方一点都不吸（`_diag_r76_arcsnap.py` 用例 B 全组不触发）。
-      // 旋转手柄吸的是 th 本身（世界系，见上面 `grab.kind==='rot'`），两边本就该一致；
-      // 且 R69 起弧恒为正圆 rx==ry，「椭圆自己那四个极值点」对圆没有意义。
-      // 现在：先把指针的**世界方向角**吸附到 90° 整数倍，再换算回该椭圆上的参数角
-      // —— t = atan2(sinβ/ry, cosβ/rx) 正是 pa=atan2(ly/ry,lx/rx) 的逆（rx==ry 时 t=β）。
+      // 吸附必须在世界系里做：先把指针的世界方向角吸附到 90° 整数倍，再换算回椭圆参数角
+      // t = atan2(sinβ/ry, cosβ/rx)（pa=atan2(ly/ry,lx/rx) 的逆，rx==ry 时 t=β）。
+      // 不要直接吸本地参数角：弧自身转过 th 后吸的是跟着斜过去的 0/90/180/270，与屏幕不符。
+      // 旋转手柄吸的也是世界系的 th（见 grab.kind==='rot'），两边一致；弧恒为正圆 rx==ry。
       var waA=Math.atan2(dyA,dxA);                       // 指针相对椭圆圆心的世界方向角
       arcSetAngle(Ab,grab.end,arcParamFromWorldAng(Ab,snapAngle90(waA)));
     }
     grab.lx=pointer.x;grab.ly=pointer.y;
   }else if(grab.kind==='rodlen'){
-    // R98-3：拖杆端长度手柄 —— 固定端用按下时锁存的 (fx,fy)，拖拽端 = 指针。
+    // 拖杆端长度手柄：固定端用按下时锁存的 (fx,fy)，拖拽端 = 指针。
     // force=false：只在长度漂移超过 ROD_MIRROR_TOL 时才重建镜像板（逐像素重建会每帧造一个体）。
     var Rb2=grab.obj;
     if(Rb2&&!Rb2.dead){
-      // R100⑤：宿主分派 —— 带子走 setBeltEnds（pts 实时改 + 容差重建 W 体），杆走 rodPlaceEnds。
-      // ★杆**必须**走 rodPlaceEnds（索引序）而不是 setRodEnds：后者按「角色」摆（slot0=钉死端），
-      //   会让**编号**在被拖的是 1 号端时左右互换。带子没有 per-end 状态、且 setBeltEnds 的长度
-      //   clamp 就认「slot1 = 被拖端」这个角色，所以带子这条**保持原样**（改了反而夹错端）。
+      // 宿主分派：带子走 setBeltEnds（pts 实时改 + 容差重建 W 体），杆走 rodPlaceEnds。
+      // 杆必须走 rodPlaceEnds（索引序）而不是 setRodEnds：后者按角色摆（slot0=钉死端），拖 1 号端时编号会左右互换。
+      // 带子没有 per-end 状态，且 setBeltEnds 的长度 clamp 认「slot1 = 被拖端」，所以保持原样。
       if(Rb2.belt)setBeltEnds(Rb2,grab.fx,grab.fy,pointer.x,pointer.y,false);
-      else if(Rb2.gnd)groundDragEnds(Rb2,grab,pointer.x,pointer.y,false);   // R108
+      else if(Rb2.gnd)groundDragEnds(Rb2,grab,pointer.x,pointer.y,false);   // 地面器件
       
       else rodDragEnds(Rb2,grab,pointer.x,pointer.y,false);
       Rb2.vx=0;Rb2.vy=0;Rb2.om=0;         // 位姿归指针，速度必须跟着清（否则一松手就飞）
@@ -750,33 +650,29 @@ DD.addEventListener('pointermove',function(e){
 DD.addEventListener('pointerup',function(e){
   pointer.x=e.clientX;pointer.y=e.clientY;
   window.__lastDownLetter=null;
-  /* ★★R131-30（用户：「物体中心移到杆端有红点但吸附不了——移动杆到中心才吸」）：
-   *  松手时对**未锚定的杆端**统一跑一次吸附检测——不管这次拖的是杆还是物体，
-   *  只要杆端此刻靠近某宿主就吸上（红点预览与吸附从此一致）。 */
+  /* 松手时对未锚定的杆端统一跑一次吸附检测：不管这次拖的是杆还是物体，只要杆端此刻靠近某宿主就吸上
+   * （与红点预览一致）。 */
   setTimeout(function(){
     if(grab&&grab.kind)return;
     for(var _ri=0;_ri<bodies.length;_ri++){
       var _R=bodies[_ri];
       if(_R.kind==='T'&&!_R.dead&&_R.anc&&(!_R.anc[0]||!_R.anc[1])){
-        if(_R._snapCool&&performance.now()<_R._snapCool)continue;   // ★R131-32g：解除冷却
+        if(_R._snapCool&&performance.now()<_R._snapCool)continue;   // 解除后的冷却期内不吸附
         try{rodTryAnchor(_R);}catch(_e){}
       }
     }
   },0);
-  /* ★R131-27 触摸版：① 松手即取消长按计时；② **点选放置**——这一次按下没怎么动
-   *  （tap）时：若已有选中体 ⇒ 把它搬到本次 tap 的位置；否则把本次 tap 命中的体
-   *  标记为「已选中」（手指粗，精细拖拽难 ⇒ 用「选中→点目的地」的两步放置）。 */
+  /* 触摸：① 松手即取消长按计时；② 点选放置——这次按下没怎么动（tap）时，若已有选中体 ⇒ 搬到本次 tap
+   * 的位置；否则把 tap 命中的体标记为已选中（手指粗难精细拖拽 ⇒ 「选中→点目的地」两步放置）。 */
   if(uiTouch()&&e.pointerType==='touch'){
     if(TOUCH_LP){clearTimeout(TOUCH_LP);TOUCH_LP=null;}
-    /* ★★R132-9：`_moved` 必须量**二维距离**。原来只取 `|Δx|` ⇒ **纯竖直拖动恒被当成 tap**
-     *  （Δx=0 ⇒ _moved=0 < 8 ⇒ 走「点选放置」分支、把 grab 抹掉），用户看到的就是
-     *  「竖着拖物体，物体被选中了却不动」。（`_tmp_r312` 纯竖直拖 0.0px 就是这么来的。）
-     * grab.x0/y0 是按下那一刻的指针（body 抓取必写）；老字段 start 兜底。 */
+    /* _moved 必须量二维距离：只取 |Δx| 时纯竖直拖动恒被当成 tap（走点选放置、抹掉 grab），物体不动。
+     * grab.x0/y0 是按下时的指针（body 抓取必写）；老字段 start 兜底。 */
     var _moved=0;
     if(grab&&grab.x0!=null)_moved=Math.hypot(pointer.x-grab.x0,pointer.y-grab.y0);
     else if(grab&&grab.start!=null)_moved=Math.abs(pointer.x-grab.start);
     if(window.TOUCH_PENDING){
-      /* ★R131-28b：轻点面板符号 ⇒ 面板内选中态（框+背景变色） */
+      /* 轻点面板符号 ⇒ 面板内选中态（框+背景变色） */
       var _tpd=window.TOUCH_PENDING.d;window.TOUCH_PENDING=null;
       if(TOUCH_LETTER===_tpd){TOUCH_LETTER=null;if(_tpd.el)_tpd.el.classList.remove('touch-pick');}
       else{
@@ -787,9 +683,8 @@ DD.addEventListener('pointerup',function(e){
       if(grab){grab.kind=null;grab.obj=null;}
       return;
     }
-    /* ★R131-28b：面板符号已选中 ⇒ 点画布 = **放置到点击位置**（专用：直接 place 到
-     *  pointer，不再复用 gdDown 的 dock 分支——那会把符号放在面板字符原位置旁，
-     *  实测「放置在符号的旁边」✗） */
+    /* 面板符号已选中 ⇒ 点画布 = 放置到点击位置：直接 place 到 pointer，
+     * 不复用 gdDown 的 dock 分支（那会把符号放在面板字符原位置旁）。 */
     if(TOUCH_LETTER&&!TOUCH_LETTER.dead!==false&&TOUCH_LETTER.el){
       var _dl2=TOUCH_LETTER;TOUCH_LETTER=null;
       _dl2.el.classList.remove('touch-pick');
@@ -821,12 +716,11 @@ DD.addEventListener('pointerup',function(e){
       }
       if(grab){grab.kind=null;grab.obj=null;}
     }
-    /* ★R132-9：真正拖过（≥8px）⇒ 这次手势是「直接拖动」，把上一次 tap 留下的选中态丢掉，
-       否则松手后那个旧高亮还挂着，下一次随手一点又会把旧物体搬过去（用户会以为"见鬼了"）。 */
+    /* 真正拖过（≥8px）⇒ 这次是直接拖动，丢掉上次 tap 留下的选中态，否则下一次随手一点会把旧物体搬过去。 */
     else if(TOUCH_SEL){touchClearSel();}
   }
-  // R96：器件拖出的收尾（落点生效 / 丢回面板取消）。必须排在 trash/stroke 之前 ——
-  // devDrag 与它们互斥，这里是唯一知道「这一次松手属于器件拖出」的地方。
+  // 器件拖出的收尾（落点生效 / 丢回面板取消）。必须排在 trash/stroke 之前：
+  // devDrag 与它们互斥，这里是唯一知道这次松手属于器件拖出的地方。
   if(TOOL.devDrag){endDeviceOut();return;}
   if(TOOL.stroke){finishStroke();return;}
   if(TOOL.drag){finishShapeDrag();return;}
@@ -847,30 +741,19 @@ DD.addEventListener('pointerup',function(e){
       grab.kind=null;grab.obj=null;
       return;
     }
-    /* ★★R132-9ze（用户 2026-10-03 的录屏 `rec_2026-10-03-05-57-33.json` 定案：
-     *   「把 q 放到物体上**根本没反应**」）。
-     *   画布上那个"q"其实是**场源体**（`spawnField('q')` 造的 `kind:'q'` 体），
-     *   它在 `bodies[]` 里、有 `hw/hh` ⇒ 画布按下走 `grab={kind:'body'}` ⇒ **抓到的是场源体**，
-     *   松手只会把它**重新摆位**，永远不会走字符的赋予分支 ⇒ 实测 `charge=undef`、毫无反应。
-     *   （顺带解释了几轮定位不动的盲区：场源体**没有 Matter 体** ⇒ 录制器 `if(!mb)continue;`
-     *     把它整类跳过 ⇒ 录屏里从来看不见它，只看得见那个"凭空多出来的矩形"和几次落点。）
-     *   修：场源体丢到**可赋予的物体**上时执行赋予（q 给电荷 / v 给速度），并把场源体清掉；
-     *   丢在空处仍然照旧「就地摆位成场源体」（原行为不变）。 */
-    /* ★★R132-9zi（用户 2026-10-03：「那个符号 E 怎么又出现 bug 了，我放到物体上怎么被融合进去了？
-     *   那个是场啊，还有 B 也是」）——**我上一版的 9ze 写得太宽**：把 `B/E/q/I` 都送进
-     *   `attach(target, glyph)`。对 `q` 那是「赋予电荷」（对的），但 **E/B 是场**，
-     *   `attach` 对它们走的是**并入 mem**（它们在公式里是合法的质量字母）⇒
-     *   **场被融合进物体、场源体消失**。⇒ 收窄成**只有 q 走赋予**；
-     *   E/B/I 一律落回原来的「就地摆位成场源体」语义（用户把它们放下去就是要一个场）。 */
+    /* 画布上的 q 是场源体（spawnField('q') 造的 kind:'q' 体，在 bodies[] 里、有 hw/hh），
+     * 画布按下走 grab={kind:'body'}，松手只会重新摆位，不会走字符的赋予分支。
+     * 场源体丢到可赋予的物体上时执行赋予并清掉场源体；丢在空处仍就地摆位。
+     * 注意：场源体没有 Matter 体，录制器 if(!mb)continue 会整类跳过它。 */
+    /* 只有 q 走赋予（attach 给电荷）。E/B 是场：attach 对它们走并入 mem（它们在公式里是合法的
+     * 质量字母），会把场融进物体、场源体消失。E/B/I 一律落回就地摆位成场源体。 */
     if(B.kind==='q'&&B.glyphs&&B.glyphs.length){
       var _tg=typeof findSolidBodyAt==='function'?findSolidBodyAt(pointer.x,pointer.y):null;
       if(_tg&&_tg!==B){
         var _gl=B.glyphs[0];
         try{
-          /* ★★R132-9zp：`attach` 可能**什么都没做**（比如目标形状不在电荷白名单里 ⇒
-             `R132-9zm` 的闸直接 return）—— 原来这里**无条件** `killFieldBody` ⇒
-             场源体被清掉、电荷也没赋上，屏幕上「q 消失了但物体没变」（录屏 f226/f504 里
-             `#1 q` 的出现→消失就是这个）。⇒ **只有 attach 真的生效了才清场源体**。 */
+          /* attach 可能什么都没做（如目标形状不在电荷白名单，attach 直接 return）⇒ 只有真的生效才清场源体，
+           * 否则 q 消失了物体却没变。 */
           var _before=bodies.length;
           attach(_tg,_gl);
           var _gave=(_gl.body===_tg)||(_tg.mem&&_tg.mem.indexOf(_gl)>=0)||(_tg.charge!=null);
@@ -895,13 +778,11 @@ DD.addEventListener('pointerup',function(e){
       return;
     }
     if(B.kind){
-      // F（用户：「双击弹簧与物体的连接处可以完成二者断联」）：在任何分支的双击/解散/拆分
-      // 之前，先拦截 —— 若这是同一物体的第二次点击（位移<14、间隔<500ms）且点击位置落在
-      // 某个弹簧已锚定端点 SPR_PAD 范围内，就解除那一端锚定，不走默认动作。
-      // W/T 分支原本无双击逻辑，下面各分支末尾会补记 dblState.t，让此拦截对它们也生效。
+      // 双击弹簧与物体的连接处可断联：在任何分支的双击/解散/拆分之前先拦截——同一物体第二次点击
+      // （位移<14、间隔<500ms）且点击位置落在某弹簧已锚定端点 SPR_PAD 范围内 ⇒ 解除那一端锚定，不走默认动作。
+      // W/T 分支原本无双击逻辑，下面各分支末尾补记 dblState.t，让此拦截对它们也生效。
       var dsF=dblState,nowF=performance.now();
-      /* ★★R131-32b（用户：「杆固定一端后双击无法解除」）：**T/W 分支历来不补记 dblState**
-       *  ⇒ 下面的双击拦截永远看不到「第二下」（dsF.t 恒 0）⇒ 解除永不触发。先补记。 */
+      /* T/W 分支要先补记 dblState，否则下面的双击拦截看不到第二下（dsF.t 恒 0），解除永不触发。 */
       if(dsF.body!==B){dsF.t=nowF;dsF.body=B;dsF.x=pointer.x;dsF.y=pointer.y;dsF.g=null;}
       window.__dblHit=(window.__dblHit||0)+1;   // 调试：双击拦截进入次数
       if(dsF.body===B&&dsF.t>0&&nowF-dsF.t<500){
@@ -913,12 +794,9 @@ DD.addEventListener('pointerup',function(e){
         }
       }
       if(B.kind==='S'){
-        // R57 弹簧：规格⑥ 双击整体 -> 解散回 k/x；规格② 非双击时松开这一刻才判定「两端
-        // 端点是否碰到了别的物体」，碰到了就固定（拴住）。
-        // 双击判定必须在这里自己走一遍：弹簧下面那个公共双击分支在 `if(B.kind){...}` 之外，
-        // 而 S 分支历来无条件 return，于是「双击解散」这条规格永远不触发（实测实测 sp=1
-        // 一直不动）。又不能顺手把 return 去掉 —— 后面的公共分支会按「普通刚体」语义给这
-        // 根轻质弹簧加初速度、还会试图把它吸附到字母上。
+        // 弹簧：双击整体 -> 解散回 k/x；非双击时松手这一刻判定两端端点是否碰到别的物体，碰到就拴住。
+        // 双击判定必须在这里自己走：公共双击分支在 if(B.kind){...} 之外，而 S 分支无条件 return。
+        // 又不能去掉 return：后面的公共分支会按普通刚体给轻质弹簧加初速度，还会试图吸附到字母上。
         var dsS=dblState,nowS=performance.now();
         if(dsS.body===B){
           var mvdS=Math.hypot(pointer.x-dsS.x,pointer.y-dsS.y);
@@ -931,8 +809,7 @@ DD.addEventListener('pointerup',function(e){
           if(mvdS<14)dsS.t=nowS;
           else{dsS.t=0;dsS.body=null;}
         }
-        // 用户规格②说得很明确：只有**两端端点处**接触才算，所以判定点就是两个端点本身，
-        // 线圈中段压到什么都不算（那只是支撑，不是锚）。
+        // 只有两端端点处接触才算锚，判定点就是两个端点本身；线圈中段压到什么都不算（只是支撑）。
         springTryAnchor(B);
         B.vx=0;B.vy=0;B.om=0;
         if(inPanel(pointer.x,pointer.y)){killBody(B);grab.kind=null;grab.obj=null;return;}
@@ -948,77 +825,50 @@ DD.addEventListener('pointerup',function(e){
           // 把初速度注入 Matter 体（B.vx 只是自定义物理的变量，Matter 自己不知道）
           if(B.mb&&MW){
             Matter.Body.setVelocity(B.mb,{x:B.vx/60,y:B.vy/60});
-            // R121（用户：「小球运动时的急刹」/「按照真实世界的物理规律来进行修改，符合真实物理
-            //   现象就行，反正真实世界肯定不是会突然急刹这样的事儿发生的」）：
-            //   松手时**必须同时**把与平动一致的**滚动自旋** ω=v/R 一起注入。
-            //   为什么原来会急刹：拖拽期间产品每帧写 setVelocity(0,0)+setAngularVelocity(0)
-            //   （拖体冻结），松手这一支只写线速度 ⇒ 球是**纯滑动**发射的；真实世界里用鼠标
-            //   沿地面把球拖出去再松手，球是**滚**着出去的（球在地上不可能只滑不转）。
-            //   纯滑动发射的球随后被接触摩擦强行拉进纯滚动 —— `_diag_r120d.py` 实测大学模式
-            //   438→147px/s（只保留 **33.5%**）、80ms 内刹完，那就是用户看到的「急刹」。
-            //   补上 ω 之后接触点滑移为 0 ⇒ 摩擦无事可做 ⇒ 同夹具 S2 臂实测保留 **100.0%**。
-            //   ① 单位：B.vx 是 px/s（手写通道口径），Matter 的 angularVelocity = rad/帧
-            //      ⇒ ω = (B.vx/60)/R（MU-01）。
-            //   ② R 取**圆半径** `mb.circleRadius`（= B.rad+BND_INK，含墨迹半厚）——与
-            //      10195 的 ω 镜像、5383 传带通道的 R 同一个口径，不另立常数。
-            //   ③ 符号：屏幕 y 向下时「向右滚」= 正 ω（与 vx 同号，`_diag_r120d` S2 臂已实测）。
-            //   ④ 空中甩出也照此注入：球的渲染只有一条 arc（12371）、**没有任何自旋标记**，
-            //      所以视觉上无副作用；而落地时「已经带着匹配自旋」比「零自旋砸地再打滑」
-            //      更接近人手抛出（后者正是要靠摩擦刹车的那条通道）。
-            //   ⑤ 只在**圆**这一支补：其它 W 体（方块/杆/槽）没有「滚」这个自由度的对应关系，
-            //      保持 ω=0 才是对的。
+            // 松手时同时注入与平动一致的滚动自旋 ω=v/R：拖拽期间每帧冻结速度与角速度，只写线速度的话球是纯滑动
+            // 发射，随后被接触摩擦强行拉进纯滚动，表现为急刹（实测 438→147px/s，80ms 内刹完）；补上 ω 后接触点滑移为 0，
+            // 速度保留 100%。
+            //   ① 单位：B.vx 是 px/s，Matter 的 angularVelocity 是 rad/帧 ⇒ ω = (B.vx/60)/R。
+            //   ② R 取 mb.circleRadius（= B.rad+BND_INK，含墨迹半厚），与每帧的 ω 镜像、传送带通道同口径。
+            //   ③ 符号：屏幕 y 向下时「向右滚」= 正 ω（与 vx 同号）。
+            //   ④ 空中甩出也注入：球没有自旋标记，视觉无副作用；落地时已带匹配自旋，更接近人手抛出。
+            //   ⑤ 只在圆这一支补：其它 W 体没有「滚」的对应关系，保持 ω=0。
             var _Rv=B.mb.circleRadius||(B.rad+BND_INK);
             Matter.Body.setAngularVelocity(B.mb,B.vx/60/_Rv);
-            B.om=B.vx/_Rv;                  // 同步产品侧镜像（10195 每帧会再写一遍，这里不留帧缝）
+            B.om=B.vx/_Rv;                  // 同步产品侧镜像（每帧也会再写一遍，这里不留帧缝）
             Matter.Sleeping.set(B.mb,false);
           }
-          springTryAnchorByHost(B);   // F：物体拖到弹簧端点旁也连
+          springTryAnchorByHost(B);   // 物体拖到弹簧端点旁也连
           if(dblState.body===B){dblState.t=performance.now();dblState.x=pointer.x;dblState.y=pointer.y;}
           grab.kind=null;grab.obj=null;
           return;
         }
-      // R71⑩（用户：「除了圆形，其他的物体好像都不接受我鼠标赋予他们的速度」）：把「松开带初
-        // 速度」从圆形扩到**所有**边界体。原来这一支硬写 B.vx=0;B.vy=0，注释理由是「其它边界体
-        // 没有惯性，只能被拖动」—— 但 R70 起 W 体**全部**由 Matter 积分（stepPhysics 里
-        // `if(B.kind==='W')continue`），它们有 mass/inertia，只是这里把指针速度丢掉了。
-        // 顺带修掉用户⑨「非圆形摩擦调 0 也滑不动」：初速度恒为 0，μ 再小也无从谈起 ——
-        // 两条反馈是同一个根因（抛出去 0 速度）。
-        // 单位：B.vx 是 px/s（手写通道口径），Matter 的 velocity 是 px/帧 → /60，与圆形同口径。
+        // 所有边界体松手都带初速度（不只圆形）：W 体全部由 Matter 积分（stepPhysics 里 if(B.kind==='W')continue），
+        // 有 mass/inertia；丢掉指针速度会导致抛不出去，摩擦调 0 也滑不动。
+        // 单位：B.vx 是 px/s，Matter 的 velocity 是 px/帧 → /60，与圆形同口径。
         var spW=Math.hypot(grab.svx,grab.svy);
         if(spW>20){var f2w=clamp(1-spW/6000,0.5,1);B.vx=grab.svx*f2w;B.vy=grab.svy*f2w;}
         else{B.vx=0;B.vy=0;}
-        releaseConstrainVel(B);     // R104-5/9：速度先落在绳/铰链的可行域里（见该函数）
-        // R71⑯（用户：「黏附功能：弧/手绘线条接近地面且即将水平时自动吸附成与地面平滑相接」）：
-        // 松手那一刻做一次「落地吸附」——满足「够近 + 够平」就把这条线的接触段转成严格水平、
-        // 墨迹下缘精确贴住地面，于是它不会以某个小倾角斜戳在地上（那种姿态下一端悬空、
-        // 另一端扎进地面，既不好看也让它自己慢慢滑走）。只在**低速松手**时吸附，
-        // 免得把用户沿地面甩出去的弧/线当场按住（见 snapWToGround 的 spd 守卫）。
-        // R73-E：force=true —— 固定过的弧/线被拖到地面附近时同样吸附（旧版被 B.fixed 挡掉）。
-        /* ★★R132-9i（用户 2026-10-02：「那个圆弧自动吸附地面的功能给删了，吸附不准确，
-         *  还是会卡顿，所以不要这个功能了」）：**整个功能删除**。两个调用点都已移除。 */
+        releaseConstrainVel(B);     // 速度先落在绳/铰链的可行域里（见 releaseConstrainVel）
         if(B.mb&&MW){
           Matter.Body.setVelocity(B.mb,{x:B.vx/60,y:B.vy/60});
           Matter.Sleeping.set(B.mb,false);   // 睡着的体设速度不生效，必须先唤醒
         }
         if(inPanel(pointer.x,pointer.y)){killBody(B);grab.kind=null;grab.obj=null;return;}
-        springTryAnchorByHost(B);   // F：物体拖到弹簧端点旁也连
+        springTryAnchorByHost(B);   // 物体拖到弹簧端点旁也连
         if(dblState.body===B){dblState.t=performance.now();dblState.x=pointer.x;dblState.y=pointer.y;}
         grab.kind=null;grab.obj=null;
         return;
       }
-      // ★R104-6：杆的**另一个**自有入口 —— 拖动一根已经存在的杆，松手那一刻扫自己的两个端点。
-      //   与 placeDevice 里那一句互为对称（一条管「刚放下」，一条管「拖完松手」），
-      //   合起来才把「杆↔物体」两个方向都补全（旧代码只有物体→杆 那一半）。
+      // 拖动已存在的杆，松手时扫自己的两个端点；与 placeDevice 里那一句（刚放下时）对称，
+      // 合起来补全「杆↔物体」两个方向的吸附。
       if(B.kind==='T'){
         rodTryAnchor(B);
         if(inPanel(pointer.x,pointer.y)){killBody(B);grab.kind=null;grab.obj=null;return;}
-        // ★R104-6b（回归 `_probe_r102` D2 抓到的自伤）：这一支**必须**与上面 W / S 各支一样
-        //   补记 dblState.t。双击解除的拦截在 4390（`if(B.kind){…}` 里、各 kind 分支**之前**），
-        //   它的门是 `dsF.body===B && dsF.t>0 && nowF-dsF.t<500` —— t 是靠**上一次松手**在这里
-        //   装填的（pointerdown 只在 body 变化时才清 t，所以同一物体的第二次点击 t 还在）。
-        //   本支 6a 第一版直接 return 掉，t 永远为 0 ⇒ 杆的双击解除**永远不触发**
-        //   （实测 r102 D2：双击锚定端后 anc 仍剩 1 条）。W 支在 4470 有这句、S 支在 4410
-        //   自走一遍，只有新加的 T 支漏了 —— 「新增分支要跟着复制收尾动作」的典型。
+        // 这一支必须与 W / S 各支一样补记 dblState.t：双击解除拦截（if(B.kind){…} 里、各 kind 分支之前）
+        // 的门是 dsF.body===B && dsF.t>0 && nowF-dsF.t<500，t 由上一次松手在这里装填
+        // （pointerdown 只在 body 变化时才清 t）。直接 return 的话杆的双击解除永不触发。
+        // 新增 kind 分支时要同样复制这个收尾动作。
         if(dblState.body===B){dblState.t=performance.now();dblState.x=pointer.x;dblState.y=pointer.y;}
         grab.kind=null;grab.obj=null;
         return;
@@ -1032,8 +882,8 @@ DD.addEventListener('pointerup',function(e){
       var sp2=Math.hypot(grab.svx,grab.svy);
       if(sp2>20){var f2=clamp(1-sp2/6000,0.5,1);B.vx=grab.svx*f2;B.vy=grab.svy*f2;}
       else{B.vx=0;B.vy=0;}
-      releaseConstrainVel(B);       // R104-5/9：速度先落在绳/铰链的可行域里（见该函数）
-      springTryAnchorByHost(B);   // F：物体拖到弹簧端点旁也连（弧/字母/标尺等）
+      releaseConstrainVel(B);       // 速度先落在绳/铰链的可行域里（见 releaseConstrainVel）
+      springTryAnchorByHost(B);   // 物体拖到弹簧端点旁也连（弧/字母/标尺等）
       if(dblState.body===B){dblState.t=performance.now();dblState.x=pointer.x;dblState.y=pointer.y;}
       grab.kind=null;grab.obj=null;
       return;
@@ -1051,7 +901,7 @@ DD.addEventListener('pointerup',function(e){
             grab.kind=null;grab.obj=null;
             return;
           }
-          // R57 弹簧：双击整体 -> 解散变回 k / x（其余物体维持原有的「双击拆分」语义）
+          // 弹簧：双击整体 -> 解散变回 k / x（其余物体维持原有的「双击拆分」语义）
           if(B.kind==='S')dissolveSpring(B);else splitOne(B,ds.g);
           ds.t=0;ds.body=null;ds.g=null;
           didSplit=true;
@@ -1088,30 +938,21 @@ DD.addEventListener('pointerup',function(e){
       grab.kind=null;grab.obj=null;
       return;
     }
-    /* ★★R131-38（用户：「q 放到物体上没反应、不能赋予电荷」）：q 原本**被场源分支抢先**
-     *  （B/E/q/I 松手即 spawnField 生成场源体）⇒ 永远走不到赋予。修：**q 落在实心物体上
-     *  优先赋予电荷**；只有落在空白处时才生成场源（原行为不变）。 */
-    /* ★★R132 BOSS：**光速 v** 落到 ½mv² 上 ⇒ 走 bossPlace（前两次排斥、第三次融合）。
-     *  必须放在 findSolidBodyAt 之前 —— ½mv² 是动态体，会被 findSolidBodyAt 命中并送进
-     *  attach()，而 attach 对「表达式」目标是**无条件并入 mem**（½mv² 的 mem 已是 3 项，
-     *  v 一进去公式就毁了）。这里按 bossIsEk() 精确判型后抢在它前面分流。 */
+    /* q 落在实心物体上优先赋予电荷；只有落在空白处才生成场源（否则 B/E/q/I 的场源分支会抢先）。 */
+    /* 光速 v 落到 ½mv² 上 ⇒ 走 bossPlace（前两次排斥、第三次融合）。必须放在 findSolidBodyAt 之前：
+     * ½mv² 是动态体会被它命中并送进 attach()，而 attach 对表达式目标无条件并入 mem（会毁掉公式）。
+     * 用 bossIsEk() 精确判型后抢先分流。 */
     if(L.ch==='v'&&L.vLight&&typeof bossFindEkNear==='function'){
       var _ek=bossFindEkNear(pointer.x,pointer.y);
       if(_ek){bossPlace(_ek,L);grab.kind=null;grab.obj=null;return;}
     }
     if(L.ch==='q'&&typeof findSolidBodyAt==='function'){
       var _qb=findSolidBodyAt(pointer.x,pointer.y);
-      /* ★R132-9zl：命中了但**形状不在电荷白名单**（圆轨/凹槽/手绘笔画…）⇒ 不赋予，
-         落到下面的场源体分支（生成 q 场源体）—— 绝不并进物体（见 attach 里的 R132-9zm）。 */
+      /* 命中了但形状不在电荷白名单（圆轨/凹槽/手绘笔画…）⇒ 不赋予，落到下面的场源体分支；绝不并进物体（见 attach）。 */
       if(_qb&&qGiveable(_qb)){attach(_qb,L);grab.kind=null;grab.obj=null;return;}
-      /* ★★R132-9zc（用户 2026-10-03：「你对比一下字符 q 和字符 v，为什么 v 可以，而 q 不行」——
-         对比出来的**结构性不对称**就在这里）：命中失败后 **v 会继续往下走**
-         （`findTComboTarget` → `findKXCombo` → 再判一次实心命中 → `findMergeTarget`
-         → `findFreeMassTarget`），而 **q 在下面那个 `spawnField('q')` 分支里被直接 `return`
-         截断** ⇒ `findMergeTarget` 这条通道 **q 永远走不到** ⇒ 同一个落点、同一类目标，
-         **v 融得进去、q 融不进去**。
-         修：q 在生成场源体**之前**先拿一次 `findMergeTarget`（与 v 完全同序）。
-         ★场源体那条兜底**保留**：真的没有任何目标时，q 仍然照旧变成场源体（原行为不变）。 */
+      /* q 在生成场源体之前先试一次 findMergeTarget，与 v 同序（v 命中失败会依次走 findTComboTarget →
+       * findKXCombo → 实心命中 → findMergeTarget → findFreeMassTarget）；否则 q 被 spawnField('q') 分支
+       * 直接 return 截断，同一落点 v 融得进去 q 融不进去。真的没有目标时 q 仍变成场源体。 */
       var _qm=(typeof findMergeTarget==='function')?findMergeTarget(L):null;
       if(_qm){attach(_qm,L);grab.kind=null;grab.obj=null;return;}
     }
@@ -1124,12 +965,11 @@ DD.addEventListener('pointerup',function(e){
     // 't' combos: qt -> I, gt -> v, vt -> rod (hijacks a simple body)
     var tc=findTComboTarget(L);
     if(tc){applyTCombo(L,tc);grab.kind=null;grab.obj=null;return;}
-    // R57（用户 #7/#8）：k 与 x 拼起来 = 弹簧（不分先后，见 findKXCombo）
+    // k 与 x 拼起来 = 弹簧（不分先后，见 findKXCombo）
     var sc=findKXCombo(L);
     if(sc){applyKXCombo(L,sc);grab.kind=null;grab.obj=null;return;}
-    /* ★R131-36：**赋予型字符（v/q）**拖到实心物体上就生效——纯形状（没有质量字母的
-     *  方块/圆）在 canMerge 规则下不接收参数字母（实测 canMerge=false ⇒ 拖上去毫无反应），
-     *  但「赋予」不需要并入物体 ⇒ 单独按**实心区域命中**判定。 */
+    /* 赋予型字符（v/q）拖到实心物体上就生效：纯形状（无质量字母的方块/圆）在 canMerge 规则下不接收参数字母，
+     * 但「赋予」不需要并入物体 ⇒ 单独按实心区域命中判定。 */
     if((L.ch==='v'||L.ch==='q'||L.ch==='a')&&typeof findSolidBodyAt==='function'){
       var _sb=findSolidBodyAt(pointer.x,pointer.y);
       if(_sb){attach(_sb,L);grab.kind=null;grab.obj=null;return;}
@@ -1197,15 +1037,15 @@ DD.addEventListener('pointerup',function(e){
     // the angle at the initial multiple when dragging in small increments.)
     if(grab.obj){
       var RbU=grab.obj;
-      // R65：方向锁装配体 -> 松手吸附也落到整个整体（同一套 springAssemblyRotate，幂等）
+      // 方向锁装配体 -> 松手吸附也落到整个整体（同一套 springAssemblyRotate，幂等）
       if(springLockedAsmOf(RbU)){
         springAssemblyRotate(RbU,shortAng(snapAngle90(RbU.th)),tAnchor(RbU));
       }else{
         RbU.th=shortAng(snapAngle90(RbU.th));
-        // R58：弹簧松手时同样要落到端点上（B.th 是派生量，改它没用）
+        // 弹簧松手时同样要落到端点上（B.th 是派生量，改它没用）
         if(RbU.kind==='S')springRotate(RbU,RbU.th);
       }
-      // R56：W 边界的角度必须写进 Matter 本体——stepMatter 每帧用 mb.angle 覆写 B.th，
+      // W 边界的角度必须写进 Matter 本体：stepMatter 每帧用 mb.angle 覆写 B.th，
       // 不写回的话松手时的 90° 吸附会被弹回旧角度。
       if(RbU.kind==='W'&&RbU.mb){
         Matter.Body.setAngle(RbU.mb,RbU.th);
@@ -1214,16 +1054,14 @@ DD.addEventListener('pointerup',function(e){
       }
     }
   }else if(grab.kind==='arcedit'){
-    // R57：松开弧端点手柄——解除「编辑固定」。如果用户之前右键固定过（B.fixed）就继续保持
-    // static，否则恢复动态，让弧继续按重力/碰撞正常运动。_snap 复位，静置检测重新计时。
+    // 松开弧端点手柄：解除「编辑固定」。若之前右键固定过（B.fixed）则继续 static，否则恢复动态。
+    // _snap 复位，静置检测重新计时。
     var Ab3=grab.obj;
     if(Ab3&&!Ab3.dead){
       Ab3.editLock=false;
-      // R62：松手时再吸附一次（和旋转手柄同一约定），保证「拖到 90° 整数倍附近松手」一定落正。
-      // 拖动中已经实时吸附过，这里是幂等兜底 —— 覆盖「最后一次 pointermove 落在带外/带内
-      // 边界」这类只在松手那一刻才确定的时序。
-      // R75：兜底同样走**世界系**（arcEndWorldAng/arcParamFromWorldAng）—— 旧版在这里吸
-      // 本地的 a0/a1，th≠0 时会把拖动中已经吸正的世界方向又拧回去。
+      // 松手时再吸附一次（与旋转手柄同一约定）：拖动中已实时吸附过，这里是幂等兜底，覆盖最后一次
+      // pointermove 落在吸附带边界这类时序。同样在世界系里做（arcEndWorldAng/arcParamFromWorldAng），
+      // 吸本地 a0/a1 会在 th≠0 时把已吸正的世界方向拧回去。
       if(Ab3.ell)arcSetAngle(Ab3,grab.end,
                              arcParamFromWorldAng(Ab3,
                                snapAngle90(arcEndWorldAng(Ab3,grab.end))));
@@ -1234,12 +1072,12 @@ DD.addEventListener('pointerup',function(e){
       Ab3._snap=null;
     }
   }else if(grab.kind==='rodlen'){
-    // R98-3：松手 —— 按最后一次指针位置**无条件重建**镜像板（force=true），
-    // 保证「松手瞬间的长度」就是碰撞板的真实长度（拖动中为省开销允许 6px 容差漂移）。
+    // 松手：按最后一次指针位置无条件重建镜像板（force=true），保证松手时的长度就是碰撞板的真实长度
+    // （拖动中为省开销允许 6px 容差漂移）。
     var Rb4=grab.obj;
     if(Rb4&&!Rb4.dead){
       if(Rb4.belt)setBeltEnds(Rb4,grab.fx,grab.fy,pointer.x,pointer.y,true);
-      else if(Rb4.gnd)groundDragEnds(Rb4,grab,pointer.x,pointer.y,true);   // R108：地面器件
+      else if(Rb4.gnd)groundDragEnds(Rb4,grab,pointer.x,pointer.y,true);   // 地面器件
       else rodDragEnds(Rb4,grab,pointer.x,pointer.y,true);      // 同 pointermove：杆按索引摆
       Rb4.vx=0;Rb4.vy=0;Rb4.om=0;
       if(Rb4.mb&&Matter.Sleeping)Matter.Sleeping.set(Rb4.mb,false);

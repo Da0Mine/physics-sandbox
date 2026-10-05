@@ -12,8 +12,7 @@ function resize(){
     Matter.Body.setPosition(MW.ground,{x:W/2,y:groundY+400});
     Matter.Body.setPosition(MW.wl,{x:-300,y:groundY/2});
     Matter.Body.setPosition(MW.wr,{x:W+300,y:groundY/2});
-    /* ★★R131-64：天花板（wt）同款同步 —— 内缘恒落在 y=CEL_INNER，
-     *  与左右墙「离屏」语义一致：物体必须真的越出画布才碰到它。 */
+    /* 天花板（wt）同步：内缘恒落在 y=CEL_INNER，与左右墙一样在屏外，物体必须真的越出画布才碰到它。 */
     if(MW.wt)Matter.Body.setPosition(MW.wt,{x:W/2,y:celCenterY()});
   }
 }
@@ -97,21 +96,15 @@ function tickOrbs(dt){
     o.gy=B.y-R+Rk*Math.sin(o.spin);
   }
 }
-/* ---- R57 弹簧的绘制：锯齿线圈 + 锚点 ------------------------------------------------ */
-// R60：拴住的一端，线圈要停在**宿主表面**，不能一路画进物体里去。
-// 前两版都栽在「拿宿主的某个尺寸当回收量」：
-//   · R59b 按半径/半宽**硬减** = 假设锚点在物体中心。可判定带 SPR_PAD 只有 15px，
-//     拖拽吸附时锚点几乎总在物体**边缘**，于是凭空多退一整个尺寸 —— 实测圆环空 69~81px、
-//     三角形空 70~151px（用户第一次报的「空出一长段」）。
-//   · R59c 改成「包围盒沿轴支撑 |ux|·hw+|uy|·hh 减锚点投影」。圆是解析解没问题，但 W 体的
-//     hw/hh 是**包围盒**半宽、不是形状半宽，而包围盒支撑对非矩形是**高估** —— 实测细长线
-//     空到 128px、三角形空到 100px（用户第二次报的「更加逆天」）。
-// 正解：不做尺寸近似，直接对宿主的**真实几何**求解：
+/* ---- 弹簧的绘制：锯齿线圈 + 锚点 ------------------------------------------------ */
+// 拴住的一端，线圈要停在宿主表面，不能画进物体里。
+// 不要用宿主的某个尺寸做回收量近似：按半径/半宽硬减假设锚点在中心（吸附时锚点几乎总在边缘），
+// 用包围盒沿轴支撑对非矩形 W 体是高估 —— 两者都会空出 70~150px。
+// 做法是对宿主的真实几何求解：
 //   · 圆      ：解 |m + u·t| = R 的正根（锚点在体外 -> 0）
 //   · 开笔画/弧：锚点本来就在线上，没有「内部」-> 0
 //   · 闭合图形 ：锚点在体外 -> 0；在里面 -> 沿 u 射线走到边界为止
-// 256 组实测（圆/横线/竖线/矩形/三角形/涂鸦 × 16 方向 × 3 个内外偏移）：最长回收 6.3px，
-// 其中圆的 3px 是有意留的内缩；对比旧版 100~186px。
+// 实测（圆/线/矩形/三角形/涂鸦 × 16 方向 × 3 个内外偏移）最长回收 6.3px，其中圆的 3px 是有意留的内缩。
 // 世界坐标约定 world = pos + R(th)·local，与 distToHost / springAnchorOffset 一致。
 function hostInsideInk(H,px,py){
   var p=H.pts;if(!p||p.length<3)return false;
@@ -155,9 +148,9 @@ function springHostSurfDist(H,px,py,ux,uy){
   if(!hostInsideInk(H,px,py))return 0;                    // 闭合图形的体外
   return hostExitDist(H,px,py,ux,uy);
 }
-/* R98-2：杆的**唯一画线函数**（render 的 T 分支与器件落点虚影共用）。
- * 只读 {x,y,th,len} 四样 ⇒ 喂真杆或喂一个桩对象都画出逐像素相同的木板线，
- * 于是「虚影所见 = 松手所得」是结构上保证的（与 drawSpring 同一手法，见 drawDeviceGhost）。 */
+/* 杆的唯一画线函数（render 的 T 分支与器件落点虚影共用）。
+ * 只读 {x,y,th,len} ⇒ 真杆或桩对象画出逐像素相同的木板线，
+ * 保证「虚影所见 = 松手所得」（与 drawSpring 同一手法，见 drawDeviceGhost）。 */
 function drawRodPlank(B){
   var tht=B.th||0,cth=Math.cos(tht),sth=Math.sin(tht),hl=(B.len||170)/2;
   var x1=B.x-cth*hl,y1=B.y-sth*hl,x2=B.x+cth*hl,y2=B.y+sth*hl;
@@ -165,21 +158,15 @@ function drawRodPlank(B){
   cvx.lineWidth=3;
   cvx.lineCap='round';
   cvx.beginPath();cvx.moveTo(x1,y1);cvx.lineTo(x2,y2);cvx.stroke();
-  // R100①：已连接的端点画锚点 —— 让「这一端连上了」看得见。
-  // ★R103-5（用户：「我不是说了自动在连接处生成一个铰链来连接吗……生成了一个黑色实心圆
-  //   是怎么回事儿」）：连接处的语义就是**铰链**（杆绕它转、双击它解除），所以画成
-  //   铰链销 = 实心点 + 外圈（与 drawHinge 的销逐参数同款），不再是一颗裸的实心圆。
+  // 已连接的端点画铰链销（实心点 + 外圈，与 drawHinge 的销同款）：
+  // 连接处的语义就是铰链（杆绕它转、双击它解除）。
   if(B.anc){
     cvx.fillStyle='rgba(38,34,28,0.85)';
     cvx.strokeStyle='rgba(38,34,28,0.85)';
     for(var a=0;a<2;a++){
       if(!B.anc[a])continue;
-      // ★R105-3（用户：「不是应该是与物体连接的一端有铰链吗，怎么这个铰链跑到另一端了」）：
-      //   这里原先写 `(a?x2:x1)` —— 而本函数顶上把 x1 定义成 `B.x−cth*hl`，那正是
-      //   **索引 1 端**（rodEndWorld 用 `s=(i?-1:1)`，索引 0 取 +u 那一侧）。
-      //   ⇒ 标记恒画在**另一端**：锚在 index1 的杆，「销」出现在 index0 上。
-      //   实测（_diag_r105a 组 A）：锚定端 9px 圆盘墨量 39、自由端 193（比值 0.20）。
-      //   修法与 R100① 同款 —— 明确按**索引**取点，不再复用 (x1,x2) 这套「槽位味」的名字。
+      // 按索引取端点：索引 0 = +u 侧（B.x+cth*hl），与 rodEndWorld 的 s=(i?-1:1) 一致。
+      // 不要复用上面的 x1/x2（x1 = B.x−cth*hl 是索引 1 端），否则销会画到另一端。
       var ex0=B.x+cth*hl,ey0=B.y+sth*hl,ex1=B.x-cth*hl,ey1=B.y-sth*hl;
       var ax2=a?ex1:ex0,ay2=a?ey1:ey0;
       cvx.beginPath();cvx.arc(ax2,ay2,4.6,0,6.2832);cvx.fill();
@@ -190,15 +177,11 @@ function drawRodPlank(B){
 function drawSpring(B){
   var x0=B.e0.x,y0=B.e0.y,x1=B.e1.x,y1=B.e1.y;
   var dx=x1-x0,dy=y1-y0,L=Math.hypot(dx,dy)||1,ux=dx/L,uy=dy/L,px=-uy,py=ux;
-  /* ★★R132-8b（用户 2026-10-01：「物体撞上时也像是撞到弹簧一样，弹簧被压缩」）：
-   *  端帽压缩量 `_capCmp` 的**唯一消费者就在这里** —— 把被撞那一端沿轴向内缩 `_capCmp`，
-   *  `L` 随之变短 ⇒ 画面上的线圈被挤在更短的一段上（螺距自动变小，像真弹簧被压扁），
-   *  松手/物体弹开后 `_capCmp` 指数回落 ⇒ 弹簧自己"弹回来"。
-   *
-   *  ★为什么不在 `refreshSpringGeom` / `springEndCaps` 里挪 `e0/e1`：本轮实测（_tmp_r306）
-   *  压缩量一旦参与几何，判据基准就随状态漂移 ⇒ 正反馈（物体被越推越远 / 弹簧冻死）。
-   *  几何保持"自然长度"，压缩只做**渲染 + 力** ⇒ 所有反馈环一次性消失。
-   *  只画未锚定端（锚定端钉在宿主上，没有端帽）。 */
+  /* 端帽压缩量 _capCmp 的唯一消费者：被撞那一端沿轴向内缩 _capCmp，线圈挤在更短的一段上
+   * （螺距变小，像真弹簧被压扁）；物体弹开后 _capCmp 指数回落，弹簧自己弹回来。
+   * 不要在 refreshSpringGeom / springEndCaps 里挪 e0/e1：压缩量一旦参与几何，判据基准随状态漂移
+   * ⇒ 正反馈（物体被越推越远 / 弹簧冻死）。几何保持自然长度，压缩只做渲染 + 力。
+   * 只画未锚定端（锚定端钉在宿主上，没有端帽）。 */
   if(B._capCmp>0){
     var _ci=(B._capEIdx===1)?1:0,_ce=(_ci===1)?B.e1:B.e0;
     var _sgn=(_ci===1)?-1:1;                     // 该端向内 = 沿 e0→e1 方向（i=1 时为 −u）
@@ -210,11 +193,9 @@ function drawSpring(B){
       dx=x1-x0;dy=y1-y0;L=Math.hypot(dx,dy)||1;ux=dx/L;uy=dy/L;px=-uy;py=ux;
     }
   }
-  // R58：用户明确「不要变色」—— 弹簧恒用墨线画，不再按拉长/压缩染红染蓝。
-  // （形变信息改由参数面板里的 劲度系数/自然长度 承担，画面上不制造额外颜色噪声。）
+  // 弹簧恒用墨线画，不按拉长/压缩染色（形变信息由参数面板的劲度系数/自然长度承担）。
   var col='rgba(38,34,28,0.85)';
-  // R60：绕线圈数由**自然长度**定，与当前拉伸量无关 —— 真实弹簧的圈数是固定的，拉长时螺距
-  // 变大、压缩时螺距变小。旧写法 nc∝当前长度 = 「越拉圈数越多、越压圈数越少」，不像弹簧。
+  // 圈数由自然长度定，与当前拉伸量无关：真实弹簧圈数固定，拉长时螺距变大、压缩时螺距变小。
   var nc=Math.round(clamp(B.len/16,6,20)),amp=8;
   var r0=B.anc[0]?springHostSurfDist(B.anc[0].B,x0,y0, ux, uy):0;      // 拴住的一端止于表面
   var r1=B.anc[1]?springHostSurfDist(B.anc[1].B,x1,y1,-ux,-uy):0;
@@ -240,61 +221,38 @@ function drawSpring(B){
     cvx.beginPath();cvx.arc(a?x1:x0,a?y1:y0,4.4,0,6.2832);cvx.fill();
   }
 }
-/* ★★R131-28c（用户：「靠近物体中点时怎么没有那个吸附的效果，就是像在边界中点
- *  那样的出现红点」）：杆端吸附预览红点——未锚定的杆端靠近可吸附位置（表面 15px
- *  内 / 物体内部）⇒ 在吸附点画红点，与边界中点吸附的红点反馈同款。 */
+/* 杆端吸附预览红点：未锚定的杆端（或独立铰链端）靠近可吸附位置时在吸附点画红点，
+ * 与边界中点吸附的红点反馈同款。 */
 var ROD_SNAP_PREVIEW=null;
 function rodSnapPreviewScan(){
   ROD_SNAP_PREVIEW=null;
-  /* ★★R131-33（用户：「拖动杆或物体靠近时，鼠标还没松开就要显示红点」）：原实现
-   *  在 grab 期间直接 return ⇒ **拖动过程中永远不显示红点**（只在松手后的一帧闪）。
-   *  改为**拖拽中也扫描**（只跳过「正被拖的那一端」——避免被拖端自己吸自己）。 */
+  /* 拖拽中也扫描，松手前就显示红点。 */
   var _skipRod=(grab&&grab.kind&&(grab.obj&&grab.obj.kind==='T'))?grab.obj:null;
   for(var i=0;i<bodies.length;i++){
     var R=bodies[i];
-    /* ★★R131-52b（上一版改到了同名的另一处 ⇒ 真正的预览扫描里仍是旧的 kind!=='T'，
-     *  实测「器件铰链拖动时没有红点」）——这里精确纳入**铰链器件(S+hinge)**。 */
+    /* 纳入独立铰链器件（S+hinge）。 */
     var _isHingeRod=!!(R&&R.kind==='S'&&R.hinge);
     if((R.kind!=='T'&&!_isHingeRod)||R.dead||!R.anc)continue;
     for(var e=0;e<2;e++){
       if(R.anc[e])continue;
-      /* ★R131-33b：**不再跳过被拖的那一端**——用户拖的正是杆端，「拖着靠近时显示
-       *  红点」就是核心诉求（上一版跳过 ⇒ 拖动中永远没有红点）。 */
-      /* （_skipRod 保留供扩展：当前不用于过滤） */
+      /* _skipRod 当前不用于过滤：被拖的那一端正是要显示红点的那端。 */
       var p=_isHingeRod?springEnd(R,e):rodEndWorld(R,e);
       if(!p)continue;
       for(var j=0;j<bodies.length;j++){
         var h=bodies[j];
         if(h===R||h.dead||h.kind!=='W')continue;
-        /* ★★R131-32（用户：「杆靠近物体**中点**时达到吸附距离，中点应出现红点」）：
-         *  **中点独立优先判定**——不再要求「先满足表面 15px」，只要中点够得着
-         *  （hostMidSnapPoint 非空）就画中点红点；否则退回表面/内部判定。 */
-        /* ★★R131-39（用户：「红点要显示在杆上，不是物体中点；靠近时还没松手就要吸过去」）：
-         *  ① 红点画在**杆端**（跟着杆动——用户才知道自己的杆端在哪）；
-         *  ② 拖拽中命中吸附 ⇒ **把杆端直接拉到吸附点**（磁吸手感，与表面中点吸附一致）。 */
-        /* ★R131-50：角 > 边中点 > 表面点（铰链拖动时吸附到角，与中点吸附同款红点） */
-        /* ★★R131-53（用户：「**杆不需要吸附到物体的角**，角的功能是给独立器件铰链的」）：
-         *  角吸附**只对独立铰链(S+hinge)**生效；杆只做 边中点/表面/质心。
-         *  另外：**已吸附过的宿主不再显示预览**（用户：「松手吸附到角上后，那个红点也不会消失、
-         *  和铰链重叠」——红点就是这一帧的预览残留）。 */
+        /* 已锚定到该宿主的不再显示预览（否则松手后红点残留、与铰链重叠）。 */
         var _anchoredHere=false;
         for(var _ae=0;_ae<2;_ae++){ if(R.anc[_ae]&&R.anc[_ae].B===h){_anchoredHere=true;break;} }
         if(_anchoredHere)continue;
-        /* ★R131-54（用户：「关于杆的吸附还是回退回上一版，还是吸附角算了（现在越改越乱）」）：
-         *  **杆恢复角吸附**（角 > 边中点 > 表面），铰链同样（角优先、跳过中点）。 */
+        /* 吸附点优先级：质心（仅轻质杆）> 角 > 边中点（独立铰链不吸中点）> 表面点。 */
         var qc0=(typeof hostCornerSnapPoint==='function')?hostCornerSnapPoint(h,p.x,p.y):null;
         var qm0=_isHingeRod?null:((typeof hostMidSnapPoint==='function')?hostMidSnapPoint(h,p.x,p.y):null);
         var _snapPt=null;
-        /* ★★R131-52（用户：「杆在物体质心处的红点还是在杆上出现、随杆移动」）：真因——
-         *  这里只有「角 → 边中点 → 表面」三条路，**缺"质心"这一路** ⇒ 杆端插到物体中心时
-         *  红点画在表面点（甚至杆端）而不是质心 ⇒ 与 `springAnchorOffset` 的质心吸附
-         *  （dc ≤ 0.7×半径 ⇒ 锚质心）**不一致**。
-         *  修：**质心优先**（与吸附判定同一口径）⇒ 杆端进入质心带，红点就画在**物体质心**。 */
+        /* 质心判定与 springAnchorOffset 的质心吸附同口径（dc ≤ 0.7×半径 ⇒ 锚质心），红点画在物体质心。 */
         var _crad=(h.wshape==='circle'&&h.rad)?h.rad:Math.min(h.hw||30,h.hh||24);
         var _dc0=Math.hypot(p.x-h.x,p.y-h.y);
-        /* ★★R131-58b（用户：「独立铰链靠近质心时的红点标记还在，你代码都没删干净」）：
-         *  真因=这里。**质心红点只给轻质杆(T)**、**中点红点也不给独立铰链**（用户明确要求
-         *  铰链只吸角）——此前两者都没排除，所以铰链靠近物体中心会冒出质心红点。 */
+        /* 质心红点只给轻质杆(T)；独立铰链只吸角，也不给中点红点。 */
         var _isRodPrev=!!(R&&R.kind==='T');
         var _isHingePrev=!!(R&&R.kind==='S'&&R.hinge);
         var _cen0=(_isRodPrev&&_dc0<=_crad*0.7)?{x:h.x,y:h.y}:null;
@@ -303,25 +261,16 @@ function rodSnapPreviewScan(){
         else if(qm0&&!_isHingePrev)_snapPt=qm0;
         else{
           var dd=distToHost(h,p.x,p.y);
-          /* ★R131-53b：阈值 15 → **26**（撤销杆的角吸附后，若仍用 15 会出现"靠近表面但没红点"
-           * ——实测球外 20px 就没红点了）。与角的感受量级一致。 */
+          /* 表面吸附阈值 26px（15px 太小：球外 20px 就没红点），与角吸附的感受量级一致。 */
           if(dd<26||dd<0)_snapPt=hostClosestPoint(h,p.x,p.y);
         }
         if(_snapPt){
-          /* ★★R131-41（用户澄清：「红点**始终在物体质心**，杆靠近质心时被吸过去」）：
-           *  实心红点 = **吸附目标点**（质心/边中点/表面点，属于物体、不随杆动）；
-           *  杆端在吸附距离内就被磁吸过去 ⇒ 红点稳定在物体的那个点上。 */
+          /* 预览点 = 吸附目标点（质心/角/边中点/表面点，属于物体、不随杆动）。 */
           ROD_SNAP_PREVIEW={x:_snapPt.x,y:_snapPt.y,mid:!!qm0,tx:_snapPt.x,ty:_snapPt.y};
-          /* ★R131-39e：磁吸**只在这根杆的另一端已锚定**时生效——自由杆（两端都没锚）
-           *  若被磁吸就会**改杆长**（实测破坏 r104 的 I2/I3：拖杆到物体不再锚定、
-           *  锚定宿主不跟着走）。另一端锚定 ⇒ 杆绕锚点摆到吸附点，长度由两端决定，合理。 */
-          /* ★R131-52：铰链器件的磁吸 —— 把**被拖的铰链端点**直接移到吸附点（角/表面），
-           *  松手前就"吸过去"（与杆同一手感）。 */
-          /* ★★R131-54e（恢复铰链的"拖拽中磁吸"）：漂移的真因**不是磁吸本身**，而是
-           *  「残留 grab」——它已由 frame 开头的统一清理根治（指针没按着 ⇒ 清 grab）。
-           *  磁吸在这里再加两道保险：**要求指针真的按着（__ptrDown）** 且 **只移动未被抓的
-           *  那一端所在的整体**（整根平移 ⇒ 不拉丝、不打穿锚定关系）。 */
-          if(false&&_isHingeRod){   /* ★R131-57：铰链磁吸同样移除（防漂移/拉丝） */
+          /* 拖拽中磁吸已禁用（下面两个 if(false&&…) 分支只保留代码）：磁吸是唯一会主动搬移连接件/宿主的通道，
+           * 会导致漂移/拉丝。若恢复：杆只在另一端已锚定时磁吸（自由杆被磁吸会改杆长）；
+           * 铰链需要求指针真的按着（__ptrDown）且整根平移。 */
+          if(false&&_isHingeRod){   /* 已禁用（防漂移/拉丝） */
             try{
               var _e0=springEnd(R,0), _e1=springEnd(R,1);
               if(_e0&&_e1){
@@ -339,23 +288,17 @@ function rodSnapPreviewScan(){
               }
             }catch(_he){}
           }
-          if(false&&R.anc[1-e]){   /* ★R131-57：**磁吸整体移除**（用户：「漂移问题并没有解决」—— 磁吸是唯一会主动搬移连接件/宿主的通道） */
+          if(false&&R.anc[1-e]){   /* 已禁用：磁吸会主动搬移连接件/宿主 */
             try{
               var _far=rodEndWorld(R,1-e);
               if(!_far||!isFinite(_far.x)||!isFinite(_far.y))return;
               var _mx=_snapPt.x,_my=_snapPt.y;
               if(!isFinite(_mx)||!isFinite(_my))return;
               var _dx=_mx-_far.x,_dy=_my-_far.y,_dl=Math.hypot(_dx,_dy)||1;
-              /* ★★R131-44（用户：「拖着物体经过杆的连接点，吸附上但没松手继续移动会导致
-               *  杆长增加/减小——杆应该是长度不变的」）：真因=磁吸用 `_cl` 把端点按距离
-               *  直接摆过去 ⇒ **改了杆长**。修：把端点投影到「以另一端为圆心、半径 = 当前
-               *  杆长」的圆上 ⇒ 杆**只绕另一端旋转、长度恒定**。 */
+              /* 端点投影到以另一端为圆心、半径 = 当前杆长的圆上：只绕另一端旋转，不改杆长。 */
               var _len0=(typeof B.len==='number'&&B.len>0)?B.len:((typeof B._rodL==='number'&&B._rodL>0)?B._rodL:_dl);
               _mx=_far.x+_dx/_dl*_len0;_my=_far.y+_dy/_dl*_len0;
               rodPlaceEnds(R,e?_far.x:_mx,e?_far.y:_my,e?_mx:_far.x,e?_my:_far.y,true);
-              /* ★★R131-40b（用户：「物体中点的显示没变化，还是那样」）：红点必须**始终画在
-               *  杆端**（跟着杆动）——上一版磁吸后把红点位置换成了吸附点（在物体上）
-               *  ⇒ 视觉上红点仍像"长在物体中点"。现在：红点=杆端 p，目标点另存 tx/ty。 */
               ROD_SNAP_PREVIEW={x:_snapPt.x,y:_snapPt.y,mid:!!qm0,tx:_snapPt.x,ty:_snapPt.y};
             }catch(_me){}
           }
@@ -368,7 +311,7 @@ function rodSnapPreviewScan(){
     }
   }
 }
-/* ★★R131-34：带电荷的物体在其**质心**画 +/− 符号（正负取决于 B.charge）。 */
+/* 带电荷的物体在质心画 +/− 符号（正负取决于 B.charge）。 */
 function drawChargeMark(){
   for(var i=0;i<bodies.length;i++){
     var B=bodies[i];
@@ -384,16 +327,15 @@ function drawChargeMark(){
     cvx.restore();
   }
 }
-/* ★★R131-34：**待融合提示**——拖着 v/q（赋予型字符）悬停在可赋物体上 ⇒ 该物体**灰化**
- *  （渲染层降饱和 + 半透明），松手即完成赋予。 */
+/* 待融合提示：拖着赋予型字符（v/q）悬停在可赋物体上 ⇒ 该物体灰化
+ * （渲染层降饱和 + 半透明），松手即完成赋予。 */
 function bodyPendingBlend(B){
   if(!(grab&&grab.kind==='letter'&&grab.obj))return 0;
   var t=grab.obj.type||grab.obj.ch;
   if(t!=='v'&&t!=='q')return 0;
   return (B===hoverB)?0.55:0;     // hoverB = 指针下的物体
 }
-/* ★★R131-37：**待融合提示环**——拖着 v/q 悬停在可赋物体上 ⇒ 物体外画一圈橙色虚线
- *  （上一版只写了 bodyPendingBlend 却没接入渲染 ⇒ 用户拖上去毫无反馈、以为没反应）。 */
+/* 待融合提示环：拖着 v/q 悬停在可赋物体上 ⇒ 物体外画一圈橙色虚线。 */
 function drawPendingHint(){
   if(!(grab&&grab.kind==='letter'&&grab.obj))return;
   var t=grab.obj.type||grab.obj.ch;
@@ -412,7 +354,7 @@ function render(){
   cvx.clearRect(0,0,W,H);
   rodSnapPreviewScan();
   if(ROD_SNAP_PREVIEW){
-    /* 实心红点 = 杆端（一直跟着杆动，用户才知道自己杆端在哪） */
+    /* 实心红点 = 预览点（吸附目标点；杆端落在物体内部的回退分支则为杆端） */
     cvx.beginPath();
     cvx.arc(ROD_SNAP_PREVIEW.x,ROD_SNAP_PREVIEW.y,5,0,6.2832);
     cvx.fillStyle='rgba(220,60,50,0.9)';cvx.fill();
@@ -428,14 +370,9 @@ function render(){
     var B=bodies[i];
     if(B.frac&&B.st.bar&&!B.st.bar.dead){
       var ob=B.orb,oxB=(ob&&ob.k>=0.02&&ob.gx!=null)?(ob.gx-B.x):0,oyB=(ob&&ob.k>=0.02&&ob.gy!=null)?(ob.gy-B.y):0;
-      /* ★★R132-6：分数线必须与**字形同口径缩放**。
-       *  `syncGlyphs()` 画字形用的是 `sc2 = popScale(B.pop)·(B.sc||1)·(B.infl||1)`，
-       *  而这里原来只有 `sc = B.sc||1` —— **少乘 pop 与 infl**。
-       *  实测后果（`_tmp_r287_zoom.py` 逐帧）：`bossBurst()` 给 `Ek.pop=0.9` 的那一帧，
-       *  字形缩到 `popScale(0.9)=0.557`（逐帧 ink 高 48→26.7px），分数线却仍是满宽
-       *  103.4px ⇒ 用户看到的是「一个式子被打散 + 一根横杠戳在外面」（截图
-       *  `_shot_r283/s2_rise_end.png`）。同理 `B.infl` 膨胀时（黑洞/mc²）也会分叉。
-       *  ★这与 R131-43 的「时间静止保底」也须一致，否则两边在不同帧各自切换。 */
+      /* 分数线必须与字形同口径缩放：syncGlyphs() 画字形用 sc2 = popScale(B.pop)·(B.sc||1)·(B.infl||1)，
+       * 只乘 B.sc 的话 pop 脉冲 / infl 膨胀时字形缩小而分数线仍满宽，横杠会戳在外面。
+       * 时间静止保底（TIME_SCALE<=0 时保底到 1）也须与字形一致，否则两边在不同帧切换。 */
       var extra2=(B.pop&&B.pop>0)?popScale(B.pop):1;
       var scb=extra2*(B.sc||1)*(B.infl||1);
       if(TIME_SCALE<=0&&scb<0.6)scb=1;
@@ -475,32 +412,27 @@ function render(){
     cvx.setLineDash([]);
   }
   // t-rods (vt->plank): a thin line like the ground, but draggable & rotatable
-  // R98-2：画线抽到 drawRodPlank（与器件落点虚影共用），这里只负责遍历（保持原「不滤 dead」口径）。
+  // 画线在 drawRodPlank（与器件落点虚影共用），这里只负责遍历（不滤 dead）。
   for(var tr=0;tr<bodies.length;tr++){
     var TB=bodies[tr];
     if(TB.kind!=='T')continue;
     drawRodPlank(TB);
   }
-  // R57 弹簧（kx）：锯齿线圈。圈数随长度自适应；拉长偏红、压短偏蓝、原长墨黑；
-  // 拴住的一端画一个实心锚点，用户一眼能看出「哪端接上了、哪端还悬着」。
+  // 弹簧（kx）一族：拴住的一端画实心锚点，一眼能看出哪端接上了、哪端还悬着。
   for(var sp2i=0;sp2i<bodies.length;sp2i++){
     var SPB=bodies[sp2i];
     if(SPB.kind!=='S'||SPB.dead)continue;
-    // R101⑦：'S' 一族三个成员按标志分派渲染（同一份锚点约定，三套画法）。
+    // 'S' 一族三个成员按标志分派渲染（同一份锚点约定，三套画法）。
     if(SPB.hinge)drawHinge(SPB);else if(SPB.rope)drawRope(SPB);else drawSpring(SPB);
   }
-  // ★R104-8：拖动器件时，在最近那条边的中点上提示吸附位置（防侧翻的连接点）
-  // ★R105-2：**必须画在最后**。原来它排在 drawBoundaries() 之前 —— 而 W 体（画的方框）
-  //   正是 drawBoundaries 画的，再加上「指针压上去」时那两层 16px/9px 宽的蓝色悬浮光晕，
-  //   提示标记被整份盖掉（_diag_r105c 组 C 实测：提示逻辑确实出了点——手动调 drawDeviceSnapHints
-  //   出 60 个砖红像素——但真实渲染里画布上只剩 0；把它挪到最后即消失）。
-  //   提示是**界面层**，不该被任何实体遮挡。
+  // 拖动器件时在最近那条边的中点提示吸附位置（drawDeviceSnapHints）必须最后画：
+  // 放在 drawBoundaries() 之前会被 W 体和指针悬浮时 16px/9px 的蓝色光晕整份盖掉。
   // stamped boundaries (kind 'W'): solid black, with a centre-of-mass tick
   drawBoundaries();
   // magnetic fields: dotted disc, q orbital paths, I Ampere force arrows
   for(var fb=0;fb<bodies.length;fb++){
     var FB=bodies[fb];
-    if(FB.kind==='B')drawFieldDots(FB.x,FB.y,FB.fieldR,FB.Bz);   /* ★9zs：传 Bz ⇒ 负值画叉 */
+    if(FB.kind==='B')drawFieldDots(FB.x,FB.y,FB.fieldR,FB.Bz);   /* 传 Bz ⇒ 负值画叉 */
     else if(FB.kind==='E')drawFieldE(FB.x,FB.y,FB.fieldR,FB.th||0,FB);
   }
   for(var qo=0;qo<bodies.length;qo++){
@@ -542,7 +474,7 @@ function render(){
     }
   }
   drawParticles();
-  drawDeviceSnapHints();   // ★R105-2：界面层，画在所有实体之上（原因见上面那段注释）
+  drawDeviceSnapHints();   // 界面层，画在所有实体之上（见上方 drawBoundaries 处的说明）
   drawToolPreview();
 }
 function drawBlackHole(B){
@@ -611,8 +543,7 @@ function syncGlyphs(){
     if(bar&&!bar.dead)bar.el.style.display='none';
       var extra=(B.pop&&B.pop>0)?popScale(B.pop):1;
       var sc2=extra*(B.sc||1)*(B.infl||1);
-      /* ★R131-43（用户：「t 静止时合成表达式都变得很小」）：时间静止时若缩放被算成极小值
-       *  （合成链上的缩放累积依赖 dt），保底到 1 ⇒ 静止时字形仍正常大小。 */
+      /* 时间静止时缩放可能被算成极小值（合成链上的缩放累积依赖 dt），保底到 1。 */
       if(TIME_SCALE<=0&&sc2<0.6)sc2=1;
       var th2=(B.th||0)+(B.wob||0);
       var ox=0,oy=0;
@@ -621,14 +552,10 @@ function syncGlyphs(){
         var g2=B.glyphs[j];
         if(g2.dead||g2.type===BAR)continue;
         var s2=slot(B,g2);
-        /* ★★R132-6：字形**中心**必须与元素尺寸走同一个缩放系数。
-         *  `slot()` 里只乘了 `B.sc`，而这里传给 `place()` 的是 `sc2`（含 pop/infl）
-         *  ⇒ pop 脉冲/膨胀时，每个字形**各自原地缩小**、中心不动，于是互相拉开：
-         *  实测 `_shot_r283/s2_rise_end.png` 的 Ek 渲染成 `m   v ²`（散架），
-         *  而注释的意图是「被震了一下的视觉脉冲」（= 整体缩放）。
-         *  ⇒ 把槽位偏移按 `sK = sc2/B.sc` 同比例放大，等价于「以质心为原点整体缩放」。
-         *  ★`TIME_SCALE<=0` 的保底（`sc2=1`）也自动一致：此时 `sK=1/B.sc`，
-         *    偏移×`B.sc`×`sK` = 偏移×1 ⇒ 与 `place` 的 `scale(1)` 同口径。 */
+        /* 字形中心必须与元素尺寸走同一个缩放系数：slot() 只乘了 B.sc，而 place() 用 sc2（含 pop/infl），
+         * 不补偿的话 pop 脉冲/膨胀时每个字形各自原地缩小、中心不动，式子会散架。
+         * 把槽位偏移按 sK = sc2/B.sc 同比例放大，等价于以质心为原点整体缩放。
+         * TIME_SCALE<=0 的保底（sc2=1）自动一致：此时偏移×B.sc×sK = 偏移×1。 */
         var sK=(B.sc||1)>1e-9?(sc2/(B.sc||1)):1;
         place(g2,B.x+(s2.x-B.x)*sK+ox,B.y+(s2.y-B.y)*sK+oy,th2,sc2,true);
         g2.el.style.opacity=(B.bh&&B.bh.fade!=null)?B.bh.fade:(B.bhFade!=null?B.bhFade:'');
@@ -647,9 +574,9 @@ function cursorTick(){
   cv.style.cursor='default';
 }
 var G_RANGE=360, G_PULL=52000;
-/* ★R132-9zt：真 `GM/r²`（Plummer 软化）的系数。标定口径：在 **r=150px** 处与旧的
-   `G_PULL/(r+80)` 加速度相等 ⇒ `G_PULL2 = 52000·(150+80)/150·(150²+80²)^1.5/…`
-   实算 = **7.405e6**（旧值在 r=150、默认 M/3=1 时 a=52000/230=226.1 px/s²）。 */
+/* 真 GM/r²（Plummer 软化）的系数。标定：在 r=150px 处与旧的 G_PULL/(r+80) 加速度相等
+ ⇒ G_PULL2 = 52000·(150+80)/150·(150²+80²)^1.5/… = 7.405e6
+ （旧公式在 r=150、默认 M/3=1 时 a=52000/230=226.1 px/s²）。 */
 var G_PULL2=7.405e6;
 function stepGravity(dt){
   var gravs=[];
@@ -668,9 +595,8 @@ function stepGravity(dt){
     if(B.kind)continue;
     if(B.bh)continue;   // black holes do not orbit anything
     if(B.isWell)continue;
-    // R60c：不再是**完整** mv²/r（例如把 m 拆走、只剩裸 v²/r）时要主动解开圆轨道 —— 否则
-    // 已经建立的 B.go / B.goB 链接会一直把两个物体按在原轨道上（拆分瞬间看起来就是
-    // 「v²/r 一开始出现就转起来了」）。isMVR 里补了质量判据，这里补链接的清理。
+    // 不再是完整 mv²/r（例如拆走 m、只剩 v²/r）时主动解开圆轨道，否则已建立的
+    // B.go / B.goB 链接会继续把两个物体按在原轨道上。isMVR 负责质量判据，这里清理链接。
     if(!isMVR(B)){
       if(B.go)releaseGo(B);
       if(B.goB){var HB2=B.goB;if(HB2&&HB2.go)releaseGo(HB2);B.goB=null;}
@@ -766,19 +692,15 @@ function stepGravity(dt){
     }
     if(!best||bd>(best.isWell?(best.wellR||G_RANGE):G_RANGE))continue;
     // ---- SIMPLE ATTRACTION (identical for plain m, mv², mv²/r, …) ----
-    // The well's central mass M (mass param) scales the pull; the falling body's own mass
-    // m also feeds in (F=GMm/r² style feel — heavier bodies fall a touch faster in-game).
+    // 井的中心质量 M 缩放引力；加速度与下落体自身质量无关（见下）。
     var inv=1/Math.max(bd,24);
     var ax=(bcx-B.x)*inv, ay=(bcy-B.y)*inv;
-    /* ★★R132-9zt（用户：「关于引力你也做一下，**做成真参数**」）：真公式 `a = GM/r²`。
-       · 去掉两处"游戏手改"：①原来的距离律是 `1/(r+80)`（不是 `1/r²`）；
-         ②原来乘了**掉落体自己的质量** `min(m,3)` —— 真物理里**引力加速度与测试质量无关**
-           （重的东西受的力大、但惯性也大，恰好抵消），所以那一项已删。
-       · 用 **Plummer 软化** `r/(r²+ε²)^1.5`（ε=80，沿用旧的软化半径）⇒ r≫ε 时就是 `1/r²`，
-         且 r→0 不发散。沿指向井心的单位方向 `(ax,ay)` 施加。
-       · `M` 取井的 `massCap`（大写 M 的参数）/ `mass`，**默认 3**；下面除以 3 就是"相对默认值"。
-       · `G_PULL2` 按 r=150px 处与改动前的加速度**相等**标定 ⇒ 中距离手感一致
-         （远距离会因真实的 1/r² 衰减而比原来弱，这是换指数律的必然结果）。 */
+    /* 真公式 a = GM/r²：
+     · 引力加速度与测试质量无关，不要乘掉落体自身的质量。
+     · Plummer 软化 r/(r²+ε²)^1.5（ε=80）⇒ r≫ε 时就是 1/r²，且 r→0 不发散；沿指向井心的单位方向 (ax,ay) 施加。
+     · M 取井的 massCap（大写 M 参数）/ mass，默认 3；除以 3 即「相对默认值」。
+     · G_PULL2 按 r=150px 处与旧公式 1/(r+80) 加速度相等标定 ⇒ 中距离手感一致，
+     远距离因 1/r² 衰减会比旧公式弱。 */
     var wm=(best.isWell)?(best.massCap!=null?best.massCap:3):(best.mass!=null?best.mass:3);
     var _rg=Math.max(bd,24);
     var a=G_PULL2*(wm/3)*_rg/Math.pow(_rg*_rg+80*80,1.5);
@@ -806,16 +728,10 @@ function stepField(dt){
   for(var j=0;j<bodies.length;j++){
     var O=bodies[j];
     if(O.kind==='B'||O.kind==='E')continue;   // field sources don't feel their own field
-    /* ★★R132-9zj（用户 2026-10-03：「这个物体获得电荷 q 后，怎么放在电磁场中没反应啊，
-     *   就好像不受力一样」）。
-     *   背景：W 体（画出来的边界）**按设计**是"锚"——同文件那段文档写着
-     *   「没有惯性，只能被拖动……**the fields ignore it (stepField)** … vx is pinned to 0」，
-     *   所以**带电的 W 体从来不受力**是既有行为（不是本轮改出来的；A/B：改前改后逐位相同）。
-     *   但用户要的是「带电体在电场里被推动」这条物理。⇒ **最小侵入**：
-     *   只有**带电的** W 体（`O.charge` 非 0）参与场受力；**没电的边界照旧不被场推**
-     *   （原设计"锚"的行为、不会被场推走，全部保留）。
-     *   ★施力要**注入 Matter**：W 体由 Matter 积分，`stepMatter` 每帧用 `mb.velocity` 覆写 `B.vx`，
-     *   只改 `O.vx` 会被吃掉（与黑洞通道 `Matter.Body.setVelocity` 同一套写法）。 */
+    /* W 体（画出来的边界）设计上是「锚」，场不推它；只有带电的 W 体（O.charge 非 0）参与场受力，
+     *   没电的边界照旧不被场推。
+     *   带电 W 体的施力必须注入 Matter：W 体由 Matter 积分，stepMatter 每帧用 mb.velocity 覆写 B.vx，
+     *   只改 O.vx 会被吃掉（见本块末尾的 applyForce）。 */
     if(O.kind==='W'&&!O.charge)continue;
     if(O.bh)continue;                          // black holes don't feel fields
     if(grab.kind==='body'&&grab.obj===O)continue;
@@ -834,9 +750,9 @@ function stepField(dt){
       if(dxE>=-erE.l&&dxE<=erE.r&&dyE>=-erE.t&&dyE<=erE.b)esIn.push(SE);
     }
     if(O.kind==='q'||O.charge){
-      // ★R132-9zj：带电的 W 体也走这条（`O.charge` 非 0），施力后注入 Matter（见下面）。
-      /* ★R132-9zt：真公式 `a = qE/m`、`ω = qB/m` 的三个"真参数"，**必须声明在本块最前面**
-         （B 场那一段就要用；声明在后面会被 var 提升成 undefined）。 */
+      // 带电的 W 体（O.charge 非 0）也走这条，施力后注入 Matter（见下面）。
+      /* a = qE/m、ω = qB/m 用到的三个参数必须声明在本块最前面
+       （B 场那一段就要用；声明在后面会被 var 提升成 undefined）。 */
       var _qNum=(O.qCharge!=null)?O.qCharge:((O.charge!=null)?O.charge:O.qsign);
       var _mRel=(O.mMul!=null)?O.mMul:1;
       if(!(_mRel>0.001))_mRel=0.001;
@@ -844,7 +760,7 @@ function stepField(dt){
       // Multiple B sources COMPOSE their rotation rates (rotations about z add linearly).
       if(bsIn.length){
         var rot=0;
-        /* ★R132-9zt：真公式 `ω = qB/m`（洛伦兹）。默认 q=1、B=1、m=1 ⇒ 与改动前逐位相同。 */
+        /* ω = qB/m（洛伦兹）。默认 q=1、B=1、m=1 时等于旧的手感标定。 */
         for(var bi=0;bi<bsIn.length;bi++){
           var BS=bsIn[bi];
           var bzP=(BS.Bz!=null)?BS.Bz:1;
@@ -853,60 +769,48 @@ function stepField(dt){
         var cs2=Math.cos(rot),sn2=Math.sin(rot);
         var nvx2=cs2*O.vx-sn2*O.vy;
         var nvy2=sn2*O.vx+cs2*O.vy;
-        /* ★R132-9zt：**W 体不走这条** —— 它由 Matter 积分，速度只能通过 `applyForce` 施加
-           （本块末尾那条）。原来这里也写了一遍 `O.vx/O.vy`，虽然随后会被 `stepMatter`
-           覆写，但会造成"同一个力算两遍"的错觉与口径混乱（实测加速度比值偏离理论值）。 */
+        /* W 体不在这里写速度：它由 Matter 积分，只能通过本块末尾的 applyForce 施力；
+         在此写 O.vx/O.vy 会被 stepMatter 覆写，还会造成同一个力算两遍的口径混乱。 */
         if(O.kind!=='W'){O.vx=nvx2;O.vy=nvy2;}
       }
       // electric force (E field): F = qE — each source adds its own acceleration vector.
-      /* ★★R132-9zt（用户：「电磁场改成**真参数**，保持初始手感不变，你可以调整电场磁场的默认值」）：
-         真公式 `a = qE/m`。这里 `q` 取**电荷量数值**（`O.qCharge` / `O.charge`，默认各为 1）、
-         `E` 取电场强度 `ESi.eacc`（默认 1）、`m` 取**面板那个质量参数** `B.mMul`（默认 1，见
-         `wmass` 的定义：它是乘数）。
-         ⇒ 三个默认值全是 1 ⇒ **默认手感与改动前逐位相同**；
-            而调电荷量 / 调 E / 调质量**都会真的改变加速度**（符号由 q·E 的乘积给出）。
-         ★`q_ref = E_ref = m_ref = 1` 三个参考值把真实单位（C·V/m / kg）换算吸收掉了，
-           换算系数就是 `E_FIELD_ACC`（px/s²，即"默认电荷在默认场里的加速度"）。 */
+      /* 真公式 a = qE/m：q 取电荷量数值（O.qCharge / O.charge，默认 1），E 取 ESi.eacc（默认 1），
+       m 取面板质量乘数 B.mMul（默认 1，见 wmass）。三者默认都是 1 ⇒ 默认手感不变，
+       而调电荷量 / E / 质量都会真的改变加速度（符号由 q·E 给出）。
+       q_ref = E_ref = m_ref = 1 把真实单位换算吸收掉，换算系数就是 E_FIELD_ACC
+       （px/s²，即默认电荷在默认场里的加速度）。 */
       for(var ei=0;ei<esIn.length;ei++){
         var ESi=esIn[ei];
         var eth2=ESi.th||0, eaP2=(ESi.eacc!=null)?ESi.eacc:1;
         var ea2=E_FIELD_ACC*_qNum*eaP2/_mRel*dt;
-        if(O.kind!=='W'){O.vx+=Math.cos(eth2)*ea2;O.vy+=Math.sin(eth2)*ea2;}   /* ★同上：W 体只走 applyForce */
+        if(O.kind!=='W'){O.vx+=Math.cos(eth2)*ea2;O.vy+=Math.sin(eth2)*ea2;}   /* W 体只走 applyForce */
       }
       O.fieldState=(bsIn.length||esIn.length)?{active:true}:null;
-      /* ★★R132-9zk（用户 2026-10-03：「物体被赋予电荷后，在场中的运动**好卡，一卡一卡的**」）——
-         上一版（9zj）用 `setVelocity` + `Sleeping.set(false)` 每帧推速度，**与 R131-45
-         修掉的是同一个病**：「a 赋予圆后运动一卡一卡的」——Matter 刚积出来的速度被我们下一帧
-         写回去，两套速度口径互相打，每次唤醒还重置睡眠计时。
-         ⇒ 改用 **Matter 的力通道**（`applyForce`），**作用点取 `mb.position`（质心）** ——
-            这正是用户要的「**力直接作用于质心、不考虑力矩**」：零力矩 ⇒ 物体不会被场推着自转。
-         · 单位沿用全场口径 `applyGivenAccel`（R131-45）：`F = m·a/1e6`，`a` 用 px/s²。
-         · E 场：沿 `th` 的**恒定加速度**（`E_FIELD_ACC·eacc·qsign`），各源矢量相加。
-         · B 场：洛伦兹力**垂直于速度**、大小 `ω·|v|`（`ω = Q_FORCE·qsign·|Bz|`）⇒ 走圆弧。
-         · 施力后把速度镜像还原成 Matter 真值（上面那段共用的速度写法对 W 体不适用）。 */
+      /* 带电 W 体走 Matter 的力通道（applyForce），不要每帧 setVelocity + Sleeping.set(false)：
+       那会覆盖 Matter 刚积分出的速度并重置睡眠计时，运动一卡一卡。
+       作用点取 mb.position（质心）⇒ 零力矩，物体不会被场推着自转。
+       · E 场：沿 th 的恒定加速度，各源矢量相加。
+       · B 场：洛伦兹力垂直于速度、大小 ω·|v| ⇒ 走圆弧。
+       · 施力后把速度镜像还原成 Matter 真值（上面共用的速度写法对 W 体不适用）。 */
       if(O.kind==='W'&&O.mb){
         var _fm=O.mb.mass||1,_afx=0,_afy=0,i3,src3,a3;
         for(i3=0;i3<esIn.length;i3++){src3=esIn[i3];
-          /* ★R132-9zt：与上面 q 通道同口径的真公式 `a = qE/m` */
+          /* 与上面 q 通道同口径：a = qE/m */
           a3=E_FIELD_ACC*_qNum*((src3.eacc!=null)?src3.eacc:1)/_mRel;
           _afx+=Math.cos(src3.th||0)*a3;_afy+=Math.sin(src3.th||0)*a3;}
         var _vx3=O.vx||0,_vy3=O.vy||0,_sp3=Math.hypot(_vx3,_vy3);
         if(_sp3>1e-6){
           for(i3=0;i3<bsIn.length;i3++){src3=bsIn[i3];
             var _bz3=(src3.Bz!=null)?src3.Bz:1;
-            /* ★R132-9zt：真公式 `ω = qB/m` ⇒ 切向加速度 ω·|v| */
+            /* ω = qB/m ⇒ 切向加速度 ω·|v| */
             var _w3=Q_FORCE*_qNum*_bz3/_mRel*_sp3;
             _afx+=(-_vy3/_sp3)*_w3;_afy+=(_vx3/_sp3)*_w3;}
         }
-        /* ★★R132-9zq（插桩实测：`applyForce` 被调 42 次、但 `fx` 只有 0.003 ⇒
-           物体只得到 **5.7 px/s²**，而地面摩擦 208 px/s² ⇒ **完全被吃掉**，看着"没效果"）。
-           根因：`/1e6` 是 `applyGivenAccel`（**逐子步**、240 次/秒）的口径；`stepField` 是
-           **帧级**（60 次/秒）⇒ 4 个子步里只有 1 个吃到力 ⇒ 实际只有 1/4，再加上别处
-           也对不上，实测差了约 240 倍。
-           标定：Matter 每步给 `(F/m)·deltaTime²`（deltaTime=4.1667ms ⇒ ×17.36）；
-           帧级一次要产生 `a/60 px/s` 的物理增量 = `a/14400 px/step`
-           ⇒ `F = m·a/(17.36·14400) ≈ m·a/250000`。
-           ★实测复核：改后列车的加速度与 `a` 同量级（见 `_tmp_r384`）。 */
+        /* 力的换算按帧级标定：stepField 是帧级（60 次/秒），不能沿用 applyGivenAccel 的逐子步口径 F=m·a/1e6
+         （那样 4 个子步只有 1 个吃到力，实测只得到约 5.7 px/s²，被地面摩擦 208 px/s² 完全吃掉）。
+         Matter 每步给 (F/m)·deltaTime²（deltaTime=4.1667ms ⇒ ×17.36）；帧级一次要产生 a/60 px/s
+         的增量 = a/14400 px/step ⇒ F = m·a/(17.36·14400) ≈ m·a/250000（理论推导值）；
+         * 实际使用的 QFIELD_K=112500 是实测标定值，见 01-core.js。 */
         if(_afx||_afy)Matter.Body.applyForce(O.mb,{x:O.mb.position.x,y:O.mb.position.y},
                                             {x:_fm*_afx/QFIELD_K,y:_fm*_afy/QFIELD_K});
         O.vx=O.mb.velocity.x*60;O.vy=O.mb.velocity.y*60;

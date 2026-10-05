@@ -1,4 +1,4 @@
-/* R132-10f: fragments fly to exact slot -> char lights on arrival */
+/* 碎片精确飞向槽位，到达时点亮对应字符 */
 (function(){
   var FRAGS=[], G=2600, started=false, ph2="idle", SHOCKS=[];
   var asmQ=[], asmActive=[], asmT=0, INTV=0.012, DUR=1.5;

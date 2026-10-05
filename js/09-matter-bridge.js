@@ -1,82 +1,53 @@
 /* 工具栏状态、Matter 刚体桥接、弹性接触守卫（原 index.html 第 12526–13839 行） */
-/* ================= R47: TOOL PALETTE =====================================================
- * A dropdown at the top-left corner reveals a row of three icon tools:
- *   ① 公式示例 — a menu centred on the screen listing every ready-made WHOLE; clicking one
- *                materialises it dead centre of the canvas.
- *   ② 画笔     — freehand: draw a black "weighty boundary".
- *   ③ 预设物体 — the same boundary, dragged out as a rectangle / circle / triangle.
- *
- * WHAT "有重量" MEANS HERE (the user's own definition):
- *   "会根据其自身重量分布而往哪边倒" — the shape TIPS OVER about its lowest contact point under
- *   its own gravity torque, so an off-centre mass distribution topples it. That is the whole
- *   point of the feature and it is the one thing B/E/q/I do NOT do.
- *
- *   AND IT FALLS. Weight means weight: an unsupported boundary drops under gravity, lands on the
- *   ground / a rod / another boundary and stops there. Its weight is spread ALONG THE LINE
- *   (B.bndM = the line's total length, B.bndI = the line's second moment — see mkBoundary),
- *   never over the enclosed area, because "画出的只是线条，不要填充里面的，只有线条是边界".
- *
- * WHAT "没有惯性，只能被拖动，就和 B 和 E 一样" MEANS:
- *   Nothing but the drag and gravity ever moves a boundary: the fields ignore it (stepField), a
- *   gravity well ignores it (stepGravity only ever touches kind==null) and a collision never
- *   flings it — collideBodies only kills its inward velocity and pushes it back out of something
- *   it fell into. There is no horizontal inertia at all (vx is pinned to 0), it never bounces
- *   (bounc=0) and it keeps no velocity after you let go. An anvil, not a projectile — but it will
- *   not stay standing the way you left it, and it will not hang in mid-air either.
- *
- * WHAT "连续绘制，取消勾选才结束" MEANS (R53):
- *   Picking 画笔 or a 预设物体 arms a MODE that stays on: every stroke / every shape you draw
- *   lands as its own boundary and the tool remains ready for the next one (finishStroke /
- *   finishShapeDrag no longer drop the mode). Clicking the same tool button again (or the
- *   ／ shape toggle) un-arms it and the canvas goes back to grabbing.
+/* ---- 工具栏（TOOL PALETTE）----
+ * 左上角下拉展开三个图标工具：
+ *   ① 公式示例 — 屏幕中央的菜单列出所有现成整体，点一个就在画布正中生成；
+ *   ② 画笔     — 手绘一条黑色「有重量的边界」；
+ *   ③ 预设物体 — 同样的边界，拖出矩形 / 圆 / 三角。
+ * 「有重量」：边界在自身重力力矩下绕最低接触点倾倒（质量分布偏心就会翻），无支撑时下落并停在
+ *   地面 / 杆 / 其它边界上。重量沿线条分布（B.bndM = 线总长，B.bndI = 线的二阶矩，见 mkBoundary），
+ *   不按围出的面积算：只有线条是边界，内部不填充。
+ * 「没有惯性，只能被拖动」：除拖动和重力外没有东西能移动边界：场（stepField）、引力井（stepGravity
+ *   只处理 kind==null）都忽略它；碰撞只消掉它的向内速度并把它推出（collideBodies），不会把它甩飞。
+ *   无水平惯性（vx 钉 0）、不反弹（bounc=0）、松手后不保留速度。
+ * 连续绘制：画笔 / 预设物体模式常驻时，每一笔 / 每个形状各成一个边界，工具保持就绪
+ *   （finishStroke / finishShapeDrag 不清模式）；再点同一按钮（或形状切换）取消，画布回到抓取。
  */
 var TOOL={open:false,mode:null,shape:'rect',stroke:null,drag:null,
-          device:'spring',  // R96：当前选中的器件（与 shape 同构；器件模式下点画布就放它）
-          devDrag:null,     // R96：从器件面板拖出来时跟着指针走的落点（{id,x,y,over}）
-          cont:false,     // R57（用户 #1）：true = 连续绘制（双击进入），false = 只画一次（单击）
+          device:'spring',  // 当前选中的器件（与 shape 同构；器件模式下点画布就放它）
+          devDrag:null,     // 从器件面板拖出时跟随指针的落点（{id,x,y,over}）
+          cont:false,     // true = 连续绘制（双击进入），false = 只画一次（单击）
           armedKey:null,  // 当前武装的是哪个按钮（'brush' / 'shape:rect'…），双击判定要它
           lastTap:0};     // 上一次点同一个按钮的时间戳
-// R57（用户 #1）：「点一下就是只画一次，双击就是固定（一直画），再点一下才取消」。
-// 实现要点：第一次点立刻武装（不延迟——若等双击判定窗口过去再武装，点一下就要等 330ms 才
-// 能用，手感很差）。第二次点在窗口内则把同一把工具升级成连续；超出窗口再点则是取消。
+// 单击 = 只画一次；双击 = 连续绘制；再点一次取消。
+// 第一次点立即武装（不等双击判定窗口，否则单击要等 330ms 才能用）；窗口内第二次点把同一工具升级为连续，超出窗口再点则取消。
 var TOOL_DBL_MS=330;
 var tToggle=document.getElementById('ttoggle'),tRow=document.getElementById('trow'),tSub=document.getElementById('tsub');
-// R96：器件行（#dsub）的引用。与 #tsub 分开放：syncToolUI 里 `tSub.querySelectorAll('.tbtn')` 只该扫
-// 形状 chip，若把器件 chip 并进 tSub，它会被当成形状按钮去比对 data-shape（恒 null）⇒ 永远不高亮。
+// 器件行 #dsub 与 #tsub 分开：syncToolUI 用 tSub.querySelectorAll('.tbtn') 只扫形状 chip，
+// 器件 chip 若并入 tSub 会被当作形状按钮比对 data-shape（恒 null），永远不高亮。
 var dSub=document.getElementById('dsub');
 var fmenu=document.getElementById('fmenu'),fmask=document.getElementById('fmask'),
     fmgrid=document.getElementById('fmgrid'),fmclose=document.getElementById('fmclose');
-var BND_HH=3.0;         // 基础常量（历史名）。屏幕上墨迹的**线宽**由它派生：lineWidth = BND_HH*1.55
-// R71⑦（用户：「圆弧碰撞箱和笔画不一样，一端对准地面时小球经过会弹一下」）：
-// 这里是**同一个墨迹厚度被写成了两个数**——渲染用 BND_HH*1.55（=4.65px 线宽，半厚 2.325），
-// 物理却到处直接用 BND_HH（=3.0，半厚 3.0）。于是每一笔画、每一道轮廓的碰撞体都比看得见的
-// 那条线**胖 0.675px**，端点处还额外外延 3px（见 mkBoundary 开链分支）。
-// 「碰撞箱和笔画不一样」不是错觉，是常量分叉。修法：立一个唯一真源 BND_INK，物理一律用它，
-// 与渲染表达式同源，从此两者不可能再漂移。
-var BND_INK=BND_HH*1.55/2;   // 屏幕上墨迹的**半厚**（px）—— 画多粗就撞多粗
-var PEN_HW=BND_INK;     // 画线半厚 == 图形半厚 == 墨迹半厚（用户：画的线要和图形一样细）
+var BND_HH=3.0;         // 基础常量（历史名）；墨迹线宽 = BND_HH*1.55
+// 墨迹厚度的唯一真源 BND_INK：物理一律用它，与渲染线宽 BND_HH*1.55 同源。
+// 不要在物理里直接用 BND_HH（半厚 3.0）：碰撞体会比可见线（半厚 2.325）胖 0.675px，碰撞箱与笔画对不上。
+var BND_INK=BND_HH*1.55/2;   // 屏幕上墨迹的半厚（px）：画多粗就撞多粗
+var PEN_HW=BND_INK;     // 画线半厚 == 图形半厚 == 墨迹半厚
 var PEN_MAX=90;         // most segments one pen stroke may carry (keeps the collision pass cheap)
 var BND_MIN_LEN=50;     // shorter than this and there is no line to speak of -> not a body
-// R57：与「墙」的接触在多大相对法向速度以下算「静止接触」（此时恢复系数按 0 处理）。
-// 一帧重力给物体加上的速度是 GRAV*dt ≈ 43px/s，所以静止接触的 vn 就在这个量级；
-// 10px 高的自由落体落地速度约 228px/s，远在门限之上——真正的撞击照旧反弹。
+// 与墙接触时，相对法向速度低于此值算静止接触（恢复系数按 0 处理）。
+// 一帧重力增速 GRAV*dt ≈ 43px/s，静止接触的 vn 即此量级；10px 高自由落体落地约 228px/s，真实撞击照旧反弹。
 var W_BOUNCE_MIN=140;
-// R57：边界（W）的「真实速度」死区。Matter 对静置的多段复合体会有 1px 级求解器跳变，
-// 1.2px/帧 ≈ 72px/s，差分成速度后足以把压在弧上的物体顶飞。边界是「没有惯性、只能被拖动」
-// 的铁砧，这种亚像素数值抖动一律当静止。真正下落/被拖动时速度远大于 120px/s，不受影响。
+// 边界（W）速度死区（px/s）：Matter 对静置的多段复合体有 ~1px 级求解器跳变（1.2px/帧 ≈ 72px/s），
+// 差分成速度后足以把压在弧上的物体顶飞，故低于此值一律当静止；真正下落/被拖动时速度远大于 120px/s。
 var W_V_DEAD=120;
 
-/* ---- the Matter layer: REAL rigid-body physics for boundaries --------------------------
-   The hand-rolled quasi-static topple (rotate about the lowest contact, torque vs parallel-axis
-   inertia) could make a lopsided outline TIP, but it could not give the tip ANGULAR MOMENTUM:
-   no tumbling, no rocking onto an edge and settling, no momentum carried through a collision —
-   which is exactly what "heavy like a real object" means (the draw-a-line-to-save-the-dog kind
-   of physics). So boundary bodies now live in an embedded Matter.js world (same engine class the
-   drawing-physics games use): a sequential-impulse solver with friction, stacking, sleeping.
-   The formula letters keep their own hand-rolled physics (fields, shatter, black holes...) and
-   still collide against a boundary's edges through bndHit below; the t-rod is mirrored into the
-   Matter world as a kinematic static plank so a line can land on it. Gravity is matched:
-   Matter accelerates bodies at gravity.y*1000 px/s^2, so 2.6 == GRAV (2600). */
+/* ---- Matter 层：边界的真实刚体物理 ----
+ * 手写的准静态倾倒（绕最低接触点转、力矩对平行轴惯量）能让偏心轮廓倾倒，却没有角动量：不会翻滚、
+ * 不会摇到一条边上再稳住、碰撞不传递动量。因此边界体放进内嵌的 Matter.js 世界（顺序冲量求解器，
+ * 带摩擦、堆叠、睡眠）。公式字母仍用自己的手写物理（场、碎裂、黑洞…），通过下方 bndHit 与边界的边碰撞；
+ * t 杆以运动学静态板镜像进 Matter 世界，线条可以落在上面。
+ * 重力对齐：Matter 加速度 = gravity.y*1000 px/s²，所以 2.6 对应 GRAV(2600)。 */
 var MW=null;
 function ensureMatter(){
   if(MW)return;
@@ -87,64 +58,43 @@ function ensureMatter(){
   Matter.Composite.add(E.world,wLayer);
   // static frame: the ground line plus two off-screen walls (a dragged-and-released line must
   // never be able to fall out of the world). Cleared W bodies go from wLayer; this frame stays.
-  /* ★★R132-9r（用户：「这个物体怎么我摩擦力调成 1 了，怎么还和之前一样缓慢下滑，
-   *   怎么感觉这个摩擦力系数没用似的」）。
-   *  ★先纠正 R132-9n 的一处理解错误：**天花板不是 `friction`**。
-   *    `Body.setStatic`（`isStatic:true` 时 Matter 内部会调）会把 `part.friction` 覆写成 **1**，
-   *    所以 `friction:0.6` 这个选项**根本没生效**（实测 `MW.ground.friction === 1`），
-   *    `pair.friction = min(μ, 1) = μ` ⇒ 动摩擦一路都跟着 μ 走，**没有被截顶**。
-   *  ★真正的天花板是 `frictionStatic`：Matter 的 `Body.setStatic` **不动它** ⇒ 静态框留在
-   *    默认 **0.5**；而配对规则两边都取 min（本项目 R68 起 `frictionStatic` 也取 min），
-   *    体侧写的是 0.6 ⇒ `pair.frictionStatic = min(0.6, 0.5) = 0.5` —— **恒定、与 μ 无关**。
-   *    静摩擦咬合在低速段主导（实测：μ=0.05/0.3/0.5/0.6/0.7/1.0 的滑行距离
-   *    72.1/31.5/26.1/23.8/22.7/20.4px，从 μ=0.3 到 1.0 只差 1.55×，远小于 1/μ 的 3.3×）
-   *    ⇒ 用户观感就是「μ 调到很大也没区别」。
-   *  修法（两处缺一不可，且**只放开 μ>0.6**，默认手感一格不动）：
-   *    ① 静态框的 `frictionStatic` 显式给 **1**（`friction` 不用动，setStatic 已经给 1）；
-   *    ② 物体侧 `frictionStatic` 在 μ>0.6 时跟随 μ（这正是 R132-9n 注释里写的意图，
-   *       当时代码落成了 `(v===0)?0:0.6`）；μ≤0.6 仍取 0.5 ⇒ `pair` 与改动前**逐位相同**。 */
+  /* 静态框摩擦：Body.setStatic 会把 part.friction 覆写成 1，所以这里的 friction:0.6 实际不生效
+   * （MW.ground.friction === 1），动摩擦 pair.friction = min(μ,1) = μ，不受截顶。
+   * 但 setStatic 不动 frictionStatic（默认 0.5），配对取 min ⇒ pair.frictionStatic 恒为 0.5、与 μ 无关；
+   * 低速段静摩擦咬合主导，实测 μ 从 0.3 到 1.0 滑行距离只差 1.55×（远小于 1/μ 的 3.3×），表现为调大 μ 没区别。
+   * 所以静态框 frictionStatic 显式给 1，配合物体侧 wfStaticOf（只在 μ>0.6 时跟随 μ，默认手感不变）。 */
   var ground=Matter.Bodies.rectangle(W/2,groundY+400,W+400,800,{isStatic:true,friction:0.6,frictionStatic:1,label:'ground'});
   var wl=Matter.Bodies.rectangle(-300,groundY/2,600,groundY*2+800,{isStatic:true,frictionStatic:1,label:'wl'});
   var wr=Matter.Bodies.rectangle(W+300,groundY/2,600,groundY*2+800,{isStatic:true,frictionStatic:1,label:'wr'});
-  /* ★★R131-64（用户：「天花板怎么没有边界？天花板也是一面墙」）：
-   *  原来只有「地面 + 左右两面离屏墙」——**顶部是敞开的**，而 walls(B) 的顶部夹子
-   *  （`if(cyp-hh<-8){…}`，见该处注释）只对**公式体**生效，W 体在 stepPhysics 里
-   *  被 `if(B.kind==='W')continue;` 整段跳过 ⇒ 画出来的物体（图形/风/绳/杆的宿主）
-   *  一旦获得足够向上的速度就真的飞出世界、再也回不来（REC 里就发生过）。
-   *  修：补上**和左右墙同款**的离屏静态顶墙 wt —— W 体与公式体都吃 Matter 碰撞，
-   *  与用户「天花板也是一面墙」的表述一致（是挡板，不是左上那种自动回推）。
-   *  尺寸/位置与 wl/wr 同口径（厚 600、纵向跨 2*groundY+800），中心压在画布上方
-   *  离屏处 ⇒ 内缘 y = wtY+300，`resize()` 每帧按 H 同步 ⇒ 内缘恒 = -(BND_INK+CEL_INSET)。 */
+  /* 离屏静态顶墙 wt：与左右墙同款的挡板（不是自动回推）。W 体在 stepPhysics 里整段跳过
+   * （walls(B) 的顶部夹子只对公式体生效），没有顶墙时画出的物体获得足够向上速度会飞出世界、回不来。
+   * 厚度与 wl/wr 同口径（600），中心在画布上方离屏处 ⇒ 内缘 y = wtY+300；resize() 每帧按 H 同步，
+   * 内缘恒 = -(BND_INK+CEL_INSET)。 */
   var wtY=celCenterY();
   var wt=Matter.Bodies.rectangle(W/2,wtY,W+400,600,{isStatic:true,frictionStatic:1,label:'wt'});
   Matter.Composite.add(E.world,[ground,wl,wr,wt]);
   MW={engine:E,wLayer:wLayer,ground:ground,wl:wl,wr:wr,wt:wt,acc:0};
-  // ★R119：圆的恢复系数补偿挂在 collisionStart 上 —— 这是 Pairs.update 之后、位置/速度
-  // 求解器**之前**的唯一窗口（此时 positionPrev 还是撞击前的，改完求解器才看到新速度）。
+  // 圆的恢复系数补偿挂在 collisionStart：这是 Pairs.update 之后、位置/速度求解器之前的唯一窗口
+  // （此时 positionPrev 仍是撞击前的，改完后求解器才看到新速度）。
   Matter.Events.on(E,'collisionStart',circleRestitutionFix);
-  /* ★★R132-9v：自算库仑摩擦挂在**引擎的 afterUpdate** 上，而不是产品的子步循环里 ——
-     挂在子步循环里有一个致命洞：任何**直接调 `Matter.Engine.update`** 的代码路径
-     （`_probe_r75/76` 等探针、以及任何绕开 `stepMatter` 的推进）根本不会经过那里
-     ⇒ 那条路上 `mb.friction` 已被我们置 0（Matter 通道关掉）⇒ **一个体都摩擦不到**
-     （实测 `_probe_r75.py` E3：μ=0/0.1/0.25/0.5 滑行距离全是 360.0px，零减速）。
-     挂到事件上之后，「凡是 Matter 推进一步」就一定有一次自算摩擦。 */
+  /* 自算库仑摩擦挂在引擎的 afterUpdate 上，而不是 stepMatter 的子步循环里：直接调 Matter.Engine.update、
+   * 绕开 stepMatter 的推进路径不会经过子步循环，而这些体的 mb.friction 已被置 0，就完全没有摩擦。
+   * 挂在事件上保证 Matter 每推进一步都有一次自算摩擦。 */
   Matter.Events.on(E,'afterUpdate',function(){ try{wfSelfFriction(ROD_SUB_DT);}catch(e){} });
 }
 function removeMatterBody(B){
   if(B.mb&&MW){Matter.Composite.remove(MW.wLayer,B.mb);}
   B.mb=null;
-  /* ★R131-14：弹簧的端帽体随宿主一起清（否则删弹簧后留下隐形碰撞体） */
+  /* 弹簧的端帽体随宿主一起清，否则删弹簧后留下隐形碰撞体 */
   if(B._cap){for(var ci=0;ci<2;ci++){if(B._cap[ci]&&MW){Matter.Composite.remove(MW.wLayer,B._cap[ci]);}}
     B._cap=null;}
 }
 function rebuildWBody(B,thOpt){
-  // 几何被编辑（弧端点手柄）后重建 Matter 复合体。注意 buildMatterBody 会把 fixed 复位，
+  // 几何被编辑（弧端点手柄）后重建 Matter 复合体。buildMatterBody 会把 fixed 复位，
   // 重建前后要保持固定态（setStatic），否则一编辑就掉下去。
-  // R57（用户 #2）：拖端点手柄期间整条弧处于「编辑固定」态（B.editLock），重建后也要保持
-  // static，否则每帧 arcResample -> rebuild 都会造出一个新的动态体，弧会在拖动中往下掉。
-  // R75：thOpt = 重建完成后的**目标姿态**。buildMatterBody 内部要在 th=0 下建体（bndPts 的
-  // 约定），但它同时要用这个真实姿态把「原点重定位的世界位移」换成本地位移 —— 旧版没有这条
-  // 通路，只能靠 th=0 的巧合（见 buildMatterBody 里 R75 的注释）。
+  // 拖端点手柄期间整条弧处于「编辑固定」态（B.editLock），重建后也要保持 static，
+  // 否则每帧 arcResample -> rebuild 都会造出新的动态体，弧在拖动中往下掉。
+  // thOpt = 重建完成后的目标姿态：buildMatterBody 在 th=0 下建体（bndPts 的约定），用它做原点重定位与恢复姿态。
   B._rebuildTh=(thOpt!=null)?thOpt:(B.th||0);
   var wasFixed=!!B.fixed;
   removeMatterBody(B);
@@ -156,8 +106,8 @@ function rebuildWBody(B,thOpt){
   }
   if(B.mb)Matter.Sleeping.set(B.mb,false);
 }
-// ---- 圆弧（R56 PPT 语义）：端点手柄的几何 ----------------------------------------------
-// 椭圆锚定在body 本地系里的 (lcx,lcy)，随body 平移/旋转。端点世界坐标 = B 原点 + 旋转(lc + 极坐标)。
+// ---- 圆弧（PPT 式语义）：端点手柄的几何 ----
+// 椭圆锚定在 body 本地系的 (lcx,lcy)，随 body 平移/旋转。端点世界坐标 = B 原点 + 旋转(lc + 极坐标)。
 function arcWorldCenter(B){
   var e=B.ell,c=Math.cos(B.th||0),s=Math.sin(B.th||0);
   return {x:B.x+e.lcx*c-e.lcy*s,y:B.y+e.lcx*s+e.lcy*c,c:c,s:s};
@@ -167,12 +117,10 @@ function arcEndWorld(B,which){
   var ex=e.lcx+Math.cos(a)*e.rx,ey=e.lcy+Math.sin(a)*e.ry;
   return {x:B.x+ex*wc.c-ey*wc.s,y:B.y+ex*wc.s+ey*wc.c};
 }
-// R75（用户⑫：「弧的 90° 吸附偏移了」）：吸附的**共同口径**——世界系。
-// 旧版在 body 本地参数角上做吸附，弧自转过 th 后吸的就是「跟着体斜过去的 0/90/180/270」，
-// 而旋转手柄吸的是 th 本身（世界系）。两个辅助函数把口径统一到世界系：
-//   arcEndWorldAng  端点相对椭圆圆心的**世界**方向角（= 本地几何方向角 + th）
-//   arcParamFromWorldAng  把任意世界方向角换算成该椭圆上的参数角（pa=atan2(ly/ry,lx/rx) 的逆）
-// rx==ry（R69 起弧恒为正圆）时两者互为 ±th 的平移，公式自动退化。
+// 吸附统一在世界系做（与旋转手柄吸 th 的口径一致）；若在本地参数角上吸附，弧自转后吸到的是跟着体斜过去的 0/90/180/270。
+//   arcEndWorldAng        端点相对椭圆圆心的世界方向角（= 本地几何方向角 + th）
+//   arcParamFromWorldAng  把世界方向角换算成该椭圆上的参数角（pa=atan2(ly/ry,lx/rx) 的逆）
+// rx==ry（弧恒为正圆）时两者互为 ±th 的平移，公式自动退化。
 function arcEndWorldAng(B,which){
   var e=B.ell,a=(which===0)?e.a0:e.a1;
   return Math.atan2(Math.sin(a)*e.ry,Math.cos(a)*e.rx)+(B.th||0);
@@ -182,12 +130,9 @@ function arcParamFromWorldAng(B,worldAng){
   return Math.atan2(Math.sin(b)/e.ry,Math.cos(b)/e.rx);
 }
 function arcSetAngle(B,which,na){
-  // 拖端点手柄：把指针角写入 a0/a1。扫过角限幅 [0.15, 2π-0.06]——太短没有意义，
-  // 整圆则和「圆」工具重复。
-  // R57（用户 #3）：展开的参考点必须是**这个端点自己的当前值**，不能是另一端点。
-  // 旧代码用 ref=另一端点 + shortAng()，shortAng 把差值折到 (-π,π]，于是扫过角永远 ≤180°：
-  // 一旦拖过 180°，差值符号翻转，弧「跳回原点变成小小的一截」。以自身当前值为基准展开，
-  // 每次拖动累积增量，就能连续转过 180°（上限 2π-0.06，由下面的 clamp 保证）。
+  // 拖端点手柄：把指针角写入 a0/a1。扫过角限幅 [0.15, 2π-0.06]——太短没有意义，整圆则和「圆」工具重复。
+  // 以这个端点自己的当前值为参考、逐次累积增量：若以另一端点为参考再 shortAng()，差值被折到 (-π,π]，
+  // 扫过角永远 ≤180°，拖过 180° 时弧会跳回成一小截。
   var e=B.ell,cur=(which===0)?e.a0:e.a1;
   na=cur+shortAng(na-cur);
   var MIN=0.15,MAX=Math.PI*2-0.06;
@@ -196,15 +141,9 @@ function arcSetAngle(B,which,na){
   arcResample(B);
 }
 function arcResample(B){
-  // R75（用户⑫：「弧的 90° 吸附偏移了」的**真凶**）：旧版这样算世界点 ——
-  //     world.push([wc.x+cos(a)*rx, wc.y+sin(a)*ry]);
-  // 半径向量**没有跟着刚体姿态转**（漏了 R(th)）。而 arcResample 是「世界 -> 本地」再回写的，
-  // 于是算出来的本地 pts 是 R(-th)·polar 而不是 polar，渲染时再乘 R(th) 恰好抵消 ——
-  // 屏幕上那条弧的**世界方向角就是 a0/a1 本身**，可端点手柄 / arcEndWorld / 吸附算的却是
-  // a+th（它们都乘了 R(th)）。两边差一个 th：弧一旦自己转过角度，黄点手柄就浮在弧身旁边，
-  // 拖上去吸附自然「偏移」（`_diag_r76_arcsnap.py` 用例 B 实测：世界角 − 参数角 = 恰好 th）。
-  // 修法：根本不必绕世界系 —— 本地坐标 = lc + (rx cos a, ry sin a)，与 th 无关，
-  // 一行直出，且与 arcEndWorld/arcWorldCenter 的定义天然自洽（wc = B.x + R(th)·lc）。
+  // 本地坐标直接 = lc + (rx cos a, ry sin a)，与 th 无关，且与 arcEndWorld/arcWorldCenter 的定义自洽（wc = B.x + R(th)·lc）。
+  // 不要先算世界点再转回本地：半径向量漏乘 R(th) 时，渲染出的弧世界方向角是 a0/a1，而手柄/吸附按 a+th 算，
+  // 弧自转后手柄浮在弧旁、吸附偏移。
   var e=B.ell,th=B.th||0;
   var sw=e.a1-e.a0,n=Math.max(20,Math.min(160,Math.ceil(Math.abs(sw)/0.09))),i;
   B.pts=[];
@@ -216,8 +155,7 @@ function arcResample(B){
     if(B.pts[i][1]<mny)mny=B.pts[i][1];if(B.pts[i][1]>mxy)mxy=B.pts[i][1];
   }
   B.hw=Math.max(6,(mxx-mnx)/2);B.hh=Math.max(6,(mxy-mny)/2);
-  // 建体必须在 th=0 下做；姿态通过 rebuildWBody 的第二个参数带进去，由 buildMatterBody
-  // 负责「本地位移换算 + 建完恢复姿态」，这里不再自己零/还原。
+  // 建体必须在 th=0 下做；姿态经 rebuildWBody 的第二个参数传入，由 buildMatterBody 负责本地位移换算与建完恢复姿态。
   B.th=0;
   rebuildWBody(B,th);
 }
@@ -246,9 +184,8 @@ function inflateHull(h,d){
   }
   return out;
 }
-// R64：把 W 体上用户调过的质量乘数（mMul）与摩擦系数（wFrict）应用到 Matter 体上。
-// buildMatterBody 的所有路径（新建 / rebuildWBody 弧编辑重建 / 复制）最后都走这里，
-// 保证「重建一个体」不会把用户调好的参数悄悄洗回默认值。
+// 把用户调过的质量乘数（mMul）与摩擦系数（wFrict）应用到 Matter 体上。
+// buildMatterBody 的所有路径（新建 / rebuildWBody 重建 / 复制）最后都走这里，重建不会把用户参数洗回默认。
 function applyWMul(B){
   if(!B.mb)return;
   if(B.mMul&&B.mMul!==1){
@@ -257,13 +194,11 @@ function applyWMul(B){
   }
   applyWFrict(B);
   applyWBounc(B);
-  applyEffRest(B);     // R74-D/J：高中模式默认弹性全 0 —— effRest 读 PHYS_MODE（applyWFrict/applyWBounc 有 null 守卫不调它，默认体也要刷）
+  applyEffRest(B);     // 高中模式默认弹性全 0：effRest 读 PHYS_MODE；applyWFrict/applyWBounc 有 null 守卫不调它，默认体也要在这里刷
 }
-/* ★★R132-9v：**自算的库仑摩擦**（逐子步，调用点在 `stepMatter` 的子步循环里、
- *   紧跟 `Matter.Engine.update` 之后 —— 那时本子步的接触对表才是新的）。
- *   口径：`dv = μ · g · dt`（**与质量无关**，滑行距离 ∝ 1/μ），方向恒与当前速度相反；
- *   `k` 不超过当前速度（**只刹到停、不反向**，静摩擦由接触求解器自己处理）。
- *   只处理「本子步有活动接触」且「用户显式调过 μ」的 W 体（`_ownFric`）⇒ 其余体零开销、零影响。 */
+/* 自算的库仑摩擦（逐子步，挂在引擎 afterUpdate 上，见 ensureMatter；此时本子步的接触对表是新的）。
+ * dv = μ·g·dt，与质量无关（滑行距离 ∝ 1/μ），方向与当前速度相反；只刹到停、不反向，静摩擦交给接触求解器。
+ * 只处理本子步有活动接触且用户显式调过 μ 的 W 体（_ownFric），其余体不受影响。 */
 function wfSelfFriction(dt){
   if(!MW||!MW.engine)return;
   var list=MW.engine.pairs.list,any=0,i,k,B,pr;
@@ -273,7 +208,7 @@ function wfSelfFriction(dt){
     B=bodies[i];
     if(!B||B.dead||B.kind!=='W'||!B.mb||B.mb.isStatic||!B._ownFric)continue;
     var mu=B.wFrict;
-    if(!(mu>0))continue;                       // μ=0 = 真正光滑（R76 语义）
+    if(!(mu>0))continue;                       // μ=0 = 真正光滑
     var touch=false;
     for(k=0;k<list.length;k++){
       pr=list[k];
@@ -284,20 +219,16 @@ function wfSelfFriction(dt){
     if(!v)continue;
     var sp=Math.hypot(v.x,v.y);
     if(!(sp>1e-9))continue;
-    /* ★单位换算（Matter 0.19 `Body.update`：`velocity` = 每子步位移 px/子步，
-       重力项是 `(force/mass)·deltaTime²`）⇒ 物理减速度 a=μ·g 折算到存储口径要乘 **dt²**
-       （先 px/s→px/子步，再 px/子步→"每子步的位移"）。
-       校核：μ=1、v0=500px/s ⇒ kk=0.04514 px/子步 ⇒ 停时 2.083/0.04514=46 子步=0.192s
-       ⇒ 滑行 500·0.192/2 = **48px** = 教科书 v²/(2μg) ✔（第一版写成 μ·g·dt ⇒ 大了 240 倍，
-       实测 4 帧就停住）。 */
+    /* 单位换算：Matter 0.19 Body.update 中 velocity 是每子步位移（px/子步），重力项为 (force/mass)·deltaTime²，
+     * 所以减速度 a=μ·g 折算到存储口径要乘 dt²。
+     * 校核：μ=1、v0=500px/s ⇒ kk=0.04514 px/子步 ⇒ 46 子步(0.192s)停 ⇒ 滑行 48px = v²/(2μg)。
+     * 不要写成 μ·g·dt：大 240 倍，几帧就停住。 */
     var kk=mu*GRAV*dt*dt;
     if(kk>sp)kk=sp;
     var ux=v.x/sp,uy=v.y/sp;
-    /* ★★Matter 0.19 的 `Body.setVelocity(body, v)`：**入参是 `_baseDelta`(16.667ms) 单位**，
-       内部会乘 `body.deltaTime / Body._baseDelta`（我们子步 delta=4.1667 ⇒ **0.25**）再存。
-       而 `body.velocity` 读出来是**每子步位移(px/子步)**。两个口径差一个 0.25 ——
-       不补这因子，实测减速度只有 μ·g 的 **1/4**（μ=1 反推 a=646px/s²=0.25g）。
-       用 Matter 自己的换算因子，别写死 4。 */
+    /* Matter 0.19 的 Body.setVelocity 入参是 _baseDelta(16.667ms) 单位，内部乘 deltaTime/_baseDelta
+     * （子步 4.1667ms ⇒ 0.25）再存，而 body.velocity 读出的是 px/子步，两者差这个因子。
+     * 不补的话实测减速度只有 μ·g 的 1/4。用 Matter 自己的换算因子，别写死 4。 */
     var _bd=(typeof Matter!=='undefined'&&Matter.Body&&Matter.Body._baseDelta)||16.6667;
     var _ts=(B.mb.deltaTime||_bd)/_bd;
     if(!(Math.abs(_ts)>1e-6))_ts=1;
@@ -307,47 +238,25 @@ function wfSelfFriction(dt){
 }
 function applyWFrict(B){
   if(!B.mb)return;
-  // R65 修复（全量回归抓到的真 NaN）：wFrict 为 null（用户没调过）时**绝不能**写
-  // mb.friction —— friction=undefined 会进求解器算成 NaN，物体位置直接飞出屏幕
-  // （实测弧 y 飘到 -668 万、球速度衰减测试崩盘）。没调过 = 保留 buildMatterBody 的默认值。
-  //
-  // R76（用户①「高中模式下默认摩擦系数为 0」）：高中模式下**未调过**的体也必须真写 0 ——
-  // 旧版在这里对 wFrict==null 直接 return，于是只改了 wEffMu（面板读数），mb.friction 还是
-  // buildMatterBody 给的 0.08、pair 仍按 min(0.08,0.6)=0.08 咬合。「读数 0 而运动照旧有摩擦」
-  // 正是用户会一眼看穿的假象，所以读数与物理必须同源。
-  //
-  // R89（用户⑥「高中→大学往返后调 μ/e 全没效果」）：大学模式下**未调过**的体也不能早退 ——
-  //   往返链路：切高中时 mb.friction 被写成 0（上条 R76 语义）；切回大学时 v=null 早退，
-  //   mb.friction / frictionStatic 就**永远留在 0**（诊断 _diag_r89a_modefric 实测：往返后
-  //   未调过的体 mb f=0/fs=0/r=0/air=0 全是高中残留，面板却显示 0.08 —— 两张皮）。更糟的是
-  //   frictionStatic=0 会让 pair fs 钉在 0，低速咬合全失效，「调什么都像没调」。修法 =
-  //   大学模式按 buildMatterBody 的**同一套默认**（0.08/0.6）真正写回；R65 的 NaN 教训不受
-  //   影响 —— 那条禁止的是写 **undefined**，这里写的是确定数值。
-  //   用户显式调过的（wFrict!=null）两条分支都不碰用户值，只做同步。
+  // wFrict 为 null（用户没调过）时绝不能写 mb.friction=undefined：求解器会算出 NaN，物体飞出屏幕。
+  // 未调过的体按当前模式写回确定的默认值（高中 0；大学 WFRICT_DEF，与 buildMatterBody 同一套默认）：
+  //   · 高中模式必须真写 0，否则面板读数（wEffMu）为 0 而物理仍按 0.08 咬合，读数与物理不同源；
+  //   · 大学模式也不能早退，否则高中→大学往返后 mb.friction / frictionStatic 残留高中的 0，
+  //     frictionStatic=0 让 pair fs 钉在 0，调任何参数都像没调。
+  // 用户显式调过的（wFrict!=null）两种模式下都只同步、不改用户值。
   var v=(B.wFrict==null)?(PHYS_MODE==='high'?0:WFRICT_DEF):B.wFrict;
   if(v==null)return;
   B.mb.friction=v;
-  // H-2：μ=0 → 动/静摩擦全 0 = 真正光滑（R68 原意）；μ>0 → 静摩擦保持 0.6（R65 设计：
-  // 「停下来的物体仍站得稳」）。诊断（H-1）证实 frictionStatic 不影响动摩擦，故解耦安全。
-  // 旧版 R68 把 frictionStatic 也写成 wFrict，μ=0.1 时静摩擦从 0.6 掉到 0.1，物体停不稳。
-  /* ★★R132-9n：**静摩擦必须跟随 μ**（原来写死 0.6）——`_diag_r346` 实测「μ=0.05/0.3/1.0 的
-   *  减速度恒为 1500px/s²」，即有效摩擦完全由这个常数决定、调 μ 毫无反应（用户报的正是这条）。
-   *  ★R132-9r 修正：**`frictionStatic = μ` 这句上一轮只写进了注释、代码仍是 0.6**；
-   *    真正的天花板在**静态框那侧**（Matter `setStatic` 不动 `frictionStatic` ⇒ 留在默认 0.5，
-   *    配对取 min ⇒ `pair.fs = min(0.6, 0.5) = 0.5` 恒定）。静态框已抬到 1.0（见 `ensureMatter`），
-   *    这里补上真正跟随 μ 的那一半，并且**只放开 μ>WF_STATIC_CAP** ——
-   *    μ≤0.6 时取 `WF_STATIC_DEF=0.5`，与改动前 `pair.fs` **逐位相同**（默认手感零变化）。
-   *  ★手感由默认 μ=WFRICT_DEF 保住 ⇒ 不改默认表现。 */
+  // μ=0 → 动/静摩擦全 0 = 真正光滑；μ>0 → 静摩擦至少 0.6，停下的物体仍站得稳。frictionStatic 不影响动摩擦，二者可解耦。
+  // 不要让小 μ 时静摩擦跟着变小（如 μ=0.1 ⇒ 0.1）：物体会停不稳。
+  /* 静摩擦经 wfStaticOf 跟随 μ：写死常数时有效摩擦完全由它决定（实测 μ=0.05/0.3/1.0 减速度恒为 1500px/s²），调 μ 无反应。
+   * 只放开 μ>WF_STATIC_CAP（静态框侧已抬到 1，见 ensureMatter，配对取 min 后上限就是物体自己）；μ≤cap 不变，默认手感不变。 */
   B.mb.frictionStatic=wfStaticOf(v);
-  /* ★★R132-9v（用户：「关于摩擦系数里面现在不也是下滑有摩擦力吗，就**分开计算摩擦力
-   *   然后代码挂钩**不就行了」）：**用户显式调过 μ 的 W 体改走我们自己算的库仑摩擦**
-   *   （`wfSelfFriction`，逐子步挂在 `Engine.update` 之后）—— 这里把 **Matter 自己的
-   *   摩擦通道关掉**（`friction=0`），否则两个来源叠加。
-   *   为什么必须自己算：Matter 的摩擦是「**每个接触点**各按 `friction × N` 施加冲量」，
-   *   一个方块躺在平地上就有 **2 个接触点** ⇒ 实测减速度 ≈ `0.65g + 1.7·μ·g`（不是 μg）
-   *   ⇒ μ=0.6 与 μ=1.0 的滑行距离只差 15%（用户原话：「调成 1 了怎么还和之前一样缓慢下滑」）。
-   *   自己算的口径 = 教科书库仑摩擦：**切向**减速度 μ·g，与质量无关、整条 0~1 量程线性。
-   *   ★**只对 `wFrict!=null`（用户自己动过滑块）的体生效** ⇒ 默认体（0.08）行为一格不动。 */
+  /* 用户显式调过 μ 的 W 体（wFrict!=null）改走自算库仑摩擦 wfSelfFriction，这里关掉 Matter 自己的摩擦通道
+   * （friction=0），避免两个来源叠加。
+   * 原因：Matter 的摩擦按每个接触点各施 friction×N 的冲量，方块躺在平地上有 2 个接触点，
+   * 实测减速度 ≈ 0.65g + 1.7·μ·g（不是 μg），μ=0.6 与 1.0 滑行距离只差 15%。
+   * 自算口径 = 教科书库仑摩擦：切向减速度 μ·g，与质量无关，0~1 量程线性。默认体（0.08）行为不变。 */
   var _own=(B.wFrict!=null);
   B._ownFric=_own;
   B.mb.friction=_own?0:v;
@@ -357,29 +266,23 @@ function applyWFrict(B){
   applyEffRest(B);     // μ=0 极值体的体级弹性 = 1（见 effRest；调 μ 也会改变生效弹性）
   applyWAir(B);
 }
-// R68：把用户调过的弹性（wBounc）应用到 Matter 体上 —— 与 applyWFrict 同一条守卫规则：
-// 没调过（null）绝不写 mb.restitution，保留 buildMatterBody 的默认（圆 BALL_REST / 其它 0）。
-// R89（用户⑥ 往返钉死）：**删掉 null 早退** —— 未调过的体也要按当前模式真正写回默认。
-// 写入完全交给 applyEffRest（它读 effRest，已经覆盖全部情形：wBounc 调过=用户值；没调过=
-// 模式默认（高中 0 / 大学圆 BALL_REST、其它 0）；用户显式 μ=0 的极值语义=1）。
-// ⚠ 不要在这里手搓默认值再覆盖 —— 会把 μ=0 极值体的 rest=1 洗回 0.52/0（R76-B 语义）。
-// R65 的 NaN 教训不受影响 —— applyEffRest 写的永远是确定数值，不是 undefined。
+// 把用户调过的弹性（wBounc）应用到 Matter 体上。不做 null 早退：未调过的体也要按当前模式写回默认，
+// 否则模式往返后残留上一模式的值。写入全交给 applyEffRest（effRest 覆盖全部情形：调过 = 用户值；
+// 没调过 = 模式默认（高中 0 / 大学圆 BALL_REST、其它 0）；显式 μ=0 = 1）。
+// ⚠ 不要在这里手搓默认值再覆盖：会把 μ=0 极值体的 rest=1 洗回 0.52/0。applyEffRest 写的永远是确定数值，不会是 undefined。
 function applyWBounc(B){
   if(!B.mb)return;
   applyEffRest(B);     // 见上：唯一写入点，四种情形全在 effRest 里
   refreshWPairs(B);
   applyWAir(B);
 }
-// R76-B：生效弹性 = 用户旋钮（wEffE）受 μ 极值语义覆盖。μ=0 的体 → 1：
-// R70⑥ 的「μ=0 对 → pair.restitution=1」原本只在帧末 refreshAllPairs 生效，子步内 Matter
-// 仍按双方 body.restitution 求 **max**（用户 e=0 → 0）做非弹性求解 —— 曲面滑移的每子步
-// 法向接近速度被直接杀掉（凹槽实测残余损耗 ~0.28/子步，EL_Z 补偿只盖 ~25%，球「越滑越低」）。
-// 提前到**体级**：新 pair 创建时（Matter 取双方 max）就带上 1，子步内直接弹性求解，
-// 无损耗可补；EL_Z 恢复降级为残余兜底（预算门照旧，不会过补）。
+// 生效弹性 = 用户旋钮（wEffE）受 μ 极值语义覆盖：显式 μ=0 的体 → 1。
+// 必须在体级生效：若只在帧末 refreshAllPairs 把 pair.restitution 置 1，子步内 Matter 仍按双方 body.restitution
+// 取 max（e=0 → 0）做非弹性求解，曲面滑移每子步的法向接近速度被杀掉（凹槽实测损耗 ~0.28/子步，球越滑越低）。
+// 体级为 1 时新 pair 创建即带 1，子步内直接弹性求解；EL_Z 恢复只作残余兜底（预算门照旧，不会过补）。
 function effRest(B){
-  // R76：极值语义（μ=0 ⇒ 完全弹性）只在**用户显式**声明 μ=0 时成立 —— 高中模式的默认 μ=0
-  // 是教学默认值，不能顺带把体级 e 抬到 1，否则 R74-D/J 刚定好的「高中模式默认弹性全 0」
-  // 当场失效（全场每一对 rest=1）。见 wMuIdeal 的注释。
+  // 极值语义只在用户显式声明 μ=0 时成立：高中模式的默认 μ=0 是教学默认值，不能把体级 e 抬到 1，
+  // 否则「高中默认弹性全 0」失效（全场每一对 rest=1）。见 wMuIdeal。
   if(wMuIdeal(B))return 1;
   return wEffE(B);
 }
@@ -390,42 +293,33 @@ function applyEffRest(B){
   var ps=B.mb.parts||[];
   for(var i=0;i<ps.length;i++)ps[i].restitution=r;
 }
-// R68（用户②③的真凶）：**空气阻尼 frictionAir 是用户没要求却一直在泄能的通道** ——
-// 探针实测（Matter 速度单位是 px/帧）：μ=0 时 2 秒内 vx 6.4→2.5（衰减 61%），把 air 设 0 后
-// vx 恒 8.00 一格不掉；e=1 时弹跳峰高 600→308→190（第一跳就丢一半），air=0 后 562→557→541
-// （近乎完全弹性）。μ 与 e 是用户仅有的两个「耗散旋钮」，就让 air 跟着它们联动：
+// 空气阻尼 frictionAir 与 μ、e 联动（applyWAir，未显式设 wAir 时）：
 //   air = defAir × min(1, μ/0.08) × (1 − e)
-//   · μ=0 → air=0：完全光滑，匀速滑行（用户要的「摩擦 0 不减速」）
-//   · e=1 → air=0：完全弹性，一直弹（用户要的「弹性 1 一直弹」）
-//   · 默认（μ=0.08, e=0）→ air=defAir：普通块与旧行为完全一致；默认球（e=BALL_REST=0.52）
-//     air=0.0067 略小于旧 0.014 —— 弹跳衰减本就由 restitution 主导，手感几乎不变。
-// μ 或 e 没调过（null）时按默认值（0.08 / 圆 BALL_REST、其它 0）参与计算，等价于旧默认。
+//   · μ=0 → air=0：完全光滑，匀速滑行；e=1 → air=0：完全弹性，一直弹；
+//   · 默认（μ=0.08, e=0）→ air=defAir；默认球（e=BALL_REST=0.52）air 略小，弹跳衰减本由 restitution 主导。
+// 否则 air 会独立泄能：实测 μ=0 时 2s 内 vx 6.4→2.5；e=1 时弹跳峰高 600→308→190（air=0 后 562→557→541）。
+// μ / e 未调过时按默认值（0.08 / 圆 BALL_REST、其它 0）参与计算。
 function wEffMu(B){return (B.wFrict==null)?(PHYS_MODE==='high'?0:WFRICT_DEF):B.wFrict;}
-// R76（用户①③：高中模式默认摩擦系数为 0）：高中模式 → 未调过的体默认 μ=0。
-//   ⚠ 这条与「μ=0 的**极值语义**」必须分开，否则会连环炸：整套极值语义（air 归零 / 禁用睡眠 /
-//   pair rest=1 / 体级 e=1）原先都以 `wEffMu(B)===0` 判定 —— 高中默认 μ=0 会让**全场每一个
-//   W 体**都进 EL_Z，于是 refreshAllPairs⑥ 把每一对的 restitution 抬到 1，R74-D/J 刚定好的
-//   「高中模式默认弹性全 0」被整个推翻（画面变成全场永远弹下去）。
-//   语义界限：极值语义是用户**声明**的「理想光滑面」，不是教学默认值。所以判据换成显式声明。
+// 高中模式未调过的体默认 μ=0（wEffMu）。μ=0 的极值语义（air 归零 / 禁用睡眠 / pair rest=1 / 体级 e=1）
+// 必须按显式声明判定（wMuIdeal：wFrict===0），不能用 wEffMu(B)===0：否则高中默认 μ=0 让全场 W 体都进 EL_Z，
+// refreshAllPairs 把每一对 restitution 抬到 1，「高中默认弹性全 0」被推翻（全场永远弹）。
+// 极值语义是用户声明的「理想光滑面」，不是教学默认值。
 function wMuIdeal(B){return !!B&&B.wFrict===0;}
-// R74-D/J（用户：「高中模式下所有物体的弹性系数默认调为 0」）：高中模式 → 未调过的默认弹性全 0
-// （不再给圆 BALL_REST）；用户显式调过 wBounc 的体不受影响。effRest 的 μ=0 极值覆盖仍在前置。
+// 高中模式：未调过的体默认弹性全 0（不给圆 BALL_REST）；显式调过 wBounc 的不受影响。effRest 的 μ=0 极值覆盖仍优先。
 function wEffE(B){return (B.wBounc==null)?(PHYS_MODE==='high'?0:((B.wshape==='circle'&&B.rad)?BALL_REST:0)):B.wBounc;}
-// R72（用户：「弹簧的阻尼系数我调成 0，怎么还是很快就停止了」）：阻尼参数只管弹簧自身的
-// -D·v 通道；宿主 W 体身上还有一条**空气阻力** frictionAir（默认 0.01/帧，约 1.2s 能量减半）
-// 在独立泄能 —— sdamp=0 关不掉它。所以把空气阻力本体也开放成参数 wair：设 0 即真·无阻尼
-// （配 sdamp=0 = 理想简谐振荡）。没调过（null）时维持各自旧默认，手感不变。
-function wAirDef(B){if(PHYS_MODE==='high')return 0;return (B.wAir!=null)?B.wAir:WAIR_GLOBAL;}   // R73-C 出厂默认 0；R74-D 高中恒 0；★R131 未设置体回退全局 WAIR_GLOBAL
+// 空气阻力 frictionAir 独立于弹簧阻尼（sdamp 只管弹簧自身的 -D·v），Matter 默认 0.01/帧约 1.2s 能量减半，
+// 所以开放成参数 wair：设 0 + sdamp=0 = 理想简谐振荡。
+function wAirDef(B){if(PHYS_MODE==='high')return 0;return (B.wAir!=null)?B.wAir:WAIR_GLOBAL;}   // 出厂默认 0；高中恒 0；未设置的体回退全局 WAIR_GLOBAL
 function applyWAir(B){
   if(!B.mb)return;
-  // R74-D 高中模式③：不算空气阻力 —— 忽略显式 wair 设置，frictionAir 恒 0。
+  // 高中模式不算空气阻力：忽略显式 wair，frictionAir 恒 0。
   if(PHYS_MODE==='high'){
     B.mb.frictionAir=0;
     var psH=B.mb.parts||[];
     for(var qH=0;qH<psH.length;qH++)psH[qH].frictionAir=0;
     return;
   }
-  // R72：显式设过 wAir 时它就是权威值 —— 不再被 μ/e 联动乘掉（用户要 0 就是真的 0）。
+  // 显式设过 wAir 时它就是权威值，不再被 μ/e 联动乘掉。
   if(B.wAir!=null){
     B.mb.frictionAir=B.wAir;
     var ps8=B.mb.parts||[];
@@ -437,40 +331,25 @@ function applyWAir(B){
   var ps=B.mb.parts||[];
   for(var i=0;i<ps.length;i++)ps[i].frictionAir=air;
 }
-// R70（用户③：「摩擦系数调成 0 还是衰减运动，过一会儿就停了，圆弧和凹槽里都是这样」）：
-// R68 的空气阻尼联动是**体级**的 —— 只把被调 μ 的那个体的 frictionAir 归零。球贴着 μ=0 的
-// 弧/凹槽滚动时，球自己（没被调过，默认 e=BALL_REST=0.52）的 frictionAir≈0.0067 仍在逐帧
-// 泄能 —— R68 的平面探针测不到它（测的是被调体自己），曲面滚动场景它就是主凶。
-// 空气阻尼耗散的是**接触系统**的能量，配对语义与 friction 相同：pair 有效摩擦（min）=0 或
-// 有效弹性（max）≥1 时，双方（含复合体 parts）的 frictionAir 全部归零 —— 完全光滑/完全弹性
-// 的接触里不允许存在第三条泄能通道（L031 极值语义的 pair 版）。脱离接触后下一帧自动按
-// R68 公式恢复（refreshAllAir 每帧先重算再覆盖），无残留副作用。
+// pair 级空气阻尼归零：pair 有效摩擦（min）=0 或有效弹性（max）≥1 时，双方（含复合体 parts）的 frictionAir 全部归零，
+// 完全光滑/完全弹性的接触里不允许第三条泄能通道。只做体级联动不够：球贴着 μ=0 的弧/凹槽滚动时，
+// 球自己（未调过）的 frictionAir≈0.0067 仍在逐帧泄能。脱离接触后下一帧由 refreshAllPairs 按各自语义恢复。
 function wZeroAir(m){
   m.frictionAir=0;
   var ps=m.parts||[];
   for(var i=0;i<ps.length;i++)ps[i].frictionAir=0;
 }
-/* ---- 高中纯滚动 highPureRoll 已于 R117 **整体删除**（回退到 R91_pre）----------
-   ★R117（用户 2026-09-22）：「关于那个圆的转动问题还要再往前找备份，找到**没有分滚动摩擦
-     和滑动摩擦**的那一版，然后把这个圆的运动回退回去，用之前的来」。
-   目标锚点 = backups/index_20260917_R91_pre.html（highPureRoll=0、rollChain=0，圆只有 μ 一个旋钮）。
-   R116 实测定位（INVARIANTS §44.1）：高中带自旋的球一撞东西，ω 从保留 99.3% 掉到 0.2%
-     （R114c_pre / R114c_post 跨基线 A/B）—— 根因就是本函数的 `ω := sgn(vx)·|v|/R` 在
-     「接触 + v 掉到噪声」时把**真实自旋**改写成噪声值（门限 sp*60<1 拦不住）。
-   已删：本函数定义 + stepMatter 子步循环里的调用（原 10133 行）。
-   ⇒ 圆的运动回到 R91_pre 语义：纯 Matter + μ 一个旋钮，高中不再有任何「写 ω」的通道。 */
+/* 不要用 ω := sgn(vx)·|v|/R 之类的写法强制圆纯滚动：接触且 v 落到噪声时会把真实自旋改写成噪声值，
+ * 带自旋的球一撞东西 ω 从保留 99.3% 掉到 0.2%。（高中模式的圆按质点处理，见 circleRollStep。） */
 function refreshAllPairs(){
   if(!MW)return;
   var i,B;
   for(i=0;i<bodies.length;i++){
     B=bodies[i];
     if(B.kind==='W'&&B.mb){
-      // ① 每帧恢复 air。R70b：只对**被调过** μ/e 的体按 R68 公式重算——未调过的体恢复
-      //    出厂值（圆 BALL_AIR / 其它 0.01，与 buildMatterBody 的赋值一致）。此前无条件按
-      //    公式重算，默认球的 air 被从 0.014 静默改写成 0.0067（(1−BALL_REST) 因子），滚动
-      //    摩阻变小多滑 ~50px，r61 1b 锚定 A/B 实测回归。R68 时期公式只在用户拖滑杆时执行，
-      //    从未作用于未调过的体——保持这个有效语义。μ=0 极值接触把 air 清零后，脱离接触的
-      //    下一帧由本循环按各自语义恢复（极值语义不变，见 ④）。
+      // ① 每帧恢复 air：只对调过 μ/e/air 的体按 applyWAir 公式重算；未调过的体恢复出厂值（wAirDef）。
+      //    不要对未调过的体也套公式：默认球的 air 会被 (1−BALL_REST) 因子静默改小，滚动摩阻变小、多滑 ~50px。
+      //    μ=0 极值接触清零的 air 在脱离接触的下一帧由此恢复（见 ④）。
       if(B.wFrict!=null||B.wBounc!=null||B.wAir!=null)applyWAir(B);
       else{
         B.mb.frictionAir=wAirDef(B);
@@ -484,48 +363,31 @@ function refreshAllPairs(){
   for(i=0;i<list.length;i++){
     var pr=list[i];
     var a=pr.bodyA.parent||pr.bodyA,b=pr.bodyB.parent||pr.bodyB;
-    // ② R70（诊断实测：球贴 μ=0 凹槽滚动 pair.fs=0.6、7s 睡死）：Matter 原生在**新 pair
-    //    创建**时 frictionStatic 取 **max**（Pairs.update），R68 只把「调参时手动刷」这条
-    //    路径改成了 min —— 球滚过弧/凹槽的几十个条带 part，每个新 pair 都按 max 带上对方
-    //    （球 0.6）的静摩擦，低速时逐段咬住泄能。每帧把活动对按 min/max 统一刷一遍
-    //    （与 refreshWPairs 同语义），新 pair 的错误初值下一帧即被纠正。
+    // ② Matter 在新 pair 创建时 frictionStatic 取 max：球滚过弧/凹槽的几十个条带 part，每个新 pair 都带上对方的静摩擦，
+    //    低速时逐段咬住泄能（实测 μ=0 凹槽中 pair.fs=0.6、7s 睡死）。每帧把活动对按 min/max 统一刷一遍（与 refreshWPairs 同语义）。
     pr.friction=Math.min(pr.bodyA.friction,pr.bodyB.friction);
     pr.frictionStatic=Math.min(pr.bodyA.frictionStatic,pr.bodyB.frictionStatic);
-    // ⑤ R70（决定性诊断）：修完 fs/air/rest 后球速度与恒幅简谐振荡逐点吻合（V=3.3 恒定、
-    //    零衰减）——「衰减运动过一会儿就停」的真凶是 **Matter 睡眠**：球在凹弧端点速度→0，
-    //    motion（speed² 平滑）跌破 0.08 阈值累计 sleepThreshold(240) 帧后被冻结（pairs 随之
-    //    清空）。平面匀速场景 motion 恒大从不触发，所以 R68 探针没暴露。理想无摩擦振荡本就
-    //    该永动，μ=0 极值对的成员直接禁用睡眠（sleepThreshold=0 短路 Sleeping.update 的
-    //    `sleepThreshold>0` 守卫）；脱离极值对后 ① 循环恢复 240。
-    // R76（用户①「高中模式下默认摩擦系数为 0」的**必要配套**）：μ=0 的极值语义只在两侧里至少
-    //   一方**显式**声明 μ=0（或用户对该对显式设 μ=0）时成立，判据见 wMuIdeal。
-    //   为什么不能照旧只判 pr.friction===0：高中模式的默认 μ=0 会让 pr.friction **全场为 0**
-    //   ⇒ 每一对都拿到 rest=1 + 禁睡眠 + air 归零，R74-D/J 刚定好的「高中默认弹性全 0」与
-    //   R65 的「停下来的物体仍站得稳」一起被推翻（方块落地后永远弹、永不入睡）。
-    //   ovv 顺带提前算 —— ⑥ 的判据要用 ovv.mu，⑦ 原样复用同一个值。
+    // ⑤ μ=0 极值对的成员禁用睡眠（sleepThreshold=0 短路 Sleeping.update 的 sleepThreshold>0 守卫），脱离后 ① 恢复 240。
+    //    理想无摩擦振荡本该永动；球在凹弧端点速度→0，motion 跌破 0.08 累计 240 帧就会被冻结（pairs 随之清空）。
+    // 极值判据：pr.friction===0 且至少一方显式声明 μ=0（wMuIdeal）或该对配对覆盖 μ=0。不能只判 pr.friction===0：
+    //    高中默认 μ=0 让全场 pr.friction 为 0，每一对都会拿到 rest=1 + 禁睡眠 + air 归零（方块落地永远弹、永不入睡）。
+    // ovv 提前算：⑥ 的判据用 ovv.mu，⑦ 复用同一值。
     var ovv=pairOvPairMb(a,b);
     var idealMu=(pr.friction===0)&&(wMuIdeal(bodyOfMb(a))||wMuIdeal(bodyOfMb(b))||ovv.mu===0);
     if(idealMu){
       wZeroAir(a);wZeroAir(b);                        // ④ 极值 μ=0：空气泄能通道一并关闭
       a.sleepThreshold=0;b.sleepThreshold=0;          // ⑤ 极值对成员禁用睡眠（见上）
-      // ⑥ R70：μ=0 极值对 → **完全弹性 rest=1**。离散弧面的接缝碰撞在 rest<1 时每次把球
-      //    切向速度的法向投影吸走（每秒漏 ~45% 动能，密集采样实测 τ≈1.2s 衰减睡死）；
-      //    rest=1 时接缝碰撞变成**镜面反射**，微弹高度 ~0.04px 肉眼不可见。这是「μ=0 ⇒
-      //    无耗散」极值语义（L031）在曲面上的延伸；平面滑动 R68 已覆盖，曲面滚动由本条补齐。
+      // ⑥ μ=0 极值对 → 完全弹性 rest=1：离散弧面的接缝碰撞在 rest<1 时每次吸走球速度的法向投影（实测 τ≈1.2s 衰减睡死）；
+      //    rest=1 时接缝碰撞变成镜面反射，微弹 ~0.04px 不可见。这是「μ=0 ⇒ 无耗散」在曲面上的延伸。
       pr.restitution=1;
-      //    rest=1 后仍有 τ≈4s 的残余衰减（多接触干涉 + 位置修正不一致，Matter 固有——
-      //    段数加密/稀疏化、求解迭代加厚均无改善，N=41 实测最优）。曾试「能量维护」（按
-      //    E=½v²+g·h 把速度补回 E_ref），实测与约束求解打架产生正反馈自加速弹飞（L018
-      //    反阻尼家族）——已回退，宁留慢衰减不引入注能 bug。
+      //    rest=1 后仍有 τ≈4s 的残余衰减（多接触干涉 + 位置修正不一致，Matter 固有；加密/稀疏化段数、加厚迭代均无改善，N=41 实测最优）。
+      //    不要用「能量维护」（按 E=½v²+g·h 把速度补回）：与约束求解打架形成正反馈，自加速弹飞。
     }else{
       pr.restitution=Math.max(pr.bodyA.restitution,pr.bodyB.restitution);
     }
-    // ⑦ R71⑪（用户：「展开后调节和场内所有物体的单独配对系数（含地面）」）：用户对该对
-    //    显式设过的配对系数**优先级最高**，压过上面的 max/min 默认规则与 μ=0 极值语义
-    //    （用户明确要求这对弹 0.9，就不该被「取 max」或「μ=0 ⇒ rest=1」改写）。
-    //    地面/墙是引擎常驻静态体，没有实体对象，用它们的短键（@g/@wl/@wr）参与查表。
-    //    （ovv 已在 ⑥ 之前算好，见那里 R76 的注释）
-    if(ovv.mu!=null){pr.friction=ovv.mu;pr.frictionStatic=wfStaticOf(ovv.mu);}  // H-2：同 applyWFrict（★R132-9r 走 wfStaticOf 单一真源）
+    // ⑦ 用户对该对显式设过的配对系数优先级最高，压过上面的 max/min 默认规则与 μ=0 极值语义。
+    //    地面/墙是引擎常驻静态体、没有实体对象，用短键（@g/@wl/@wr）查表。
+    if(ovv.mu!=null){pr.friction=ovv.mu;pr.frictionStatic=wfStaticOf(ovv.mu);}  // 静摩擦同 applyWFrict，走 wfStaticOf
     if(ovv.e!=null)pr.restitution=ovv.e;
   }
 }
@@ -544,11 +406,10 @@ function pairOvPairMb(ma,mb2){
     var o=oa||ob;
     return o?(o[f]!=null?o[f]:null):null;
   }
-  // ★R115：原 `roll:pick('roll')`（滚动摩擦的第三通道）已删。配对覆盖只剩 弹性 e / 摩擦 μ。
   return {e:pick('e'),mu:pick('mu')};
 }
-// pair.friction/frictionStatic 只在 collisionStart 时按双方算一次；把当前**活动中的**
-// 涉及该体的对全部按新摩擦重算（动摩擦 min / 静摩擦 max / 弹性 max），「贴着地面调 μ」立即生效。
+// pair.friction/frictionStatic 只在 collisionStart 时按双方算一次；这里把当前活动中涉及该体的对按新参数重算
+// （动摩擦 min / 静摩擦 min / 弹性 max），贴着地面调 μ 立即生效。
 function refreshWPairs(B){
   if(!MW||!B.mb)return;
   var list=MW.engine.pairs.list;
@@ -557,14 +418,12 @@ function refreshWPairs(B){
     var a=pr.bodyA.parent||pr.bodyA,b=pr.bodyB.parent||pr.bodyB;
     if(a!==B.mb&&b!==B.mb)continue;
     pr.friction=Math.min(pr.bodyA.friction,pr.bodyB.friction);
-    // R68：frictionStatic 同步改 min（原 max）。旧规则下单边 μ=0 无效 —— 物体自己静摩擦 0，
-    // pair 仍取到对方的 0.6，低速时照样被按住（用户「μ=0 还会慢慢停下」的帮凶之一）。
-    // 取 min = 较光滑的一面主导接触，与动摩擦的 min 规则自洽。
+    // 静摩擦也取 min：取 max 时单边 μ=0 无效（pair 拿到对方的 0.6，低速仍被按住）。较光滑的一面主导接触，与动摩擦一致。
     pr.frictionStatic=Math.min(pr.bodyA.frictionStatic,pr.bodyB.frictionStatic);
-    pr.restitution=Math.max(pr.bodyA.restitution,pr.bodyB.restitution);   // R65
-    // R71⑪：用户在配对表里显式设过的系数优先（调 μ/弹性「贴着地面立刻生效」走这条路径）
+    pr.restitution=Math.max(pr.bodyA.restitution,pr.bodyB.restitution);
+    // 用户在配对表里显式设过的系数优先
     var ovp=pairOvPairMb(a,b);
-    if(ovp.mu!=null){pr.friction=ovp.mu;pr.frictionStatic=wfStaticOf(ovp.mu);}  // H-2：同 applyWFrict（★R132-9r 走 wfStaticOf 单一真源）
+    if(ovp.mu!=null){pr.friction=ovp.mu;pr.frictionStatic=wfStaticOf(ovp.mu);}  // 静摩擦同 applyWFrict，走 wfStaticOf
     if(ovp.e!=null)pr.restitution=ovp.e;
   }
 }
@@ -578,33 +437,22 @@ function buildMatterBody(B){
   //                       mass ends up proportional to segment length (the line integral it
   //                       replaces) for free
   ensureMatter();
-  // ---- R75（用户⑫：「弧的 90° 吸附偏移了」/「拖端点整条弧乱跑」）的公共根因 ------------
-  // 本函数**始终在 th=0 下建体**：bndPts 会按 B.th 旋转，所以调用方（arcResample）先把 B.th
-  // 清零，建完再恢复。但下面两处「原点重定位补偿」加给 pts/hull/ell/arcs 的是**世界**位移
-  // δ_world，而这些字段是**本地**量、渲染时要经 R(th) 才回到世界 —— 只有 th=0 时两者才相等。
-  // th≠0 时补偿量偏成 δ_world，整幅图漂 |R(th)δ−δ|（实测 th=30° 时 26px，端点手柄同步错开 th）。
-  // 现在从 rebuildWBody 拿到真实姿态 prevTh，把 δ 换成 R(−prevTh)·δ；建完把姿态恢复回去。
+  // 本函数始终在 th=0 下建体（bndPts 会按 B.th 旋转，调用方 arcResample 先把 B.th 清零）。
+  // prevTh = rebuildWBody 传入的真实姿态，建完用它恢复姿态（见函数末尾 setAngle 处）。
   var prevTh=(B._rebuildTh!=null)?B._rebuildTh:(B.th||0);
   var cT=Math.cos(prevTh),sT=Math.sin(prevTh);
   // sleepThreshold 240 (default 60): a slow tip-over has tiny "motion" for a second or two —
   // at the default the engine freezes a hammer MID-TIP, parked in mid-air at 0.4 rad forever.
-  // R65（用户：「物体在地面的默认摩擦系数改小一些，改成让其可以滑动一段距离就停下」）：
-  // 动摩擦 0.3 -> 0.08（配对取 min，地面 0.6 不受影响）；frictionStatic 保持 0.6 ——
-  // 滑动时阻力小、停下来的物体仍站得稳，「滑一段再停」正是这两者的分工。
-  // R73-C：frictionAir 出厂 0（Matter 的默认是 0.01）—— 与 wAirDef 的默认一致，
-  // 免得「出生第一帧」还有空气阻力（refreshAllPairs 每帧会再写一遍，这里只是不留缝）。
+  // 动摩擦默认 WFRICT_DEF(0.08)、frictionStatic 0.6：滑动时阻力小（可滑一段距离再停），停下的物体仍站得稳。
+  // frictionAir 出厂 0（Matter 默认 0.01），与 wAirDef 一致，避免出生第一帧就有空气阻力。
   var opts={friction:WFRICT_DEF,frictionStatic:0.6,restitution:0,slop:0.02,sleepThreshold:240,frictionAir:0};
   var mb;
   if(B.wshape==='circle'&&B.rad){
-    // R58：圆形 = 会弹的球（用户要「像丢到地上的球弹几下」）。Matter 的碰撞恢复系数取
-    // 双方 max，所以只给球自己 restitution 就够，地面/其它物体保持 0 不受影响。
-    // frictionAir 略调高：让水平方向也跟着衰减，弹几下就停，不会一路弹到天涯。
-    // R76-D：改用 CIRCLE_SIDES 边多边形 —— Matter 的 Bodies.circle 其实只是
-    //   polygon(min(maxSides,R) 取偶, R)（其源码自注「用多边形近似圆，SAT 还没实现真圆」），
-    //   24 边时接触法线偏离径向最多 7.5°，每个接触都带力臂、给球虚假角动量（详见 CIRCLE_SIDES
-    //   上方注释的实测数据）。24→48 边把「越滑越低」从 +8.41% 压到 +3.79%。
-    //   circleRadius 照旧写上：Matter 纯多边形碰撞不读它，但它一被写进 options，
-    //   Body.scale / 渲染等沿用 Matter 自身的「这是个圆」语义，不留行为空洞。
+    // 圆 = 会弹的球。Matter 碰撞恢复系数取双方 max，所以只给球自己 restitution，地面/其它物体保持 0。
+    // frictionAir 用 BALL_AIR：水平方向也跟着衰减，弹几下就停。
+    // 用 CIRCLE_SIDES 边多边形：Matter 的 Bodies.circle 只是 polygon(min(maxSides,R) 取偶, R)，24 边时接触法线偏离径向最多 7.5°，
+    // 每个接触都带力臂、给球虚假角动量（见 CIRCLE_SIDES 注释）；24→48 边把「越滑越低」从 +8.41% 压到 +3.79%。
+    // circleRadius 照写：Matter 纯多边形碰撞不读它，但 Body.scale / 渲染等沿用 Matter 的「这是个圆」语义。
     var _R=B.rad+BND_INK;
     mb=(CIRCLE_SIDES>24)
       ? Matter.Bodies.polygon(B.x,B.y,CIRCLE_SIDES,_R,
@@ -613,53 +461,32 @@ function buildMatterBody(B){
       : Matter.Bodies.circle(B.x,B.y,_R,
           {friction:0.08,frictionStatic:0.6,restitution:BALL_REST,slop:0.02,
            frictionAir:BALL_AIR,sleepThreshold:240});
-    // R79：给圆体打上「真圆」标记 —— 解析碰撞通道（Matter.Collision.collides 的挂钩）只认这个
-    // 字段，不看 circleRadius。理由是 circleRadius 是 Matter 自己的语义（渲染/scale 也读它），
-    // 将来别处造出 Matter 圆时不该**意外**被卷进本通道；要进通道就得在这里显式声明。
-    // ⚠ 必须写在**本分支内部**：掉到分支外就会改嫁后面的 `else if` 链（本行初版就踩了这个坑，
-    //   把槽/闭链的分支挂到了圆的判断上）。
+    // 「真圆」标记：解析碰撞通道（Matter.Collision.collides 的挂钩）只认 _circleR，不看 circleRadius（Matter 自己的语义，
+    // 渲染/scale 也读它），免得别处造出的 Matter 圆被意外卷进通道。
+    // ⚠ 必须写在本分支内部：放到分支外会把后面的 else if 链挂错。
     if(mb)mb._circleR=_R;
-    // R121（同上的用户授权：按真实物理改）：把圆的转动惯量写回**物理值**（圆盘 I=½mR²）。
-    //   为什么非改不可 —— 这是「急刹」的另一半：Matter 的 Body 工厂把**所有**体的惯量都乘了
-    //   `_inertiaScale=4`（Body.setVertices / setParts 里的 `Body._inertiaScale * Vertices.inertia(...)`），
-    //   48 边形≈圆盘 ⇒ mb.inertia = 4×(½mR²) = **2mR²**，即 λ'≡I/(mR²) = **2.0**（圆盘应为 0.5）。
-    //   而「纯滑动 → 纯滚动」的收敛速度（对接触点取角动量守恒）是
-    //       v_f = v₀/(1+λ')        λ'=I/(mR²)
-    //     物理圆盘 λ'=0.5 ⇒ v_f = v₀/1.5 = **2v₀/3**（丢 1/3，就是课本那个数）
-    //     实际     λ'=2.0 ⇒ v_f = v₀/3  （丢 2/3）—— `_diag_r120d` S1 臂实测 33.7%，逐位对上。
-    //   ⇒ 改 R121-A（松手补自旋）之后正常路径已不再触发这条通道；这一处是**治本**：让真正的
-    //     滑动→滚动（例如球被打上反旋、或落地时带自旋）只丢物理该丢的那 1/3，且让下面两条
-    //     自定义通道的口径终于与 Matter 侧一致 ——
-    //       · 弹簧力矩通道（2458-2465）的惯量是 `Iu = rad²/2`（**单位质量圆盘**）；
-    //       · 传带通道（5380）注释里写的 `λ=mR²/I（圆盘 λ=2 ⇒ dv=ΔS/3）`；
-    //     两者都按圆盘推、且**不读** mb.inertia，所以它们一直是自洽的；改前只有 Matter 那一侧
-    //     偏大 4 倍，改后全场一个口径。
-    //   ⚠ 只改圆这一支：方块/公式体同一处 4 倍偏差**未处理**（无实测、无用户症状）；
-    //     环（wshape==='ring'）是 48 段复合体、物性上更近薄圆环（λ'=1 ⇒ v_f=v₀/2），口径不同，
-    //     同样留作未处理项。两项都登记进 INVARIANTS §49 的覆盖账。
-    //   ⚠ 会不会被冲掉（三个 setter 都查过）：Matter.setMass/setDensity 保持 `inertia/(mass/6)`
-    //     不变比 ⇒ 改质量不丢；setStatic 走 `_original` 存/取、**不**从顶点重算 ⇒ 钉住/放开不丢；
-    //     产品从不调 setVertices/Body.scale（全局 grep 只命中库内部与本处注释）。
-    //   ⚠ R 用 `_R`（= B.rad+BND_INK = mb.circleRadius）：实心圆盘的半径就是碰撞半径。
+    // 圆的转动惯量写回物理值 I=½mR²。Matter 的 Body 工厂给所有体的惯量乘了 _inertiaScale=4（setVertices/setParts），
+    // 48 边形 ≈ 圆盘 ⇒ mb.inertia = 2mR²（λ'=I/(mR²)=2.0，圆盘应为 0.5）。
+    // 纯滑动→纯滚动的收敛 v_f = v₀/(1+λ')：物理圆盘丢 1/3，λ'=2 时丢 2/3（实测剩 33.7%，吻合）。
+    // 改后与自定义通道口径一致：弹簧力矩通道用 Iu = rad²/2（单位质量圆盘），传带通道按 λ=mR²/I=2 推，二者都不读 mb.inertia。
+    // ⚠ 只管圆；闭合形见下方 closed 分支的 /4。环（ring，48 段复合体，近薄圆环 λ'=1）口径不同，未处理。
+    // 不会被冲掉：setMass/setDensity 保持 inertia/(mass/6) 比例；setStatic 走 _original 存取、不从顶点重算；产品不调 setVertices/Body.scale。
+    // R 用 _R（= B.rad+BND_INK = mb.circleRadius）：实心圆盘半径就是碰撞半径。
     if(mb){Matter.Body.setInertia(mb,0.5*mb.mass*_R*_R);}
   }else if(B.wshape==='trough'||B.wshape==='tub'||B.wshape==='ring'){
-    // 半凹槽/全凹槽（R54）：轮廓含内凹弧线，fromVertices 的凸包会填平凹面——
-    // 所以和开链笔画走同一条路：沿轮廓线每个小段一个定向矩形 part 复合体。
-    // 「只有线是边界」：条带就是墨迹本身，弧面由离散段近似（段间角度小，滚动平滑）。
-    // R82（空心圆）：ring 走同一条路，理由完全一致 —— 它的「凹面」是与外壁同心的**空腔**，
-    //   凸包会把整个空腔填成一个实心圆盘。B.pts 是中线圆（shapeOutline 给的），
-    //   bndSegs 切出的每段厚 2·BND_INK ⇒ 复合体 = 一整圈「墨线」，空腔天然敞着。
-    //   走这条路的另一个好处：rodResolve / 摩擦配对 / 睡眠等既有机器全部照旧生效。
+    // 半凹槽/全凹槽：轮廓含内凹弧线，fromVertices 的凸包会填平凹面，所以和开链笔画一样沿轮廓每小段一个定向矩形 part 组成复合体。
+    // 条带就是墨迹本身（只有线是边界），弧面由离散段近似（段间角度小，滚动平滑）。
+    // 空心圆 ring 同理：凸包会把空腔填成实心圆盘。B.pts 是中线圆（shapeOutline 给），bndSegs 每段厚 2·BND_INK ⇒ 一整圈墨线，空腔敞开；
+    // rodResolve / 摩擦配对 / 睡眠等既有机制照旧生效。
     var sg5=bndSegs(B),parts5=[];
     for(var qi5=0;qi5<sg5.length;qi5++){var s5=sg5[qi5];
       parts5.push(Matter.Bodies.rectangle(s5.x,s5.y,s5.hw*2+PEN_HW*2,s5.hh*2,
                                          {angle:s5.th,friction:0.08,frictionStatic:0.6,restitution:0,slop:0.02}));
     }
     mb=segCompound(parts5,B);
-    // R82：给环的**每个 part** 打上「内外壁半径」标记，供 R79 解析通道里的「环 vs 圆」分支使用。
-    // 为什么打在 part 上而不是根：Matter 的 Detector.collisions 在「任一方是复合体」时传的是
-    //   **part**（源码 `c(P,_,i)`，且 P 从 parts[1] 起 —— parts[0] 是根自己，被跳过），
-    //   根永远收不到这通调用。环心则要由 part.parent 取回（part.position 在中线上！）。
+    // 给环的每个 part 标记内外壁半径，供解析碰撞通道里「环 vs 圆」分支使用。必须打在 part 上：
+    // Matter 的 Detector.collisions 遇到复合体时传的是 part（从 parts[1] 起，parts[0] 是根，被跳过），根收不到调用。
+    // 环心要由 part.parent 取（part.position 在中线上）。
     if(B.wshape==='ring'&&mb&&mb.parts&&mb.parts.length>1){
       var _ro=(B.rad||0)+BND_INK,_ri=(B.rad||0)-BND_INK;
       for(var ki5=1;ki5<mb.parts.length;ki5++){
@@ -673,22 +500,17 @@ function buildMatterBody(B){
     for(i=0;i<hull.length;i++)wp.push({x:B.x+hull[i][0],y:B.y+hull[i][1]});
     mb=Matter.Bodies.fromVertices(B.x,B.y,[wp],opts,true);
     if(mb){
-      // R72-F（用户：「直角边的放到地上陷进去了一些」）：fromVertices 会把顶点集的**质心**
-      // 搬到 (B.x,B.y)，并不是「顶点留在传入的世界位置」。中心对称形（矩形）的质心恰好与
-      // 原点重合，从来暴露不出；偏心形（直角三角形）的碰撞体就整体漂移 —— 实测漂
-      // (+4.31,-1.33)px：碰撞底边比墨迹下缘高 1.33px，落地时墨迹扎进地面线一截。
-      // 把这次平移用与下方原点重定位**完全相同**的动作补偿回来（pts/hull/ell/arcs 一起搬）。
+      // fromVertices 会把顶点集的质心搬到 (B.x,B.y)，而不是让顶点留在传入位置。中心对称形（矩形）质心与原点重合看不出，
+      // 偏心形（直角三角形）碰撞体会整体漂移（实测 (+4.31,-1.33)px，墨迹扎进地面）。
+      // 用与下方原点重定位相同的动作补偿回来（pts/hull/ell/arcs 一起搬）。
       var ctrF=Matter.Vertices.centre(wp),fxw=B.x-ctrF.x,fyw=B.y-ctrF.y;
-      // R75：世界位移 -> 本地位移（R(−prevTh)），见 buildMatterBody 顶部说明。
+      // 世界位移 -> 本地位移（乘 R(−prevTh)）。
       var fx=fxw*cT+fyw*sT,fy=-fxw*sT+fyw*cT;
-      // 阈值 1e-6：Matter 的 Vertices.centre 走叉积累加，中心对称形也会算出 1e-12 级的残差
-      // （实测矩形质心 499.9999999999974）。不加阈值就把这 1.3e-12 反向加进 B.pts，
-      // 于是 inkPointDist 从精确的 15 变成 14.999999999999998 —— distToHost 与 SPR_PAD(15)
-      // 的严格小于判定被这 1e-12 翻面（r57 57-3：e1 隔空 15px 被吸到方块上）。
+      // 阈值 1e-6：Matter 的 Vertices.centre 走叉积累加，中心对称形也会有 1e-12 级残差（实测矩形质心 499.9999999999974）。
+      // 不加阈值会把残差加进 B.pts，inkPointDist 从 15 变成 14.999999999999998，distToHost 与 SPR_PAD(15) 的严格小于判定被翻面。
       if(Math.abs(fx)>1e-6||Math.abs(fy)>1e-6){
-        // hull2D 返回的数组里装的是 **B.pts 里那几个同一个点对象**（不是拷贝）。pts 与 hull
-        // 各平移一次 = 同一个点被搬两遍 —— 实测直角三角形补偿量翻倍（2×2.92=5.83px），
-        // 碰撞底边反而跑到墨迹下缘下面 2.9px（图形悬空）。按**引用**去重后再搬。
+        // hull2D 返回的是 B.pts 里的同一批点对象（不是拷贝），pts 与 hull 各平移一次会把同一点搬两遍
+        // （直角三角形补偿翻倍、图形悬空）。按引用去重后再搬。
         var moved9=[];
         function shiftPt9(p){if(moved9.indexOf(p)>=0)return;moved9.push(p);p[0]+=fx;p[1]+=fy;}
         for(i=0;i<B.pts.length;i++)shiftPt9(B.pts[i]);
@@ -702,40 +524,21 @@ function buildMatterBody(B){
       var sg=bndSegs(B),tot=0,cx=0,cy=0;
       for(i=0;i<sg.length;i++){tot+=sg[i].hw*2;cx+=sg[i].x*sg[i].hw*2;cy+=sg[i].y*sg[i].hw*2;}
       cx/=Math.max(1e-6,tot);cy/=Math.max(1e-6,tot);
-      mb=Matter.Bodies.rectangle(cx,cy,Math.max(14,tot),PEN_HW*2,opts);   // PEN_HW==BND_HH: same 6px ink
+      mb=Matter.Bodies.rectangle(cx,cy,Math.max(14,tot),PEN_HW*2,opts);   // 厚度 = 2·PEN_HW（墨迹厚度）
     }
-    // ★R122（同 R121 的用户授权：「按照真实世界的物理规律来修改，符合真实物理现象就行」）：
-    //   把**闭合笔画**（方块/三角/任意闭合多边形的碰撞体）的转动惯量写回**物理值**。
-    //   依据（`_diag_r122a.py` 实测，同一把尺子、同一页面）：
-    //     Matter 的 `Body._inertiaScale = 4` 让**每个**体的惯量都是「纯几何惯量 × 4」；
-    //     圆的 lam 在 R121 之后是 **1.0029**（已改），而方块/三角实测 **4.0000 / 4.0000**。
-    //   后果（`_diag_r122b.py` 量到的下游症状）：方块斜着落地的翻滚角速度 `ω = J·r_perp/I`
-    //     ⇒ **ω ∝ 1/I** ⇒ 惯量大 4 倍 ⇒ 同一个手势下转速只有物理值的 **1/4**、方块「翻不动」。
-    //   写法为什么是 `/4` 而不是显式 `Vertices.inertia(...)`：
-    //     · `/4` **精确等价于把库的 `_inertiaScale` 从 4 改成 1**，不假设形状；
-    //     · 显式公式对 `fromVertices` 的结果可能是**多 part** 的复合体，`mb.vertices` 那时是
-    //       **凸包**（非凸形会丢信息）⇒ 显式公式反而会算错；`/4` 对单/多 part 都只是「撤掉 scale」。
-    //   ⚠ 本行**只覆盖 `closed` 这一支**（方块/三角/手绘闭环）。另外两支**不动**，理由不同：
-    //     · `trough/tub/ring/arc` 走 `segCompound`：实测它们的**根** `inertia` 还**额外漏掉
-    //       平行轴项 m·d²**（环的平行轴占完整物理惯量的 **99.7%**）。那里若跟着 `/4`，会让
-    //       「偏小」更偏小（环会从偏小 77 倍变成偏小 307 倍）⇒ **比物理更远**，必须**先补齐
-    //       平行轴合成**才谈得上除 4，留作单独课题（见 INVARIANTS §50 覆盖账）。
-    //     · 圆已在 R121 显式写成 `½mR²`，不走这里。
-    //   ⚠ 会不会被后续 setter 冲掉：`setMass/setDensity` 保持 `inertia/(mass/6)` 不变比；
-    //     `setStatic` 走 `_original` 存/取、不从顶点重算 —— 与本行正交（同 R121 的查证）。
+    // 闭合笔画（方块/三角/手绘闭环）的转动惯量写回物理值：Matter 的 _inertiaScale=4 让每个体惯量 = 纯几何惯量 × 4
+    // （实测方块/三角均为 4.0000 倍），翻滚角速度 ω = J·r_perp/I 只有物理值的 1/4，方块「翻不动」。
+    // 用 /4 而不是显式 Vertices.inertia(...)：/4 精确等价于把 _inertiaScale 改成 1、不假设形状；fromVertices 可能产出
+    // 多 part 复合体，那时 mb.vertices 是凸包，显式公式会算错。
+    // ⚠ 只覆盖 closed 分支。trough/tub/ring/arc 的 segCompound 根 inertia 还漏掉平行轴项 m·d²（环里占物理惯量 99.7%），
+    //   再 /4 会更偏离物理，须先补齐平行轴合成。圆已显式写成 ½mR²。
+    // 不会被后续 setter 冲掉（setMass/setDensity 保持比例，setStatic 不从顶点重算）。
     if(mb)Matter.Body.setInertia(mb,mb.inertia/4);
   }else{
     // 开链笔画 / 圆弧：沿墨迹每段一个定向矩形。
-    // R71⑦（用户：「圆弧碰撞箱和笔画不一样，一端对准地面时小球经过会弹一下」）：
-    // 每段盒子原来是 `hw*2 + PEN_HW*2` —— 两端各向外多伸 3px，用意是**相邻段互搭、消除接缝**
-    // （内部段必须保留，否则盒与盒之间会有 V 形缝，球滚过去就是咯噔一下）。
-    // 但首段/末段的外侧那 3px 没有任何东西要对搭，它只是让碰撞**越出笔画端点 3px**：
-    // 屏幕上笔端是 round cap（半径 2.325px 的半圆），碰撞却是一块 6px 宽、往外突 3px 的方头。
-    // 后果正是用户描述的那一幕——把弧的一端「对准」地面时，肉眼看到端点刚碰到地面，碰撞体
-    // 其实已经扎进地面 3px，Matter 把它顶起来，视觉端点与地面之间就裂开一条 ~3px 的缝；
-    // 小球沿地面滚过来正好钻进缝里被楔起，看起来就是「经过端点被弹一下」。
-    // 修法：只有**开链**的首末段取消外侧外延（端点停在笔画端点，方头与 round cap 的圆心齐平），
-    // 内侧照旧外延以维持与邻段的搭接。闭链（矩形/三角/凹槽等）首末段本就相邻，一律不动。
+    // 内部段两端各外延 PEN_HW，与邻段互搭消除 V 形接缝（否则球滚过会咯噔一下）。
+    // 开链首段起点、末段终点不外延：屏幕笔端是 round cap，碰撞方头若越出端点 3px，把弧端对准地面时碰撞体先扎进地面被顶起，
+    // 端点与地面裂开 ~3px 缝，球滚过被楔起「弹一下」。闭链（矩形/三角/凹槽等）首末段本就相邻，不动。
     var sg2=bndSegs(B),parts=[],open2=!B.closed,nS2=sg2.length;
     for(i=0;i<nS2;i++){
       var s=sg2[i];
@@ -756,57 +559,30 @@ function buildMatterBody(B){
   // plain copy (B.x=mb.position.x, B.th=mb.angle). Created at angle 0, so the shift is pure
   // translation: the drawn picture does not move by a single pixel.
   var dxw=B.x-mb.position.x,dyw=B.y-mb.position.y;
-  /* ★★R132-9l（用户：「拖动圆弧两端加长延生时，圆弧和上面的按钮就不断抽搐和卡bug，
-   *   最后直接飞出整个屏幕」）—— 补偿量必须取**世界位移本身**。
-   *
-   *  推导（由 `_diag_r339` 产品内部真值 + 解析对账互证）：
-   *   · 本函数在 `B.th = 0` 下建体（`bndPts` 此时输出 `B.x + pts`）⇒ 建体帧里
-   *     **本地系与世界系重合**，所以「世界位移」直接就是「本地位移」。
-   *   · 建完 `setAngle(prevTh)` 是 Matter 语义的**绕质心**旋转（`Body._rotate` 以
-   *     `body.position` 为中心），而渲染 `drawBoundaries` 是绕**原点 `(B.x,B.y)`** 旋转
-   *     ⇒ 两者恒差 `(I − R(θ))·ρ̄`（ρ̄ = 本地几何的质量加权质心偏移）。
-   *   · 旧版补偿量取 `R(−prevTh)·δw`（R75 引入），与「下一轮 arcResample 用 `lc` 重算
-   *     `pts`、却**不动 `lc`**」耦合成乘性递推：
-   *         ρ̄_{n+1} = (I − R(−θ))·ρ̄_n ,   谱半径 = 2|sin(θ/2)|
-   *     θ=0 → 0（一轮归零）、θ=60° → 1、θ=141.73° → **1.8895 > 1**（发散）。
-   *     ★实测对账（`_diag_r336`，ΔB.x 逐轮）：
-   *         43.470 106.984 226.756 427.610 717.088 1033.498 1129.644
-   *       解析预测：43.470 106.983 226.754 427.607 717.086 1033.498 1129.654  ——逐位吻合。
-   *     这才解释了「只有把弧转过大角度、再拖端点才会飞出屏幕」。
-   *   · 退回世界位移后下一轮 `ρ̄ = 0` ⇒ **一步进入不动点**（`fixA` 实测 wc 漂移 0.0000px、
-   *     物理≡渲染间隙 0.762px，与「从未转过角」的对照臂逐位相同）。
-   *
-   *  ★口径：本函数**必须**在 `B.th=0` 下被调用（`arcResample` 已保证）。若将来有调用方
-   *    带着非零 `B.th` 进来，`bndPts` 会输出「已旋转的世界点」，本行的「世界位移直加」
-   *    就不再是本地位移 —— 那时必须把这一行改回按 `prevTh` 换算。
-   *  ★th=0 时 `R(0) = I` ⇒ 本行与原式 `dxw*cT+dyw*sT` 逐字节等价，历史行为不变。 */
+  /* 补偿量取世界位移本身（dx=dxw）：本函数在 B.th=0 下建体，建体帧里本地系与世界系重合，世界位移即本地位移。
+   * 不要按 R(−prevTh)·δw 换算：Matter 的 setAngle 绕质心旋转、渲染 drawBoundaries 绕原点 (B.x,B.y) 旋转，
+   * 再加上下一轮 arcResample 用 lc 重算 pts 却不动 lc，会形成乘性递推 ρ̄_{n+1} = (I − R(−θ))·ρ̄_n（谱半径 2|sin(θ/2)|），
+   * θ>60° 即发散：弧转过大角度后拖端点会抽搐、飞出屏幕（实测逐轮漂移与解析预测吻合）。取世界位移时下一轮 ρ̄=0，一步进入不动点。
+   * ⚠ 前提：必须在 B.th=0 下调用（arcResample 已保证）；若调用方带非零 B.th 进来，bndPts 输出的是已旋转的世界点，
+   *   这里就要改回按 prevTh 换算。 */
   var dx=dxw,dy=dyw;
   if(dx||dy){
     for(var k=0;k<B.pts.length;k++){B.pts[k][0]+=dx;B.pts[k][1]+=dy;}
-    // R72-F：本地 hull 缓存也跟着搬 —— solidSAT（公式体↔实体的手写碰撞）读的是它，
-    // 只搬 pts 不搬 hull 的话，渲染与 Matter 对齐了、手写通道却错开同样的量。
+    // 本地 hull 缓存也跟着搬：solidSAT（公式体↔实体的手写碰撞）读它，只搬 pts 会让手写通道错开同样的量。
     if(B.hull)for(var kh=0;kh<B.hull.length;kh++){B.hull[kh][0]+=dx;B.hull[kh][1]+=dy;}
-    // R56：圆弧的椭圆锚点必须跟着本地原点的平移一起补偿，否则重建后 ell 与 pts 脱节，
-    // 端点手柄拖一次就把角度算飞（实测 a1 直接掉到最小扫过角）。
+    // 圆弧的椭圆锚点跟着本地原点平移一起补偿，否则重建后 ell 与 pts 脱节，端点手柄一拖角度就算飞。
     if(B.ell){B.ell.lcx+=dx;B.ell.lcy+=dy;}
-    // R68：凹槽真弧元数据同样要跟着平移（圆心 + 弧中点都是本地坐标）。
+    // 凹槽真弧元数据（圆心 + 弧中点，本地坐标）同样跟着平移。
     if(B.arcs)for(var k8=0;k8<B.arcs.length;k8++){
       B.arcs[k8].lcx+=dx;B.arcs[k8].lcy+=dy;B.arcs[k8].lmx+=dx;B.arcs[k8].lmy+=dy;
     }
   }
   B.x=mb.position.x;B.y=mb.position.y;
-  // R75：把姿态恢复成重建前的值，并同步到 Matter —— 旧版这一步在 arcResample 里做，
-  // 现在收进 buildMatterBody，好让上面的本地位移换算拿得到真实姿态。
+  // 把姿态恢复成重建前的值，并同步到 Matter。
   B.th=prevTh;
-  /* ★★R132-9l（同上一处）：`setAngle` 是 Matter 语义的**绕质心**旋转，而渲染
-   *   `drawBoundaries` 是绕**原点 `(B.x,B.y)`** 旋转 —— 两者只差一个把原点搬回原位的平移
-   *     T = (I − R(prevTh))·δw
-   *   （δw = 重建前原点与本体质心的世界位移，即上面那两个 `dxw/dyw`）。
-   *   补上 T 之后，Matter 顶点与 `traceWPath` 画出的世界几何**逐点重合** ⇒
-   *   ①「肉眼看到的弧」与「碰撞/旋转体」不再错位（用户说的「抽搐」）；
-   *   ② 下一轮重建时 ρ̄ 归零，乘性递推熄火（这是止住爆炸的另一半，缺一不可 ——
-   *      只补 T 而不退世界位移的对照臂 `armZ` 实测仍然发散至 2.8e4）。
-   *   prevTh=0 时 cT=1、sT=0 ⇒ T=0，整段退化为原行为（逐字节等价）。 */
+  /* setAngle 绕质心旋转，渲染 drawBoundaries 绕原点 (B.x,B.y) 旋转，两者差一个平移 T = (I − R(prevTh))·δw
+   * （δw = 重建前原点到质心的世界位移 dxw/dyw）。补上 T 后 Matter 顶点与 traceWPath 画出的几何逐点重合，下一轮重建时 ρ̄ 归零。
+   * 与上面的「取世界位移」缺一不可：只补 T 仍会发散。prevTh=0 时 T=0。 */
   if(prevTh){
     Matter.Body.setAngle(mb,prevTh);
     var _tqx=(1-cT)*dxw+sT*dyw,_tqy=-sT*dxw+(1-cT)*dyw;
@@ -820,67 +596,41 @@ function buildMatterBody(B){
   mb.sleepThreshold=240;           // compound bodies do NOT inherit part options — set it here
   Matter.Composite.add(MW.wLayer,mb);
   B.mb=mb;
-  B._natMass=mb.mass;              // R64：自然质量（按几何算），wmass 乘数以它为基准
-  applyWMul(B);                    // R64：重建/复制后恢复用户调过的质量乘数与摩擦
+  B._natMass=mb.mass;              // 自然质量（按几何算），wmass 乘数以它为基准
+  applyWMul(B);                    // 重建/复制后恢复用户调过的质量乘数与摩擦
 }
-/* ================= R71-B：完全弹性接触的能量守恒守卫 ========================
-   用户②「弹性调到 1，弹跳高度还是缓慢衰减」＋用户⑥「手绘开链 e=1 从空中释放会在地上
-   翻滚越来越快」。两者是同一个 bug 的两面：Matter 的迭代求解器**无法精确复现 e=1**。
-   诊断实测（_diag_r71_energy.py，纯垂直弹跳、air=0、rest=1，逐次触底的出/入射速度比）：
-       0.9715  0.9443  0.9603  1.0014  0.9474  0.9701
-   平均 0.966 —— 每次弹跳丢 ~3.4% 速度（≈6.7% 高度），偶尔还**倒赚** 0.14%（正是 ⑥ 的
-   自加速种子）。丢能也不是任何「可关掉的通道」：frictionAir 已为 0、friction 已被 min
-   归零，剩下的全在求解器内部，看反编译就明白：
-     Resolver.solveVelocity：Z=(1+restitution)*normalVelocity*Y 累加进 normalImpulse，
-     而该累积器被 `normalImpulse>0 && (normalImpulse=0)` 硬钳到 ≤0；并且当法向速度
-     U < u = −2·timeScale 时**整条累积器被重置为 0**（快速接近走「投机冲量」分支，不累积）。
-     加上引擎是 4 子步 × 1/240s（timeScale=0.25），一拍内多次分叉 —— 单次接触的 e=1
-     在数学上就无法精确达成。
-   所以只能在应用层**显式守恒**：每子步前记录「求解器视角」的速度（= position−positionPrev，
-   注意 Matter 的 solveVelocity 全程只读写 positionPrev/anglePrev，不读 velocity 字段），
-   子步后对「声明弹性 ≥1」的活动接触，把**接触点法向相对速度**精确恢复成入射值的镜像
-   （完美反射）；切向照旧交给 Matter 的摩擦。恢复值恒等于入射值 ⇒ 既不丢能也不注能，
-   ② 的衰减与 ⑥ 的自加速由同一条修好。
-   安全门（避免弄出「永久微弹」—— R57 的老坑）：
-     · 只在 vr0<0（真的在接近）**且** vr1>0（求解器确实已把它弹开）时动作；
-       静置接触（重力压着、求解器把它压回 0）两条件都不满足 → 一律不碰，不引入抖动。
-     · 门限用**用户旋钮的声明值** wEffE(B)≥1，不是 pair.restitution —— 后者被 R70 的
-       「μ=0 极值对 → rest=1」覆写过，若按它开门，μ=0 的方块落地也会永远弹跳
-       （用户⑨要的是「滑得动」，不是「弹不停」）。
-     · R74-B：μ=0 的体另走 EL_Z 名单进同一台机器（pair.restitution 已被 ⑥ 置 1，
-       上面的 restitution 门天然通过），但 ECF 里额外要求「双方均非地面/墙」——
-       曲面（凹槽/圆弧，全是场上画出来的 W 体）上的滑动接触由此守恒
-       （用户：「圆的摩擦力都调成 0 了，在圆凹槽里还是越滑越低」），
-       而 μ=0 方块落**地面**的衰减弹跳维持本条的 R72 语义不变。
-     · 冲量按接触点算（含 r×n 的角向项），所以 ⑥ 的开链翻滚也能正确约束到角动量上。 */
+/* ---- 完全弹性接触的能量守恒守卫（elasticContactFix）----
+ * Matter 的迭代求解器无法精确复现 e=1：纯垂直弹跳（air=0、rest=1）逐次出/入射速度比平均 0.966，
+ * 每跳丢 ~3.4% 速度，偶尔倒赚 0.14%（手绘开链因此越翻越快）。损耗在求解器内部，无法关掉：
+ *   Resolver.solveVelocity 中 Z=(1+restitution)*normalVelocity*Y 累加进 normalImpulse，累积器被钳到 ≤0；
+ *   法向速度 U < −2·timeScale 时走投机冲量分支、累积器重置为 0；4 子步 × 1/240s（timeScale=0.25）一拍内多次分叉。
+ * 所以在应用层显式守恒：每子步前记录求解器视角的速度（position−positionPrev；solveVelocity 只读写
+ * positionPrev/anglePrev，不读 velocity），子步后对声明弹性 ≥1 的活动接触，把接触点法向相对速度恢复成入射值的镜像；
+ * 切向交给 Matter 摩擦。恢复值等于入射值 ⇒ 不丢能也不注能。
+ * 安全门（避免永久微弹）：
+ *   · 只在 vr0<0（在接近）且 vr1>0（求解器已弹开）时动作；静置接触两条件都不满足，不碰。
+ *   · 门限用用户声明值 wEffE(B)≥1，不用 pair.restitution：后者被「μ=0 极值对 → rest=1」覆写过，
+ *     按它开门会让 μ=0 的方块落地永远弹跳。
+ *   · μ=0 的体走 EL_Z 名单进同一机制，但额外要求双方均非地面/墙：场上曲面（凹槽/圆弧）上的滑动接触守恒，
+ *     μ=0 方块落地面维持衰减弹跳。
+ *   · 冲量按接触点算（含 r×n 角向项），开链翻滚也能正确约束到角动量。 */
 var VR_EPS=0.002;
-// R73-C（用户：「我把球的弹性都调成1了，它在地上还是越弹越低」）：逐点镜像的目标应当是
-// 「求解器看到的入射速度」，而 snapVelocities 的 PRE 是在 Engine.update **之前**抓的 ——
-// 本子步的重力增量（Matter 的 Body.update 里 Δv = g.y·g.scale·dt²）还没加进去。
-// 只补这一个重力增量实测把每跳高度损失从 2.0% 降到 1.4%；再往上扫描（见 _diag_r73_bounce5.py，
-// 圆 r=36、g=2.6、dt=1000/240 的子步）得到 1×→1.4%、2×→0.30%、2.5×→0.05%、3×→净增益+0.3%。
-// 除重力外还有一条同量级的系统性亏损：位置求解器（12 次迭代）把物体从穿透里顶出来时同样
-// 改变 position / positionPrev 的相对关系，量级恰是又一个重力增量。故倍数取**实测标定值**，
-// 它只依赖「重力 × 子步 dt²」，与质量/半径/弹性无关（亏损 ∝ gΔt²/v，而 v ∝ sqrt(gΔt²)）。
-// 由 _probe_r73.py 锁住行为；设为 0 即整条补偿关闭（回到 R72 的逐点镜像原样）。
+// 逐点镜像的目标应是求解器看到的入射速度，但 snapVelocities 的快照在 Engine.update 之前抓，
+// 缺本子步的重力增量（Body.update 中 Δv = g.y·g.scale·dt²）；位置求解器（12 次迭代）把物体顶出穿透时
+// 还有一份同量级的亏损。倍数为实测标定（圆 r=36、g=2.6、dt=1000/240）：每跳高度损失 1×→1.4%、2×→0.30%、
+// 2.5×→0.05%、3×→净增益 +0.3%。只依赖重力 × 子步 dt²，与质量/半径/弹性无关。设 0 即关闭补偿（纯逐点镜像）。
 var ECF_GRAV_COMP=2.5;
-// R81-B 一度把它改成 1.0，理由是「1× 是求解器每子步真正施加的重力增量，dKE=½m(s0²−s1²)
-// 与 budgetClean 严格一致」。口径自洽是对的，但**物理错了**：s0 是**恢复目标**（无接触时
-// 应有速率），不是预算的记账量。1.0× 让目标偏低 ⇒ 补偿不足。
-// R75-A 实测（_probe_r74.py 组 B，确定性 4×240Hz 驱动、6s 每秒平均能量）：
-//     1.0  → 漂移 -6.0%   （= 用户①「圆在凹槽里越滑越低」的真身，R74 的 +1% 被吃掉了）
-//     1.25 → 漂移 -0.9%   （复现 R74 定稿值；B3 守卫「没被抛出世界」同时通过）
-// 这条参数直接决定用户可感行为，改动必须重跑 _probe_r74.py 组 B。
+// EL_Z 速度恢复目标的重力补偿倍数。不要取 1.0：1× 虽与 budgetClean 的记账口径一致，但 s0 是恢复目标
+// （无接触时应有速率），1× 让目标偏低、补偿不足。实测（确定性 4×240Hz、6s 平均能量）：1.0 → 漂移 -6.0%
+// （圆在凹槽里越滑越低），1.25 → -0.9%。此参数直接决定可感行为，改动须重新测漂移。
 var ECF_Z_GCOMP=1.25;
 function substepGravityDelta(){
   if(!MW||!MW.engine||!MW.engine.gravity)return 0;
   var dt=1000/240;                    // 与 stepMatter 的子步完全一致
   return MW.engine.gravity.y*MW.engine.gravity.scale*dt*dt;
 }
-// R74-B：μ=0 极值体名单（与 EL 并列，perfectElasticMB 每帧一起重算）。μ=0 对的
-// pair.restitution 已被 refreshAllPairs⑥ 覆写成 1，但求解器复现不了 e=1（R71-B），
-// 曲面 41 段接缝上实测 ΔE≈130~150/半周期（球「越滑越低」）—— 与显式 e=1 是同一台
-// 补偿机器能修的同一类流失，只是门控多一条「双方均非地面/墙」（见 elasticContactFix）。
+// μ=0 极值体名单（与 EL 并列，perfectElasticMB 每帧一起重算）。μ=0 对的 pair.restitution 虽被 refreshAllPairs⑥ 置 1，
+// 求解器仍复现不了 e=1，曲面 41 段接缝实测 ΔE≈130~150/半周期；用同一台补偿机器修，门控多一条「双方均非地面/墙」（见 elasticContactFix）。
 var EL_Z=[];
 function perfectElasticMB(){
   var out=[];
@@ -889,9 +639,8 @@ function perfectElasticMB(){
     var B=bodies[i];
     if(B.dead||!B.mb)continue;
     if(wEffE(B)>=0.999)out.push(B.mb);
-    else if(wMuIdeal(B))EL_Z.push(B.mb);   // R76：只收**显式** μ=0 的体（高中默认 μ=0 不算，见 wMuIdeal）
-                                           // ⚠ 这里必须是 else if：e≥1 与显式 μ=0 同时成立时只能进 EL，
-                                           //   否则两条补偿通道会各处理一遍（原版就是 else if）
+    else if(wMuIdeal(B))EL_Z.push(B.mb);   // 只收显式 μ=0 的体（高中默认 μ=0 不算，见 wMuIdeal）
+                                           // ⚠ 必须是 else if：e≥1 与显式 μ=0 同时成立时只能进 EL，否则两条补偿通道各处理一遍。
   }
   return out;
 }
@@ -912,24 +661,18 @@ function impAt(b,dvx,dvy,dw){
   b.velocity.x+=dvx;b.velocity.y+=dvy;b.angularVelocity+=dw;
   b.positionPrev.x-=dvx;b.positionPrev.y-=dvy;b.anglePrev-=dw;
 }
-// ★R119（大学模式「圆突然急刹」——根因与修法，源码级）
-// 根因（_diag_r118d 实测 + Matter 0.20 Resolver.solveVelocity 原文逐行对账）：
-//   求解器里 `Z=(1+e)·U·Y` **不判接近/分离**，每轮都算，只有两条出路：
-//     · 快分支 `U<u`（u=-_restingThresh·l=-2×0.25=-0.5px/子步 = **-120px/s**）：
-//       `V.normalImpulse=0` —— 一次性全量反弹，累加器清零 ⇒ 后续正冲量被钳 0 ⇒ 干净反弹。
-//     · 慢分支（|U|<120px/s）：`ni+=Z; ni>0⇒ni=0; Z=ni-ni_prev` —— **没有分离判定**，
-//       反弹后 U 反号 ⇒ Z 变正 ⇒ 累加器往回吐 ⇒ 反弹被「追回」（clawback）。
-//   本产品 velocityIterations=8 ⇒ v→(−e)^8·v₀≈0.0054·v₀：实测 80px/s 撞击后只剩 0.63px/s，
-//   球当场睡死。这就是「快球会弹、慢球急刹」的全部原因（R117 删 highPureRoll 没碰这条链）。
-// 修法（用户拍板「只对圆」）：在 collisionStart（Pairs.update 之后、求解器之前）自己施加一次
-//   标准弹性冲量 j=−(1+e)·Un/(iA+iB)，再把该 pair **本步** 的 restitution 置 0 ——
-//   求解器于是看到「已在分离 + 累加器为 0」⇒ 正冲量被钳 0 ⇒ 无追回，e 精确兑现。
-//   ⚠ 置 0 只影响本步：Pairs.update 每步从两个体重算 pair.restitution（refreshAllPairs 同）。
-// 四条门控都在收窄打击面，缺一不可：
-//   ① 只对 W 圆（wshape==='circle'）；② 高中 e=0 / 用户 e≥0.98（EL 有自己那套补偿）跳过；
-//   ③ 只修**慢速**撞击（8..120px/s）—— 快分支本来就是对的，不动它，保既有标定；
-//   ④ |Un| ≥ 0.5·|vRel|（只要「正面撞」）：沿曲面滚动换段产生的微小法向分量
-//      （100px/s 滚过 5° 折角 ⇒ Un≈8.7px/s）不算碰撞，否则球面会一路小跳。
+// 圆的慢速撞击恢复补偿（circleRestitutionFix）。
+// 根因（对照 Matter 0.20 Resolver.solveVelocity）：Z=(1+e)·U·Y 不判接近/分离，每轮都算：
+//   · 快分支 U<u（u=-_restingThresh·l=-2×0.25=-0.5px/子步 = -120px/s）：normalImpulse=0，一次性全量反弹，干净；
+//   · 慢分支（|U|<120px/s）：ni+=Z; ni>0⇒ni=0; Z=ni-ni_prev，没有分离判定，反弹后 U 反号、累加器往回吐，反弹被追回。
+//   velocityIterations=8 ⇒ v→(−e)^8·v₀≈0.0054·v₀：80px/s 撞击后只剩 0.63px/s，球当场睡死（快球会弹、慢球急刹）。
+// 修法：在 collisionStart（Pairs.update 之后、求解器之前）自己施加标准弹性冲量 j=−(1+e)·Un/(iA+iB)，
+//   再把该 pair 本步 restitution 置 0 ⇒ 求解器看到「已在分离 + 累加器为 0」，无追回，e 精确兑现。
+//   置 0 只影响本步：Pairs.update 每步从两个体重算 pair.restitution。
+// 四条门控收窄作用面，缺一不可：
+//   ① 只对 W 圆（wshape==='circle'）；② 高中 e=0 / e≥0.98（EL 有自己的补偿）跳过；
+//   ③ 只修慢速撞击（8..120px/s），快分支本来就对，保既有标定；
+//   ④ |Un| ≥ 0.5·|vRel|（正面撞）：沿曲面滚动换段的小法向分量（100px/s 滚过 5° 折角 ⇒ Un≈8.7px/s）不算碰撞，否则球面一路小跳。
 var REST_FIX_HZ=240;        // 子步频率（1/s），与 stepMatter / substepGravityDelta 一致
 var REST_FIX_VMAX=118;      // px/s：Matter 快分支门限 120 之下留 2px/s 余量
 var REST_FIX_VMIN=8;        // px/s：低于此按静置处理（球贴地/贴壁的常态）
@@ -976,41 +719,21 @@ function circleRestitutionFix(ev){
     pr.restitution=0;                               // 本步求解器不再加自己的 e ⇒ 无 clawback
   }
 }
-// ★★R130：圆的**模式化摩擦**（用户原话两则 —— 这是语义分野，不是参数微调）
-//   高中：「高中模式下圆不是有一个控制摩擦力的参数吗……就是控制球的完整摩擦力的，因为高中
-//          一般不考虑球的滚动，所以就当做一个整体摩擦力，高中也不考虑圆的滚动」
-//   大学：「大学模式下的参数，摩擦力系数也是控制的滚动摩擦的，这个球不打滑一般，一般只考虑滚动」
-// ⇒ 高中：圆 = **质点** —— 不自转（ω≡0）。于是触地点滑移恒等于平动速度，Matter 的 μ 通道
-//         全程按「整体滑动摩擦」作用（匀减速 a≈μg），与「不考虑滚动」完全同义。
-//   大学：圆 = **刚体** —— 纯滚动（不打滑）：μ 是**滚动阻力系数**（a=μ_r·g ⇒ 匀减速自然停下），
-//         接触点切向滑移由本函数的静摩擦冲量消掉（不靠 Matter 的库仑摩擦 —— 那个会啃平动）。
-//
-// 为什么非要自己写这条通道（_diag_r130 实测：大学 / R=72.325px / λ'=I/(mR²)=0.500）：
-//   球以 500px/s 纯滚动撞右墙 ⇒ 墙反弹把 vx 翻成 −260（e=0.52），而接触点在**腰部**
-//   ⇒ 力矩 r×j≈0 ⇒ ω 几乎不变（6.99→6.86）⇒ 触地点滑移 = vx−ωR = **−757px/s**。
-//   动摩擦接下来 12 帧把平动啃到 −8px/s（解析终值 (2vx+ωR)/3 = −8.0，逐位吻合），
-//   反弹后只走了 53px —— 正是用户报的「先很快、运动一小段距离后突然速度骤降」。
-//   在「不打滑、只考虑滚动」的大学语义下这个滑移根本不该存在：反弹是**整体运动状态的
-//   反转**，ω 必须跟着 v 走。
-//
-// 通道形态（**逐子步**，与 rodResolve / elasticContactFix 同级 —— 碰撞注入的速度突变必须在
-// 下一个子步之前归位，否则会被求解器当成真实滑移啃掉）：
-//   ① 本子步**刚撞上**（Matter collisionStart 含该球）⇒ **ω 跟随 v**（平动一个字不改，
-//      保住反弹速度）。⚠ 判据必须是「刚撞上」而不是「滑移大」—— 见函数内 R130 注释。
-//   ② 其余（滑移由重力/滚阻缓慢积累）⇒ **静摩擦冲量**消掉残余滑移，双方按 (1/m + c²/I)
-//      分摊（接触点角动量守恒）⇒ 斜面上自动给出正确的滚动加速度 a = g·sinθ/(1+λ')
-//      = (2/3)·g·sinθ（λ'=0.5）。
-//   ③ 滚动阻力 a = μ_r·g 沿切向反对滚动，ω 同步（不破坏纯滚动）⇒ 球会匀减速自然停下。
-//
-// ⚠⚠口径（_diag_r130d 实测，踩过一次）：**impAt 的实参是「每子步位移」口径，而 mb.velocity /
-//   mb.angularVelocity 是「每 1/60 s」口径** —— 前者写进 positionPrev/anglePrev，下一次
-//   Body.update 用 (position−positionPrev)×correction 重算速度，correction = _baseDelta/子步delta
-//   = 16.667/4.167 = **4** ⇒ impAt(dv) 的**持久**效果是 Δvelocity = 4·dv。
-//   （circleRestitutionFix 之所以对，是因为它的 Un 取自 position−positionPrev，本来就是位移口径。）
-//   所以本函数算出来的（速度口径）增量写进 impAt 前**一律除以 SUBSC** —— 漏了它就是逐子步
-//   ×(−3) 发散（超调 4 倍 ⇒ 残余 −3 倍），实测 ω 一路涨到 1e18。
-var ROLL_BACK_SLIP_ABS=15; // px/s：|滑移| 下限（慢速撞击也要管，r119 实测 34px/s 撞击滑移仅 52px/s）
-var ROLL_BACK_SLIP_REL=0.2;// 相对下限：|滑移| > 0.2·|v|（尺度无关 —— 同一句话不能只对高速成立）
+// 圆的模式化摩擦（circleRollStep）：
+//   高中：圆 = 质点，不自转（ω≡0）。触地点滑移恒等于平动速度，Matter 的 μ 通道全程按整体滑动摩擦作用（匀减速 a≈μg）。
+//   大学：圆 = 刚体纯滚动（不打滑）：μ 是滚动阻力系数（a=μ_r·g，匀减速停下）；撞击造成的接触点滑移由本函数处理，
+//         不靠 Matter 的库仑摩擦（它会啃平动）。
+// 为什么需要（大学，R=72.325px，λ'=0.5 实测）：球以 500px/s 纯滚动撞右墙，反弹把 vx 翻成 −260（e=0.52），
+//   墙接触点在腰部、力矩≈0，ω 几乎不变 ⇒ 触地点滑移 −757px/s，动摩擦 12 帧把平动啃到 −8px/s（解析 (2vx+ωR)/3），
+//   反弹后只走 53px，表现为「先很快、一小段后骤降」。纯滚动语义下反弹是整体运动状态的反转，ω 必须跟着 v 走。
+// 逐子步执行（与 rodResolve / elasticContactFix 同级）：碰撞注入的速度突变必须在下一子步前归位，否则被求解器当滑移啃掉。
+//   ① 高中：ω 归零；② 倒着滚 ⇒ ω 跟随 v，平动不改；④ 滚动阻力 a=μ_r·g 沿切向反对滚动，ω 同步。
+// ⚠ 单位：impAt 的实参是「每子步位移」口径（写进 positionPrev/anglePrev），mb.velocity / angularVelocity 是「每 1/60s」口径；
+//   下次 Body.update 用 (position−positionPrev)×correction 重算速度，correction = _baseDelta/子步delta = 4，
+//   所以 impAt(dv) 的持久效果是 Δvelocity = 4·dv。本函数的速度口径增量写进 impAt 前一律除以 SUBSC，
+//   漏了就逐子步 ×(−3) 发散（ω 涨到 1e18）。circleRestitutionFix 的 Un 取自 position−positionPrev，本就是位移口径。
+var ROLL_BACK_SLIP_ABS=15; // px/s：|滑移| 下限（慢速撞击也要管：34px/s 撞击的滑移仅 52px/s）
+var ROLL_BACK_SLIP_REL=0.2;// 相对下限：|滑移| > 0.2·|v|（尺度无关）
 var ROLL_RESIST_G=1;        // 滚阻标定：a = μ_r·g × 本系数（1 = 直接把 μ 当滚动阻力系数）
 var ROLL_SUP_NY=0.3;        // 主接触必须「够像支撑面」：|n_y| ≥ 0.3（≈ 倾斜 ≤72.5°）
 function circleRollBodies(){
@@ -1025,8 +748,8 @@ function circleRollBodies(){
   }
   return out;
 }
-// R130：子步**前**的平动速度快照 —— circleRollStep 用它算「本子步法向速度突变」= 撞击强度。
-// 必须在 Engine.update 之前取（更新后速度已经是碰撞后的，量不出接近速度）。
+// 子步前的平动速度快照，供 circleRollStep 度量本子步速度突变。
+// 必须在 Engine.update 之前取（更新后已是碰撞后的速度，量不出接近速度）。
 function circleRollSnap(list){
   if(!list)return;
   for(var i=0;i<list.length;i++){
@@ -1046,8 +769,7 @@ function circleRollStep(list,dt){
   for(i=0;i<list.length;i++){
     var B=list[i],mb=B.mb,R=mb.circleRadius||0;
     if(!(R>0)||mb.isStatic||mb.isSleeping)continue;
-    // ① 高中：圆是质点 —— 不自转（ω≡0）。摩擦仍由 Matter 的 μ 通道按「整体摩擦」负责，
-    //    滑移恒 = 平动速度 ⇒ 全程动摩擦 ⇒ 匀减速，与「不考虑滚动」同义。
+    // ① 高中：圆是质点，不自转（ω≡0）；摩擦由 Matter 的 μ 通道按整体摩擦负责（滑移 = 平动速度 ⇒ 匀减速）。
     if(PHYS_MODE==='high'){
       if(mb.angularVelocity!==0)impAt(mb,0,0,-mb.angularVelocity/SUBSC);
       continue;
@@ -1071,54 +793,32 @@ function circleRollStep(list,dt){
       pca=rx*pty-ry*ptx;                            // (r_A × t)_z（圆 ⇒ = R）
       pcb=(P.x-PO.position.x)*pty-(P.y-PO.position.y)*ptx;
     }
-    // ★★主接触必须**够像支撑面**（_diag_r130 A 臂实证）：撞墙那一子步球同时接触地面和墙，
-    //   「最竖直」那一对确实是地面 —— 但球被撞得微微离地时地面那一对可能不活跃，主接触就落到
-    //   **墙**上；而墙的接触点在**腰部**、切向是竖直的 ⇒ 无滑移目标 ω = −v_y/R ≈ 0 ⇒ 我会把
-    //   自旋整条归零（实测 ω 从 +6.20 直掉到 −0.17），于是真正的「倒着滚」指纹被我自己抹掉，
-    //   反弹后仍要被摩擦啃掉 39%（−226.5→−139）。竖直墙 |n_y|≈0 ⇒ 用 0.3 把它排除掉。
+    // 主接触必须够像支撑面（|n_y| ≥ ROLL_SUP_NY）：撞墙时球被撞得微微离地，地面对可能不活跃，主接触落到墙上；
+    // 墙接触点在腰部、切向竖直 ⇒ 无滑移目标 ω≈0，会把自旋整条归零、抹掉「倒着滚」特征，反弹后仍被摩擦啃掉 39%。竖直墙 |n_y|≈0，被排除。
     if(best<ROLL_SUP_NY||!PO)continue;
     // 本体的有效 μ（读数与物理同源）
     var mu=(typeof wEffMu==='function')?wEffMu(B):0.08;
-    // ★★摩擦存在性闸门（_mut_r130_noback / _probe_r76 三臂实证）：Matter 的 pair.friction
-    //   = min(A,B) ⇒ **任一方为 0 就没有任何摩擦**可用来维持纯滚动（r76 的凹槽夹具球和槽
-    //   都显式 μ=0）。没有摩擦却去强行「不打滑」= 凭空注入转动能：实测把球的自旋峰值从
-    //   0.1269 抬到 0.6618、12s 高度下沉从 +3.02% 恶化到 +12.02%。⇒ μ_pair=0 时整条不打滑
-    //   通道必须让位给「滑」，这正是「光滑面」的物理语义。
+    // 摩擦存在性闸门：pair.friction = min(A,B)，任一方为 0 就没有摩擦维持纯滚动。没有摩擦却强行不打滑 = 凭空注入转动能
+    // （实测自旋峰值 0.13→0.66、12s 高度下沉 +3%→+12%）。μ_pair=0 时让位给「滑」，这正是光滑面的物理语义。
     var muP=Math.min(mu,(PO&&typeof PO.friction==='number')?PO.friction:mu);
     // 对方在接触点的速度（睡眠/静态体 = 0）
     var ovx=PSt?0:PO.velocity.x,ovy=PSt?0:PO.velocity.y,ow=PSt?0:PO.angularVelocity;
-    // 本子步**切向**速度突变（px/s）= 撞击强度的度量。
-    //   ★为什么用「切向」而不是「法向」（_probe_r76 实证，这是本轮最贵的教训）：
-    //     撞墙时球的**主接触是地面**（法向竖直），墙给的水平冲量在地面法向上的投影 ≈ 0、
-    //     在地面**切向**上的投影 = −(1+e)·v（撞 500px/s ⇒ 760px/s）—— 判「法向突变」会把
-    //     真正的撞墙漏掉；反过来，手绘笔画是复合体、表面起伏，球滚过每个小凸包都会吃一个
-    //     **法向**大、切向≈0 的冲量 —— 判「法向突变」会把它们全算成撞击。
-    //   ★为什么不用「滑移大小」判：慢速撞击（r119：34px/s ⇒ 反弹后滑移仅 52px/s）会被任何
-    //     固定滑移阈值漏掉；而稳态滑移**不该由我消** —— 实测每子步自己施加静摩擦冲量去消滑移
-    //     会和 Matter 的多接触约束打架，把笔画上的「虚假自旋」峰值从 0.44 抬到 0.77。
-    //     稳态交给 Matter 的摩擦（它本来就把滑→滚收敛到纯滚动，R129 A 臂实测滑移恒 ≈0），
-    //     我只管**撞击**。
-    // 无滑移目标 ω（纯滚动应有的自旋）与当前 ω
+    // 无滑移目标 ω（纯滚动应有的自旋）与当前接触点滑移
     var wt=((ovx-mb.velocity.x)*ptx+(ovy-mb.velocity.y)*pty+ow*pcb)/pca;
     var slip=(mb.velocity.x-ovx)*ptx+(mb.velocity.y-ovy)*pty+mb.angularVelocity*pca-ow*pcb;
-    // ★判据 = **球在「倒着滚」**（目标 ω 与实际 ω 反号）+ 滑移够大。这是撞墙反弹的独有指纹：
-    //   反弹把平动翻向 −x，而墙的接触点在腰部、力矩 ≈0 ⇒ ω 纹丝不动 ⇒ 球变成「倒着走、正着转」。
-    //   为什么不用事件型判据（本轮最贵的教训，_probe_r76 实证）：
-    //     · 「滑移 > 阈值」—— 慢速撞击（r119：34px/s ⇒ 滑移仅 52px/s）会被固定阈值漏掉；
-    //     · 「本子步切向速度突变 > 阈值」—— 撞墙那一子步**地面接触常常不活跃**（球被撞得微微
-    //       离地），主接触落到墙上 ⇒ 切向投影 ≈0 ⇒ 漏判（实测 A 臂 ω=+6.0 纹丝不动）；
-    //     · 「每子步施加静摩擦冲量消滑移」—— 手绘笔画是复合体、表面起伏，会和 Matter 的多接触
-    //       约束打架，把「虚假自旋」峰值从 0.44 抬到 0.77（D2/D3 当场红）。
-    //   状态型判据天然避开上面三条：稳态（含笔画上的虚假自旋）自旋与平动**同号** ⇒ 不触发；
-    //   一旦触发就把 ω 写到无滑移值 ⇒ 滑移归零 ⇒ 自动不再触发（自限）。
-    //   ★★滑移阈值必须**尺度无关**（_diag_r119 实证）：原先写死 90px/s ⇒ 慢速撞击
-    //     （34px/s 入射、反弹后滑移仅 51.8px/s）被漏掉，球带着「正着转」的 ω 倒着走，
-    //     摩擦把反弹速度啃光（−17.8→0）。改成 max(绝对值下限, 0.2·|v|)。
+    // 判据 = 球在「倒着滚」（目标 ω 与实际 ω 反号）且滑移超过阈值：撞墙反弹的特征——平动被翻向，墙接触点在腰部、力矩≈0，ω 不动。
+    // 不要用事件型判据：
+    //   · 「滑移 > 固定阈值」：慢速撞击（34px/s ⇒ 滑移仅 52px/s）会漏掉；
+    //   · 「本子步切向速度突变 > 阈值」：撞墙那一子步地面接触常不活跃，主接触落到墙上，切向投影≈0，漏判；
+    //   · 「每子步施加静摩擦冲量消滑移」：与 Matter 在手绘复合体上的多接触约束打架，虚假自旋峰值 0.44→0.77。
+    // 状态型判据：稳态（含笔画上的虚假自旋）自旋与平动同号，不触发；触发后 ω 写到无滑移值、滑移归零，自限。
+    // 稳态滑移交给 Matter 的摩擦（它本身会把滑→滚收敛到纯滚动），这里只管撞击。
+    // 滑移阈值必须尺度无关：max(ROLL_BACK_SLIP_ABS, ROLL_BACK_SLIP_REL·|v|)；写死 90px/s 时慢速撞击漏判，反弹速度被摩擦啃光。
     if(muP>0){
       var spd=Math.sqrt(mb.velocity.x*mb.velocity.x+mb.velocity.y*mb.velocity.y)*60;
       var thr=Math.max(ROLL_BACK_SLIP_ABS,ROLL_BACK_SLIP_REL*spd);
       if(wt*mb.angularVelocity<0&&Math.abs(slip*60)>thr){
-        // ② 倒着滚：ω 跟随 v —— 平动（碰撞刚给的）一个字不改，只把 ω 重算到纯滚动值
+        // ② 倒着滚：ω 跟随 v，平动（碰撞刚给的）不改，只把 ω 重算到纯滚动值
         impAt(mb,0,0,(wt-mb.angularVelocity)/SUBSC);
       }
     }
@@ -1136,23 +836,14 @@ function circleRollStep(list,dt){
   }
 }
 function elasticContactFix(pre,EL){
-  // R72-B（用户：「弹性=1、从高空释放，越弹越高」—— 密集手绘开链实测复现：9s 内
-  // ΣΔKE=+52、物体弹回 y<0 直接飞出屏幕顶）：逐点镜像在**多对同时接触**时（手绘笔画
-  // 贴地的常态 —— 开链是一块复合体，每条贴地的段与地面各成一对）会累加超调：每一步的
-  // 补入虽然都 ≤ 该点自己的入射量（单冲量 ΔKE=(vr0²−vr1²)/2K，精确、有界），但 N 个
-  // 接触对共享的是同一条入射动能，各自「补到自己的镜像」加起来就能超过它。
-  // 修法 = 守恒预算：本子步修正允许注入的动能上限 = 子步前（入射）总动能 KE0。
-  // 修正只许把求解器丢掉的那部分补回来；预算耗尽就按精确公式截断成**部分反射**
-  // （物理上 N 点同时全镜像本来就是超定方程，部分反射才是一致解）。下一子步重计预算。
-  // 单接触的常见情形 s 恒为 1，行为与旧版逐点镜像完全一致 —— 守卫零成本。
-  // R73-C：先补「本子步重力增量」，让 vr0 与求解器实际看到的一致（推导与标定见
-  // ECF_GRAV_COMP 上方注释）。pre 里只有动态体（snapVelocities 跳过 isStatic），
-  // 所以双方都动态时增量为共模、在 vr0 里自动抵消，一边静态时则正是求解器多看到的那一份。
-  // R74-B：μ=0 极值体（EL_Z）走「速度大小恢复」路径，需要清洁预算 ——
-  // ECF_GRAV_COMP=2.5 是给 EL 镜面路径标定的，下落阶段重力注能（每子步 vy+gdS）会把
-  // 产品口径 budget=KE0−KEcur 污染成偏紧（KEcur 吃进了 1× 重力增益），实测
-  // （_diag_r74_speedrestore）清洁口径把 μ=0 球凹槽滚动 7s 衰减从 -27% 拉到 -1.18%。
-  // raw = 未加重力补偿的 snapVelocities 快照；gravGain = 本子步真实重力动能增量（1×）。
+  // 守恒预算：多对同时接触时（手绘开链贴地的常态，每条贴地段与地面各成一对）逐点镜像会累加超调——
+  // 每个点的补入都 ≤ 它自己的入射量，但 N 个接触共享同一份入射动能，加起来会超过它（实测越弹越高、飞出屏幕顶）。
+  // 所以本子步允许注入的动能上限 = 子步前总动能 KE0；预算耗尽就按精确公式截断成部分反射
+  // （N 点同时全镜像是超定的，部分反射才是一致解）。下一子步重计预算；单接触时 s 恒为 1，等同逐点镜像。
+  // 先补本子步重力增量，让 vr0 与求解器实际看到的一致（见 ECF_GRAV_COMP）。pre 里只有动态体（snapVelocities 跳过 isStatic），
+  // 双方都动态时增量为共模、在 vr0 中抵消；一边静态时正是求解器多看到的那一份。
+  // EL_Z（μ=0 体）走速度大小恢复路径，需要清洁预算：下落阶段重力注能会让 budget=KE0−KEcur 偏紧（KEcur 含 1× 重力增益），
+  // 清洁口径把 μ=0 球凹槽滚动 7s 衰减从 -27% 拉到 -1.18%。raw = 未加重力补偿的快照；gravGain = 本子步真实重力动能增量（1×）。
   var KE0=0,KEcur=0,i5,b5,KE0raw=0,gravGain=0,gdS2=0,raw=null;
   if(EL_Z.length){
     gdS2=substepGravityDelta();
@@ -1181,7 +872,7 @@ function elasticContactFix(pre,EL){
   }
   var budget=KE0-KEcur;                  // 还允许注入多少动能（负 = 已经超额，只许再减）
   var budgetClean=raw?KE0raw-KEcur+gravGain:budget;   // 清洁口径：真实求解器损耗
-  var inZDone={};                        // R81-B：每子步每体只钳一次（凹槽多段同触→防过度移除）
+  var inZDone={};                        // 每子步每体只处理一次（凹槽多段同时接触时防过度修正）
   var list=MW.engine.pairs.list;
   for(var i=0;i<list.length;i++){
     var pr=list[i];
@@ -1190,16 +881,14 @@ function elasticContactFix(pre,EL){
     var inEL=EL.indexOf(A)>=0||EL.indexOf(B)>=0;   // 用户声明 e≥1 的体
     var inZ=EL_Z.indexOf(A)>=0||EL_Z.indexOf(B)>=0; // μ=0 极值体
     if(!inEL&&!inZ)continue;
-    // R74-B：μ=0 极值体（EL_Z）不查 pair.restitution —— ⑥ 置 1 在帧末才执行，
-    // ECF 在子步内看到的还是出厂 0.52；名单本身就是判据。地面/墙门照旧：
-    // μ=0 方块落地面维持 R72 语义（衰减弹跳），只有场上物体之间的曲面接触才补偿。
+    // μ=0 极值体（EL_Z）不查 pair.restitution（⑥ 置 1 在帧末才执行，子步内看到的仍是出厂值），名单本身就是判据。
+    // 地面/墙门：μ=0 方块落地面保持衰减弹跳，只有场上物体之间的曲面接触才补偿。
     if(inEL&&pr.restitution<0.999)continue;        // EL 场景：求解器子步内真按 e≥1 解（原语义）
     if(!inEL&&(A===MW.ground||A===MW.wl||A===MW.wr||A===MW.wt||B===MW.ground||B===MW.wl||B===MW.wr||B===MW.wt))continue;
     // 贴合滑动接触的 vr 只有 ~0.01 量级（VR_EPS=0.002 会把它们全当「没在接近」）——
     // EL_Z 场景放宽到 0.0005，让双接触接缝处的微干涉也能被预算机制精确补偿。
     var eps=inZ?0.0005:VR_EPS;
-    // 注意字段名：Matter 0.20 求解器读的是 pair.contacts / pair.contactCount
-    // （反编译实证：`B=m.contacts, M=m.contactCount`），activeContacts 是旧版命名。
+    // 字段名：Matter 0.20 求解器读的是 pair.contacts / pair.contactCount，activeContacts 是旧版命名。
     var cts=pr.contacts||pr.activeContacts;
     var ct=cts&&cts.length?cts[0]:null;
     if(!ct)continue;
@@ -1209,46 +898,25 @@ function elasticContactFix(pre,EL){
     var pA=pre[A.id]||[0,0,0],pB=pre[B.id]||[0,0,0];
     var vr0=n.x*((pA[0]-rAy*pA[2])-(pB[0]-rBy*pB[2]))
            +n.y*((pA[1]+rAx*pA[2])-(pB[1]+rBx*pB[2])); // 子步前接触点法向相对速度
-    // R76-B：μ=0 滑动接触的 vr0≈0（球贴着表面滑、不弹跳），但曲面分段的方向离散仍在每子步
-    // 杀速（实测凹槽内 85% 的 inZ 接触被这条「接近」门挡掉，补偿只覆盖 ~20% 损耗）。滑动与否
-    // 改用速度本身判：resting 接触的 s0 ≈ gdS2（1e-4 量级），滑动接触的 s0 远大于阈值 ——
-    // 见 inZ 分支内的 SLIDE_SPD 门。EL 路径（镜面反弹）保留原「接近」语义不动。
+    // μ=0 滑动接触的 vr0≈0（贴着表面滑），但曲面分段的方向离散仍每子步杀速；用「接近」门会挡掉大部分 inZ 接触
+    // （实测 85%，补偿只覆盖 ~20%）。所以 inZ 路径改用速度本身判静置（见下方 s0 门），EL 镜面路径保留「接近」门。
     if(vr0>=-eps&&!inZ)continue;                         // 不在接近 → 不管（仅 EL 镜面路径）
     var aAx=A.position.x-A.positionPrev.x,aAy=A.position.y-A.positionPrev.y,aAa=A.angle-A.anglePrev;
     var bBx=B.position.x-B.positionPrev.x,bBy=B.position.y-B.positionPrev.y,bBa=B.angle-B.anglePrev;
     var vr1=n.x*((aAx-rAy*aAa)-(bBx-rBy*bBa))
            +n.y*((aAy+rAx*aAa)-(bBy+rBx*bBa));         // 子步后
     if(inZ){
-      // ===== R86-B：每体总速率恢复(预算限制) + 棘轮钳制,弹跳/滑动一视同仁 =====
-      // R75-A 定量复测（用户①仍未解决，留档）：
-      //   确定性夹具（shapeOutline->mkBoundary，几何逐位可复现）置于 μ=0 / e=0 / air=0，
-      //   球在碗底上方 12px 落下并给水平初速，页面内 rAF 采样 9s，取每 1s 窗口的摆幅：
-      //     基线(R87_post)  弧 28.42→19.02px(−33%)   凹槽 22.71→8.76px(−61%)
-      //   ⇒ 「弧里没事」不成立：弧也在漏，只是比凹槽慢一倍。ECF 计数器（_dbg_r75/）：
-      //     全场 2316 次调用、620 次 μ=0 接触、restore 命中 222 次，而 budCleanSum 只累积
-      //     4.64 ⇒ 预算几乎总在 ~1e-12 被 capZero 掐断（42 次），补偿只落到残差零头。
-      //   去掉预算门试跑（全额恢复）：凹槽末窗 8.76→11.60、弧 19.02→15.43 —— 一升一降，
-      //   都在夹具抖动带内，且 R72-B 预算是不许动的不变式 ⇒ 已回退。
-      //   真因（尚未修）：本条恢复目标是**自由落体速度幅度** s0=|v_raw+(0,gdS2)|。在水平面上
-      //   这与「约束运动应有的速度」一致，但在**斜坡/凹面**上重力有切向分量，自由落体速度
-      //   比约束速度大 ⇒ 过度补偿，恰好抵消掉求解器自身的损耗，净结果仍是慢速漏能。
-      //   正解方向：恢复目标改成**切向速度**（求解器对 μ=0 的切向冲量公式与法向无关，
-      //   见 solveVelocity 滑动分支 n=μ·sign(W)·(δ/baseΔ)³），法向交给 rest=1 的求解器。
-      //
-      // R85-B 用 dot<-0.3 判弹跳,滑动时 if(!bounced)continue 跳过恢复。但凹槽球
-      // 始终在滑动(非弹跳),所以补偿从不触发 → 结果与 R84-B 完全相同(-46%)。
-      //
-      // 核心推导:budgetClean = KE0raw - KEcur + gravGain,其中 gravGain 恰好等于
-      //   本子步重力动能增量(0.5*m*(2*vy*gdS2+gdS2²))。因此:
-      //   budgetClean = (KE0raw + gravGain) - KEcur = expected_KE_post - actual_KE_post
-      // 即 budgetClean 就是「无摩擦时球应该有的动能」减去「实际动能」,正是能量亏损。
-      // 求解器对 μ=0 体只应移除法向重力分量(法向力对刚体面不做功),但 Baumgarte
-      // 位置修正会额外吃掉切向能量 → 表现为 budgetClean>0 → 恢复即可。
-      //
-      // R86-B 移除 bounced 门:始终在 dKE>0 时预算限制恢复,dKE<0 时钳制。
-      // 方向沿后求解器速度(qx,qy)缩放——求解器已处理方向(弹跳反射/滑动改向),
-      // 只补幅度。inZDone 防多段同时处理同一体(凹槽 41 段)导致累加超调。
-      // 静置门: s0<2*gdS2 → 跳过(球只受重力压在面上,无真实运动)。
+      // ---- EL_Z：每体总速率恢复（受预算限制）+ 棘轮钳制，弹跳/滑动一视同仁 ----
+      // budgetClean = KE0raw − KEcur + gravGain，gravGain 恰为本子步重力动能增量 ½m(2·vy·gdS2+gdS2²)，
+      //   ⇒ budgetClean = 无摩擦时应有动能 − 实际动能 = 能量亏损。求解器对 μ=0 体只应移除法向重力分量
+      //   （法向力对刚体面不做功），但 Baumgarte 位置修正会额外吃掉切向能量，表现为 budgetClean>0，恢复即可。
+      // 不按「是否弹跳」设门：凹槽里的球始终在滑动，带弹跳门时补偿从不触发。dKE>0 时受预算限制恢复，dKE<0 时钳制。
+      // 方向沿求解器后速度 (qx,qy) 缩放（方向已由求解器处理），只补幅度；inZDone 防凹槽多段同时处理同一体导致累加超调。
+      // 静置门：s0 < 2·gdS2 跳过（只受重力压在面上，无真实运动）。
+      // 已知限制（未修）：曲面上仍慢速漏能（实测 9s 摆幅 弧 −33%、凹槽 −61%），预算几乎总在 ~1e-12 被掐断。
+      //   恢复目标是自由落体速度幅度 s0=|v_raw+(0,gdS2)|，在斜坡/凹面上重力有切向分量、自由落体速度大于约束速度，
+      //   过度补偿与求解器损耗互相抵消。去掉预算门全额恢复无净收益（在夹具抖动带内），且预算是不变式，不要去掉。
+      //   正解方向：恢复目标改成切向速度（求解器对 μ=0 的切向冲量与法向无关），法向交给 rest=1 的求解器。
       var bodies2=[];
       if(!A.isStatic)bodies2.push(A);
       if(!B.isStatic)bodies2.push(B);
@@ -1268,11 +936,7 @@ function elasticContactFix(pre,EL){
         if(Math.abs(dKE)<1e-12)continue;
         inZDone[bd.id]=true;
         if(dKE>0){
-          // 能量减少:预算限制恢复(弹跳/滑动均恢复——budgetClean 已扣除重力分量)
-          // R75-A 试行过「去掉预算、全额恢复」：实测无净收益（凹槽末窗幅 8.76→11.60，弧 19.02
-          // →15.43，都在夹具抖动带内），而 R72-B 的预算是不许动的不变式 ⇒ 已回退，见
-          // 2026-09-15 记忆。曲面漏能的真因在下方 R75-A 注释里（ECF 用「自由落体速度」做
-          // 恢复目标，在斜坡上会过度补偿，与求解器自身的损耗互相抵消，净剩 ~50%/9s）。
+          // 能量减少：受预算限制恢复（弹跳/滑动均恢复，budgetClean 已扣除重力分量）。曲面漏能的已知限制见上方注释。
           var cap=Math.max(0,budgetClean);
           if(cap<=1e-12)continue;
           var tf=Math.min(1,cap/dKE);
@@ -1298,7 +962,7 @@ function elasticContactFix(pre,EL){
     var K=ima+imb+iia*X*X+iib*Q*Q;                      // 接触点法向有效质量倒数
     if(K<=1e-12)continue;
     var J=d/K;
-    // R72-B 守恒预算：施满 J 的精确动能增量 dke=(vr0²−vr1²)/2K。超出预算就求部分系数
+    // 守恒预算：施满 J 的精确动能增量 dke=(vr0²−vr1²)/2K；超出预算就求部分系数
     // s（ΔKE(s·J)=budget 的正根，s∈(0,1) = 部分反射），冲量按 s·J 施加。
     var dke=(vr0*vr0-vr1*vr1)/(2*K);
     if(dke>budget){

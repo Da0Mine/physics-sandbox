@@ -206,19 +206,15 @@ function blastAt(cx,cy,R){
     var O=bodies[j];
     if(O.bh)continue;
     if(grab.kind==='body'&&grab.obj===O)continue;
-    // R56：画出来的边界（线/图形）以前被 O.kind 一刀切跳过——mc² 怎么都炸不掉它们。
-    // 现在边界走专门的撕裂/汽化：闭合图形汽化成粒子，开放笔画被撕成 2~3 段继续飞。
+    // 画出来的边界（线/图形）走专门的撕裂/汽化（不能被 O.kind 一刀切跳过）：
+    // 闭合图形汽化成粒子，开放笔画被撕成 2~3 段继续飞。
     if(O.kind==='W'){
       if(Math.hypot(O.x-cx,O.y-cy)<=R)blastBoundary(O,cx,cy);
       continue;
     }
     if(O.kind==='S'||O.kind==='T'){
-      /* ★★R132-9h（用户：「那个爆炸是炸不掉，不是炸不散…比如弹簧和杆等，那些物体的连接体
-       *  被爆炸首次炸应该是被炸散架，并且部分被炸没」）：
-       *   原来下面那句 `if(O.kind)continue;` 把**所有带 kind 的体**（S=弹簧/轻绳、T=杆）
-       *   一刀切跳过 ⇒ mc² 冲击波对它们**完全无效**（W 边界在上一支有专门处理，S/T 没有）。
-       *   现在：范围内的 S/T 直接**销毁** —— `killBody` 已经负责摘掉引用它的 Matter 约束、
-       *   摘铰链 Constraint、唤醒睡眠体 ⇒ 不会留下幽灵约束把宿主隐形钉住。 */
+      /* 范围内的 S（弹簧/轻绳）/ T（杆）直接销毁，冲击波对它们才有效（下面的 if(O.kind)continue 会跳过所有带 kind 的体）。
+       * killBody 负责摘掉引用它的 Matter 约束、铰链 Constraint 并唤醒睡眠体，不会留下幽灵约束把宿主钉住。 */
       if(Math.hypot(O.x-cx,O.y-cy)<=R){
         burstParticles(O.x,O.y,14,0.9);
         if(O.anc){O.anc[0]=null;O.anc[1]=null;}   // 先解绑，免得求解器这一帧还去够已经没了的体
@@ -254,8 +250,8 @@ function blastAt(cx,cy,R){
   }
 }
 function blastBoundary(O,cx,cy){
-  // R56：mc² 冲击波对边界的专门处理。闭合图形（矩形/三角形/凹槽）没有"字母碎片"可炸，
-  // 直接汽化成粒子（annihBody 同款）；开放笔画则被撕成 2~3 段，各自带着 outward 冲量继续飞。
+  // mc² 冲击波对边界的专门处理：闭合图形（矩形/三角形/凹槽）没有字母碎片可炸，直接汽化成粒子（同 annihBody）；
+  // 开放笔画被撕成 2~3 段，各自带着向外的冲量继续飞。
   var i0=bodies.indexOf(O);if(i0<0)return;
   if(O.closed||O.pts.length<8){annihBody(O,i0);return;}
   var wp=bndPts(O),nSeg=wp.length-1,nCut=(nSeg>=24)?3:2,c1;
@@ -308,12 +304,10 @@ var BH_MAXR=105;
 // full-screen reach: pull tapers linearly to 0 at the screen's diagonal so the influence
 // feels whole-screen but is exactly 0 at the rim and stronger the closer it is to the hole
 var BH_REACH=2000;
-/* ★R132-9s（用户 2026-10-02 晚）：「如果黑洞召唤 15 秒后场上还有物体或者什么的还有被吸上来，
- *   则直接碎裂为粒子被吸入（这样就解决了很多连接体吸不上来的问题）」。
- *   为什么需要它：stage-1 的吞噬有三重门槛 —— ①`d>BH_REACH` 直接跳过；②吸力按 1/d² 衰减，
- *   远处的体几乎不动；③`fixed` 锚死 + 装配体被杆约束连成整体时等效加速度被稀释
- *   （R131-23b 的补偿上限 8 倍，且"连着固定点拉不动是正确物理"）⇒ **连接体/远处物体
- *   可能永远进不了视界**。用户要的就是这个兜底：时间到就清场。 */
+/* 黑洞出现 BH_FORCE_AGE 秒后强制清场：场上剩余物体直接碎裂为粒子被吸入。
+ * stage-1 的吞噬有三重门槛：d>BH_REACH 直接跳过；吸力按 1/d² 衰减，远处几乎不动；
+ * fixed 锚死或装配体被杆约束连成整体时等效加速度被稀释（补偿上限 8 倍，连着固定点拉不动是正确物理）
+ * ⇒ 连接体/远处物体可能永远进不了视界，需要这个兜底。 */
 var BH_FORCE_AGE=15;
 function stepBlackHole(dt){
   for(var i=0;i<bodies.length;i++){
@@ -340,14 +334,11 @@ function stepBlackHole(dt){
       continue;
     }
     // ---- stage 1 — alive: devour EVERYTHING on screen (whole-screen accretion) ----
-    if(!(BH_MERGE&&(BH_MERGE.a===B||BH_MERGE.b===B))){if(B.vx||B.vy){B.vx=0;B.vy=0;}}   // the hole itself is immovable（★R131-23 merge 期解除）
+    if(!(BH_MERGE&&(BH_MERGE.a===B||BH_MERGE.b===B))){if(B.vx||B.vy){B.vx=0;B.vy=0;}}   // the hole itself is immovable（BH_MERGE 合并期间除外）
     if(BH_FINALE&&BH_FINALE.hole===B)continue;   // finale drives the hole visuals now (suck/shrink)
     if(grab.kind==='body'&&grab.obj===B)continue;   // paused while the hole is being dragged
-    /* ★★R132-9s（用户：「召唤 15 秒后场上还有物体…就直接碎裂为粒子被吸入」）：
-     *   15s 到了就**清场** —— 不看距离、不看质量、不看是否 fixed（黑洞面前本来就没有"固定不住"
-     *   的说法，见下面 W 体那段注释），逐个「爆粒子 + 走既有的湮灭/清场通道」。
-     *   ★只做一次（`bh.forced`）：否则每帧重扫会连着刚生成的粒子一起爆。
-     *   ★被抓在指针下的体跳过：那是用户此刻正拿着的东西，不该在手里被吃掉。 */
+    /* 到时清场：不看距离、质量、是否 fixed（黑洞面前固定不住），逐个爆粒子并走既有的湮灭/清场通道。
+     * 只做一次（bh.forced），否则每帧重扫会连刚生成的粒子一起爆。被指针抓着的体跳过。 */
     if(!bh.forced&&bh.age>BH_FORCE_AGE){
       bh.forced=1;
       for(var fj=bodies.length-1;fj>=0;fj--){
@@ -372,10 +363,9 @@ function stepBlackHole(dt){
   // the influence FEELS whole-screen but fades out at the screen boundary — a corner is no
   // stronger than another, and at the very rim the pull is exactly zero.
   var reach=BH_REACH;
-    /* ★★R131-23b（用户：「黑洞对连接体的吸力不足，吸不起来」）：吸力加速度与质量
-     *  无关，但杆约束把互连物体连成整体 ⇒ 有效加速度被稀释 m_self/M_total 倍。
-     *  修：按「装配体总质量/自质量」放大吸力（BFS 连通分量，上限 8 倍防爆炸）；
-     *  连着固定点的装配体拉不动是正确物理（fixed 锚死），不在补偿之列。 */
+    /* 吸力加速度与质量无关，但杆约束把互连物体连成整体，有效加速度被稀释 m_self/M_total 倍。
+     * 按「装配体总质量 / 自质量」放大吸力（BFS 连通分量，上限 8 倍防爆炸）；
+     * 连着固定点的装配体拉不动是正确物理（fixed 锚死），不在补偿之列。 */
     var _asmMult={};
     (function(){
       var seen={};
@@ -429,9 +419,8 @@ function stepBlackHole(dt){
       var drg=Math.pow(0.25,dt*1.6*Math.min(1,bh.r/Math.max(d,30)));
       O.vx*=drg;O.vy*=drg;
       // B/E sources and rods are skipped by stepPhysics (static), so integrate them here.
-      // R56：W 边界（画出的线/图形）是 Matter 刚体——每帧 stepMatter 用 mb.position 覆写
-      // B.x/B.y，直接手推坐标会被吞掉（L011 同类坑）。必须把速度注入 Matter 本体；
-      // 固定（static）的边界用 setPosition 硬拽——黑洞面前固定不住。
+      // W 边界是 Matter 刚体，stepMatter 每帧用 mb.position 覆写 B.x/B.y，直接手推坐标会被吞掉，
+      // 必须把速度注入 Matter 本体；固定（static）的边界用 setPosition 硬拽（黑洞面前固定不住）。
       if(O.kind==='W'&&O.mb){
         if(O.fixed){Matter.Body.setPosition(O.mb,{x:O.x+O.vx*dt,y:O.y+O.vy*dt});}
         else{Matter.Body.setVelocity(O.mb,{x:O.vx/60,y:O.vy/60});}
@@ -565,7 +554,7 @@ function stepBlackHolePanel(B,bh,dt){
 // ("something trying to get out"), then the bin BURSTS — every tray letter flies out of it
 // and glides back into its own slot, and the bin returns home to the bottom-right corner.
 var BH_FINALE=null;
-// R57（用户 #7）：k / x 也要能被黑洞吃掉（和面板里其它符号一视同仁）
+// k / x 也要能被黑洞吃掉（和面板里其它符号一视同仁）
 var BH_CHARS=['m','M','g','a','v','r','½','μ','c','G','t','B','E','q','I','k','x'];
 function finaleSlot(i,pr){
   var col=i%4,row=Math.floor(i/4);
@@ -583,12 +572,8 @@ function trashCenter(){
   var r=trash.getBoundingClientRect();
   return {x:r.left+r.width/2,y:r.top+r.height/2};
 }
-/* ★★R131-23（用户：「同时创建两个黑洞，吸完所有东西后会卡住，改成吸完所有东西后
- *  两个黑洞互相螺旋吸引合并，最后垃圾桶再过来」）：
- *  原 maybeStartFinale 的 `bodies.length>1 return` 把「场上只剩两个黑洞」判成
- *  「还没吃完」⇒ finale 永不触发 ⇒ 卡死。加 **merge 阶段**：只剩黑洞时两洞解除
- *  immovable、互相螺旋吸引（径向+切向），接触即合并（r=√(r1²+r2²)），合并后
- *  正常走 finale（垃圾桶过来）。 */
+/* 两黑洞合并：只剩黑洞时两洞解除 immovable、互相螺旋吸引（径向 + 切向），接触即合并（r=√(r1²+r2²)），
+ * 之后正常走 finale。当前已停用（不能同时存在两个黑洞，见 maybeStartFinale 与出生处门控）。 */
 var BH_MERGE=null;
 function stepBHMerge(dt){
   if(!BH_MERGE)return;
@@ -596,28 +581,18 @@ function stepBHMerge(dt){
   if(BH_MERGE.ax0==null){BH_MERGE.ax0=A.x;BH_MERGE.ay0=A.y;}
   if(!A||!Bb||A.dead||Bb.dead||!A.bh||!Bb.bh){BH_MERGE=null;return;}
   var dx=Bb.x-A.x,dy=Bb.y-A.y,d=Math.hypot(dx,dy)||1;
-  /* ★R131-56 已回退（真实并合模型首版数值不稳、会产生 NaN ⇒ 按"不要越改越乱"先回到
-   *  稳定的参数化螺旋）。真实物理演算留给单独一轮：需要先做数值稳定性（子步/限幅）
-   *  再接入。下面仍是 R131-22b 的参数化螺旋 + 吸完 5~10s 窗口。 */
+  /* 参数化螺旋。不要直接换成真实并合模型：未做数值稳定性（子步/限幅）时会产生 NaN。 */
   var RR=Math.max(A.bh.r,Bb.bh.r);
-  /* ★R131-26d：场上是否还有未吞的普通体——有 ⇒ 只螺旋靠近不合并；无 ⇒ 允许合并 */
-  /* ★★R131-36（用户：「其他东西都还没吸完时他俩就立马融合了」）：旧判定只数 **bodies**，
-   *  而黑洞的吞噬顺序是先物体、后自由字母 —— 进入「吞字母」阶段时 bodies 已空 ⇒
-   *  _others=0 ⇒ **提前触发融合**。修：还要把**未吞完的自由字母 (freeL)** 算进去。 */
+  /* 场上还有未吞的普通体 ⇒ 只螺旋靠近不合并；没有 ⇒ 允许合并 */
   var _others=0;
   for(var _oi=0;_oi<bodies.length;_oi++){var _Ob=bodies[_oi];
     if(_Ob!==A&&_Ob!==Bb&&!(_Ob.bh&&_Ob.bh.stage===1)&&!_Ob.dead)_others++;}
-  /* ★R131-37：上一版把 freeL 也算进 _others —— 但黑洞**可能永远吞不完某些自由字母**
-   *  （面板外飞的、被固定的字符）⇒ _others 恒 >0 ⇒ **永不融合**（用户实测：卡在一起
-   *  抽搐）。改回只数 bodies，靠下面的**倒计时强制合并**兜底。 */
+  /* 只数 bodies，不数自由字母 freeL：黑洞可能永远吞不完某些自由字母（飞出面板的、被固定的），
+   * 计入后会永不融合；由下面的倒计时强制合并兜底。 */
   if(BH_MERGE.ph==='orbit'&&_others===0&&d<RR*4)BH_MERGE.ph='plunge';   // 吸完瞬间 ⇒ 收尾
-  /* ★★R131-34（用户：「吸完所有的东西后，10 秒内两洞必须螺旋融合」）：**完成时限**——
-   *  吸完（_others===0）的那一刻记 deadline（+6s）；剩最后 3s 仍未合 ⇒ 逐步加大径向吸力
-   *  并削弱切向（螺旋收紧），保证在 10s 内必然完成合并（不会卡在轨道上）。 */
   if(_others===0&&!BH_MERGE.t0)BH_MERGE.t0=performance.now();
-  /* ★★R131-37（用户：「螺旋几秒就卡在一起抽搐、不融合」）：**倒计时强制合并**——
-   *  物体吸完（t0）起：5~10s 渐进加力（plunge + boost 最高 4×）；满 10s **无条件合并**。
-   *  这样无论两洞是卡在轨道上还是被别的条件挡住，都会在 5~10s 内完成。 */
+  /* 倒计时强制合并：从物体吸完（t0）起，5~10s 渐进加力（plunge + boost 最高 4×），满 10s 无条件合并，
+   * 防止两洞卡在轨道上抽搐不融合。 */
   if(BH_MERGE.t0){
     var _el=performance.now()-BH_MERGE.t0;
     if(_el>5000){
@@ -634,8 +609,7 @@ function stepBHMerge(dt){
       killBody(Bb);BH_MERGE=null;return;
     }
   }
-  /* ★R131-37b：NaN 根治——任一侧位置/半径变 NaN ⇒ 立刻复位并强制收尾（否则会渲染
-   *  报错 createRadialGradient non-finite 并永远卡住）。 */
+  /* 任一侧位置/半径变 NaN ⇒ 立刻复位：否则渲染报 createRadialGradient non-finite 并永远卡住。 */
   if(!isFinite(A.x)||!isFinite(A.y)||!isFinite(A.bh.r)){
     A.x=BH_MERGE.ax0||600;A.y=BH_MERGE.ay0||300;A.vx=0;A.vy=0;
     if(!isFinite(A.bh.r))A.bh.r=BH_MAXR;
@@ -646,9 +620,7 @@ function stepBHMerge(dt){
     if(!isFinite(Bb.bh.r))Bb.bh.r=BH_MAXR;
     if(Bb.mb&&MW)Matter.Body.setPosition(Bb.mb,{x:Bb.x,y:Bb.y});
   }
-  /* ★R131-38（用户：「东西都没吸完就融合了 / 刚开始融合太快」）：合并需满足
-   *  **吸完(t0)后至少 5s** —— 给足螺旋观赏期；5s 后到 10s 之间正常靠近即合并，
-   *  满 10s 由上面的分支强制合并。 */
+  /* 正常合并需吸完（t0）后至少 5s，留出螺旋观赏期；满 10s 由上面的分支强制合并。 */
   var _sinceT0=BH_MERGE.t0?(performance.now()-BH_MERGE.t0):0;
   if(d<RR*0.8&&_others===0&&_sinceT0>=5000){
     burstParticles(Bb.x,Bb.y,40,2);ringGo(Bb.x,Bb.y);
@@ -659,9 +631,8 @@ function stepBHMerge(dt){
   }
 }
 function maybeStartFinale(){
-  /* ★★R131-44（用户：「合成了第一个黑洞就合成不了第二个」）：BH_FINALE 一旦残留
-   *  （finale 中途被打断/黑洞被清屏移除）就会**永久挡住后续黑洞**——`if(BH_FINALE)return`
-   *  再也进不来。这里加**自愈**：finale 的宿主已死/不在场/超时 ⇒ 清掉再继续。 */
+  /* BH_FINALE 自愈：finale 中途被打断或黑洞被清屏移除时，残留的 BH_FINALE 会让 if(BH_FINALE)return 永久挡住后续黑洞；
+   * 宿主已死/不在场/超时（25s）则清掉再继续。 */
   if(BH_FINALE){
     var _fh=BH_FINALE.hole;
     var _stale=(!_fh||_fh.dead||bodies.indexOf(_fh)<0||
@@ -675,14 +646,10 @@ function maybeStartFinale(){
     if(Bx.bh&&Bx.bh.stage===1){if(!hole)hole=Bx;holes.push(Bx);}
   }
   if(!hole)return;
-  /* ★★R131-26d（用户：「出现两个黑洞时就**开始**螺旋，吸完所有东西后才**刚好**
-   *  螺旋到合并」）：两洞**一出现就互吸螺旋**（弱吸力慢速靠近，观赏期很长）；
-   *  **合并（killBody）只在 otherBodies===0（吸完）后允许**——stepBHMerge 里判。
-   *  吸完的瞬间若两洞已接近 ⇒ plunge 快速收尾；还远 ⇒ 继续螺旋到靠近。 */
+  /* 合并只在 otherBodies===0（吸完）后允许，判定在 stepBHMerge 里。 */
   var otherBodies=0;
   for(i=0;i<bodies.length;i++){var By=bodies[i];if(!(By.bh&&By.bh.stage===1))otherBodies++;}
-  /* ★R131-57：**已停用「两黑洞合并」**（用户要求删掉融合逻辑；改为"不能同时两个黑洞"）。
-   *  这里若真出现两个洞（历史存档/极端情况）也不启动合并——各自独立存在、各自吞东西。 */
+  /* 两黑洞合并已停用：若出现两个洞（极端情况）也不启动合并，各自独立存在。 */
   if(holes.length>=2)return;
   var docked=false;
   var chars=panel.querySelectorAll('.char');
@@ -754,8 +721,7 @@ function stepFinale(dt){
     }
   }else if(F.ph==='suck'){
     // the hole shrinks and streams into the bin, then vanishes inside it
-    /* ★R131-23d：e2 的 NaN 防护——合并路径上 merge 的数值异常可能污染 F.t，
-     *  NaN 会把 bh.r 写成 NaN（JSON 序列化显示 null）⇒ 缩洞动画整个失效。 */
+    /* e2 的 NaN 防护：F.t 被污染成 NaN 时会把 bh.r 写成 NaN，缩洞动画整个失效。 */
     var e2=Math.min(1,Math.max(0,(isFinite(F.t/F.suckD)?F.t/F.suckD:0)));
     var h=F.hole;
     if(!isFinite(F.t))F.t=0;
@@ -878,12 +844,7 @@ function drawParticles(){
     cvx.beginPath();cvx.arc(p.x,p.y,p.r,0,6.2832);cvx.fill();
   }
 }
-/* ★R132-9zs（用户 2026-10-03：「调节磁场的参数时，调为负数时，那里的图形显示，
- *   应该同步从**点**变成**叉**啊，因为相当于是背对磁场了」）。
- *   ⇒ 新增 `bz` 形参：`bz<0` 画 ⊗（圆圈 + 交叉，场**穿入**纸面/背向观察者），
- *     `bz>0` 仍画 ⊙（实心点，场**穿出**纸面）。这是磁场方向的标准画法，
- *     与物理里 `Bz` 的符号语义一致（`Bz>0` 为 +z 出屏）。
- *   ★原来这里**只画点**，`Bz` 的符号完全没进绘制 ⇒ 调成负数看不出任何变化。 */
+/* 磁场方向画法：bz<0 画 ⊗（场穿入纸面），bz>0 画 ⊙（场穿出纸面），与 Bz>0 为 +z 出屏一致。 */
 function drawFieldDots(cx,cy,R,bz){
   var into=(bz!=null&&bz<0);                 /* 场背向观察者 ⇒ 叉 */
   var col='rgba(38,34,28,0.16)',colS='rgba(38,34,28,0.28)';
@@ -898,8 +859,7 @@ function drawFieldDots(cx,cy,R,bz){
           cvx.arc(px,py,1.7,0,6.2832);
           cvx.fill();
         }else{
-          /* ★R132-9zt（用户 2026-10-03：「磁场取背面时干嘛要搞圆圈？**一般就是画叉啊**」）
-             ⇒ 去掉外圈圆，只留两笔交叉（标准 ⊗ 的画法本来就没有圆）。 */
+          /* 叉只画两笔交叉，不加外圈圆（标准 ⊗ 画法）。 */
           var k=4.6;
           cvx.lineWidth=1.6;
           cvx.beginPath();
@@ -930,9 +890,7 @@ function drawFieldE(cx,cy,R,th,B){
   // from the centre), so dragging ONE edge only stretches that side. The arrow slab is
   // clipped to the ACTUAL asymmetric rect — never to a symmetric superset — otherwise the
   // arrows would run past the shorter edges (that was the "线条和边界错位" bug).
-  /* ★R132-9zs（用户：「关于电场也是，参数变负数后，**箭头应该同步反向**」）：
-     `eacc`（电场强度 E）的符号在物理里已经起作用（`a=E_FIELD_ACC*eacc*qsign`），
-     但绘制原来只看 `th` ⇒ 调成负数箭头纹丝不动。修：`eacc<0` 时把方向翻转 180°。 */
+  /* eacc（电场强度）的符号在物理里已生效（a=E_FIELD_ACC*eacc*qsign），绘制也要跟着：eacc<0 时箭头方向翻转 180°。 */
   if(B&&B.eacc!=null&&B.eacc<0)th=th+Math.PI;
   var er=B&&B.er?B.er:{l:R/2,r:R/2,t:R/2,b:R/2};
   var hsL=er.l,hsR=er.r,hsT=er.t,hsB=er.b;   // half-extents per side

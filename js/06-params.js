@@ -16,180 +16,116 @@
  */
 var PF={};
 function pv(B,k,d){var v=B.param?B.param[k]:null;return (v===null||v===undefined||isNaN(v))?d:v;}
-// R68（用户：「对所有的参数都定一个标，以国际单位制为基准」）：**比例尺 260 px = 1 m** ——
-// 默认重力 2600 px/s² 恰好显示 10 m/s²，画布高度 ≈ 3.5 m，物理量级合理。
-// 内部计算**全部仍是 px**（所有回归、标定、弹簧公式原样不动）；换算只发生在参数面板的
-// 显示/输入层：SI 显示值 = 内部值 / siK。1 单位质量 = 1 kg；k 的 N/m 是标称值 —— F=ks·Δx
-// 按 F=ma 走加速度通道时，kg/s² 的数值与内部值恰好一致（px 与比例尺在分式里约掉）。
+// 比例尺 260 px = 1 m：默认重力 2600 px/s² 显示为 10 m/s²，画布高约 3.5 m。
+// 内部计算全部仍是 px；换算只发生在参数面板的显示/输入层：SI 显示值 = 内部值 / siK。
+// 1 单位质量 = 1 kg；k 的 N/m 是标称值 —— F=ks·Δx 按 F=ma 走加速度通道时，
+// kg/s² 的数值与内部值一致（px 与比例尺在分式里约掉）。
 var PX_PER_M=260;
-/* R102（用户：「传送带的默认速度改成0.5m/s」）：传送带默认带速 CONV_DEF = 130 px/s = **0.5 m/s**
- * （内部一律 px/s，面板显示时才除以 PX_PER_M）。
- * ★为什么常量要声明在**这里**（PX_PER_M 的下一行）：参数表 convspeed 的 `def:CONV_DEF`（下面
- *   几十行处）是在**对象字面量求值那一刻**就把值抓走的；原先 CONV_DEF 声明在 makeBelt 那一带
- *   （文件后半），`var` 提升让它在那时还是 **undefined** ⇒ 面板里「带速」的默认值实际是
- *   undefined，只有 makeBelt 里显式写的那份 260 才是真的 —— 同一个默认值有两份、其中一份是空的。
- *   把声明前移到 PX_PER_M 旁边之后：字面量抓到的是真值，且全文件只有这一个声明（唯一真源）。
- * ★0.5 而不是 1.0：传送带这台机器**放下去电机就是转着的**（不像弹簧放下去默认在原长静止），
- *   默认越快，用户第一眼看到的就是货被甩出去好远，判断会落到「器件坏了」而不是「还没调速」。
- *   0.5 m/s 是「慢到看得清方向、又快到看得清它在动」的那档。 */
+/* 传送带默认带速 CONV_DEF = 130 px/s = 0.5 m/s（内部一律 px/s，面板显示时才除以 PX_PER_M）。
+ * 必须声明在 PARAM_DEFS 之前：参数表的 def:CONV_DEF 在对象字面量求值时取值，
+ * var 只提升声明不提升赋值，声明在后面会取到 undefined。全文件只此一处声明。
+ * 取 0.5 而非 1.0：传送带放下去电机就在转，默认太快货物会被甩远，用户容易误判为器件坏了。 */
 var CONV_DEF=Math.round(0.5*PX_PER_M);
-/* ★★R125（用户报「点默认按钮没反应，也不退回去」查出来的**第二条**通道，与 R124 的闭包共享并列）：
- *   参数表 `gndlen` 的 `def:GROUND_SPAWN_LEN` —— 而 `GROUND_SPAWN_LEN` 原先声明在文件后半
- *   （makeGround 那一带，约 11644 行）。对象字面量 `PARAM_DEFS` 是在**求值那一刻**就把值抓走的，
- *   `var` 提升只提升声明、不提升赋值 ⇒ 那时它是 **undefined** ⇒ 面板「长度 length」行点「默认」
- *   会把 undefined 喂进 applyParam（入口 `val=+val||0` ⇒ 0）⇒ 被 clamp 到量程下限 **60px**，
- *   而不是默认 **260px** —— 用户看到的就是「点了默认，数字没回到该有的样子」。
- *   ★这正是 R102 在 `CONV_DEF` 上踩过的**同一个坑**（见上方那段注释）：当年只搬了那一个常量、
- *     没做全量扫描，于是 R108 加地面参数时又踩了一遍。R125 补了守卫
- *     （`_verify_r61.py` D12：「每个参数条目的 def 必须是 number」+ D13：地面长度行点默认必须回 260），
- *     这类问题不再靠人记。
- *   ★规矩与 CONV_DEF 相同：常量声明必须在参数表**之前**，且全文件只此一处（唯一真源）。 */
+/* 必须声明在 PARAM_DEFS 之前（同 CONV_DEF）：gndlen 的 def 在对象字面量求值时取值，
+ * 声明在后则为 undefined ⇒ 点「默认」时 applyParam 把它当 0 ⇒ 被 clamp 到量程下限 60px 而非 260px。
+ * 全文件只此一处声明。 */
 var GROUND_SPAWN_LEN=260;
-/* ★★R126（用户：「你这个弹簧的默认长度和初始长度不一致啊，肯定以初始长度为准啊」）：
- *   ——「出生尺寸」常量区。**全部**器件出生尺寸常量都收在这里，理由是两条：
- *   ① `PARAM_DEFS` 里 `slen.def:SPR_SPAWN_LEN` 这类写法，必须在**对象字面量求值那一刻**就抓到值。
- *      `var` 只提升声明、不提升赋值 ⇒ 常量若声明在参数表之后，那一刻就是 `undefined`。
- *      R102 在 `CONV_DEF`、R125 在 `GROUND_SPAWN_LEN` 已经各踩过一次（点「默认」掉到量程下限）。
- *   ② 这是「**默认值 == 出生值**」这条不变式的**唯一真源**：出生尺寸只在这里改一个数，
- *      参数表的默认值机械跟随 ⇒ 结构上不可能再漂移。
- *      ★R97 就是栽在这里：它把出生长度从 170 改成 110（注释里明写「把默认改成 110，两条入口
- *        的默认参数就完全一致」），但**只改了出生那半条**、`PARAM_DEFS.slen.def` 留在 170
- *        ⇒ 同一个语义两处真源 ⇒ 用户 2026-09-23 实测报出「默认长度和初始长度不一致」。
- *   原声明点已改成**指针注释**，别再加回去（重复声明会让「唯一真源」失效）。 */
+/* 出生尺寸常量区：所有器件的出生尺寸常量都集中在这里。
+ * ① PARAM_DEFS 里 slen.def:SPR_SPAWN_LEN 这类写法在对象字面量求值时取值，
+ *    var 只提升声明不提升赋值 ⇒ 常量必须声明在参数表之前，否则是 undefined（点「默认」掉到量程下限）。
+ * ② 这是「默认值 == 出生值」不变式的唯一真源：只改这里一个数，参数表默认值机械跟随。
+ *    不要在别处重复声明或在 PARAM_DEFS 里写死数字，否则两处会漂移（曾出现出生 110 / 默认 170）。 */
 var SPR_SPAWN_LEN=110;    // 弹簧：= makeSpring 长度钳制 clamp(d,110,340) 的下限
 var ROPE_SPAWN_LEN=110;   // 轻绳：与弹簧同款「拖出来即可用」的默认长度
-var ROD_SPAWN_LEN=170;    // 轻质杆：= makeRod 的默认，也是 vt 拼接实际拿到的那一个
+var ROD_SPAWN_LEN=170;    // 轻质杆：= makeRod 的默认，也是 vt 拼接实际得到的长度
 var BELT_SPAWN_LEN=260;   // 传送带：矩形宽（带子长度暂不可调，只影响出生尺寸）
-// ★R103-8（用户：「铰链连接两个物体后，转动角度也有限制，不能让两个物体卡bug，重叠」）：
-// 铰链的**折角限位**（度）。折角 = 「销→宿主0中心」与「销→宿主1中心」两个方向的夹角
-// 相对**连接那一刻**的偏差；超过 ±限位 就被投影回边界（硬限位）。诊断实测（_diag_r103b D 组）：
-// 无限位时挂在销下的方块被踢一脚能整圈风车、转顶时钻进固定块的盒子里（AABB 重叠）。
-// ★★R105-6（用户纠正了这条需求的语义，本条按新语义重写）：
-//   「我说的限位角是保证连接的两个物体不互相穿模而说的限位角，里面的参数应该是**固定铰链**，
-//     默认关闭，开启后角度被定死」。
-//   ⇒ 面板上**不再有**「限位角」这个可调角度；只有一个是/否的「固定铰链」开关：
-//     · 关闭（默认）= 完全光滑铰链，相对转动**不受任何限制**（= 旧语义里 180° 那一档）；
-//       「不互相穿模」由**碰撞解算**保证（两个宿主保持互相碰撞，见 springSyncGroups），
-//       而不是靠限制转角 —— 这是用户明确要的分工。
-//     · 开启 = 刚接：限位角取 0°，折角被冻结在**开启那一刻**的构型上（角度定死）。
-//   旧常量 HINGE_FOLD_DEF=90 不再是面板默认（保留只为历史/回归脚本里出现过这个名字）。
+// 铰链折角限位（度）。折角 = 「销→宿主0中心」与「销→宿主1中心」夹角相对连接那一刻的偏差，
+// 超过 ±限位 即投影回边界（硬限位）。无限位时挂在销下的方块被踢一脚能整圈转、钻进固定块。
+// 面板上只有「固定铰链」开关，没有可调角度：
+//   · 关闭（默认）= 完全光滑铰链，相对转动不受限；防穿模由碰撞解算保证（两宿主保持互相碰撞，见 springSyncGroups），
+//     不靠限制转角。
+//   · 开启 = 刚接：限位角取 0°，折角冻结在开启那一刻的构型上。
+// HINGE_FOLD_DEF=90 已不是面板默认，仅保留名字供回归脚本引用。
 var HINGE_FOLD_DEF=90;
-var HINGE_FOLD_STEP=0.08;   // ★R103-8：限位回转每子步限步（rad），防传送瞬滑（见 hingeFoldLimit）
-var HINGE_FOLD_DMAX=2;      // ★R103-8 闭合门：两端距离超过此值视作「未钉合成销」，限位跳过（I1 回归）
-// R72（用户：「质量不要设置上限，其他的也是，只要不违背物理规律即可」）：上限只保留
-// **物理上真实存在**的那几个 —— 弹性 e∈[0,1]、空气阻力 <1（它是「每帧速度的占比」，
-// ≥1 会把速度反向，违反物理）；μ>1（橡胶-玻璃 ≈2）完全物理，质量/长度/刚度/阻尼均无上限。
-// 滑块的 min/max 只是可视化量程（数字输入框本来就不限），真正的硬边界在 applyParam。
+var HINGE_FOLD_STEP=0.08;   // 限位回转每子步限步（rad），防传送瞬滑（见 hingeFoldLimit）
+var HINGE_FOLD_DMAX=2;      // 闭合门：两端距离超过此值视作「未钉合成销」，限位跳过
+// 上限只保留物理上真实存在的：弹性 e∈[0,1]、空气阻力 <1（它是每帧速度占比，≥1 会把速度反向）；
+// μ>1 是物理的（橡胶-玻璃 ≈2），质量/长度/刚度/阻尼均无上限。
+// 滑块 min/max 只是可视化量程（数字输入框不受限），真正的硬边界在 applyParam。
 var PARAM_DEFS={
-  // R73-F（用户：「是有我说的参数不设上限，但是那个滑动条还是保持之前的范围，只有输入框可以
-  // 输入大数」）：R72 把滑块的 min/max 一起放大到「两个数量级」是**过度执行** —— 滑块的可视
-  // 量程被拉到 0..10000 之后，想把质量从 1 调到 2 得在滑轨左边 0.01% 的宽度里蹭，滑块等于废了。
-  // 用户要的是**输入不设上限**（数字框），不是**拖动量程放大**。故 min/max 全部还原成 R71 的
-  // 常用范围；数字输入框照旧不受 min/max 约束（`applyParam` 只守物理边界，见下），键入 10000
-  // 一样生效。R72-I 的「不设上限」由数字框承担，滑块回到好用的小量程。
+  // 滑块 min/max 保持常用小量程，不要放大到「不设上限」的量级：量程拉到 0..10000 后
+  // 想把质量从 1 调到 2 只能在滑轨最左端蹭，滑块等于废了。
+  // 「不设上限」由数字输入框承担（applyParam 只守物理边界），键入 10000 一样生效。
   mass:{key:'mass',label:'质量 mass',min:0.2,max:5,step:0.1,unit:'kg',siK:1,def:1},
   massM:{key:'massM',label:'质量 M',min:1,max:12,step:0.5,unit:'kg',siK:1,def:3},
   grav:{key:'grav',label:'重力 g',min:200,max:6000,step:50,unit:'m/s²',siK:PX_PER_M,def:2600},
   acc:{key:'acc',label:'加速度 a',min:100,max:4000,step:50,unit:'m/s²',siK:PX_PER_M,def:1300},
   bounc:{key:'bounc',label:'弹性 bounce',min:0,max:1,step:0.01,unit:'',def:0.6},
-  /* ★★R131-34 新增：Δt（世界时间倍率，滑条 0~1、数字框可更高）/ v 赋予速度（大小+方向）
-     / q 电荷量 / 物体电荷量 */
+  /* Δt（世界时间倍率，滑条 0~1、数字框可更高）/ v 赋予速度（大小+方向）/ q 电荷量 / 物体电荷量 */
   tscale:{key:'tscale',label:'Δt 时间倍率',min:0,max:1,step:0.01,unit:'×',def:1},
-  /* ★R131-35：v 的速度按**国际单位制**显示/输入（内部仍是 px/s，面板以 m/s 呈现）——
-   *  与 g / a 同一条 siK 通道，不再出现「px/s」这种内部单位漏到界面上。 */
+  /* v 的速度按国际单位制显示/输入（内部 px/s，面板以 m/s 呈现，同 g / a 的 siK 通道）。 */
   vsize:{key:'vsize',label:'赋予速度 v',min:0,max:6000,step:100,unit:'m/s',siK:PX_PER_M,def:1800},
   vang:{key:'vang',label:'速度方向 θ',min:-180,max:180,step:1,unit:'°',def:0},
   asize:{key:'asize',label:'赋予加速度 a',min:0,max:6000,step:100,unit:'m/s²',siK:PX_PER_M,def:1300},
   aang:{key:'aang',label:'加速度方向 θ',min:-180,max:180,step:1,unit:'°',def:0},
-  /* ★R131-35：电荷用国际单位 **C（库仑）**（内部=显示值，作相对电荷量使用） */
+  /* 电荷用 C（库仑）显示（内部=显示值，作相对电荷量使用） */
   qcharge:{key:'qcharge',label:'电荷量 q',min:-5,max:5,step:0.1,unit:'C',def:1},
   wcharge:{key:'wcharge',label:'电荷量 q',min:-5,max:5,step:0.1,unit:'C',def:0},
-  /* ★R131-44：被赋予加速度的物体可再调（SI：m/s² 与方向） */
+  /* 被赋予加速度的物体可再调（SI：m/s² 与方向） */
   wacc:{key:'wacc',label:'赋予加速度 a',min:0,max:6000,step:100,unit:'m/s²',siK:PX_PER_M,def:1300},
   waccang:{key:'waccang',label:'加速度方向 θ',min:-180,max:180,step:1,unit:'°',def:0},
-  // ★R126：`def` 必须**引用出生尺寸常量**，不许再写死数字 —— 写死就是「同一语义两处真源」，
-  //   出生值一改这里就悄悄漂移（R97 的 170/110 就是这么来的：用户实测报「默认和初始不一致」）。
+  // def 必须引用出生尺寸常量，不要写死数字：写死会与出生值形成两处真源，出生值一改就漂移。
   rodlen:{key:'rodlen',label:'杆长 length',min:60,max:420,step:10,unit:'m',siK:PX_PER_M,def:ROD_SPAWN_LEN},
   gndlen:{key:'gndlen',label:'长度 length',min:60,max:1600,step:10,unit:'m',siK:PX_PER_M,def:GROUND_SPAWN_LEN},
   gndang:{key:'gndang',label:'角度 angle',min:-180,max:180,step:1,unit:'°',siK:1,def:0},
-  // R71⑧（用户：「物体质量不影响碰撞效果（999kg 落体撬不动 1kg 杠杆）」）：杆（vt 造的木板）
-  // 的质量独立可调。默认 1kg（= 杆长 170px 的自然质量）
+  // 杆（vt 造的木板）的质量独立可调，使重物能撬动杠杆等碰撞效果依赖质量。
+  // 默认 1kg（= 杆长 170px 的自然质量）
   rodmass:{key:'rodmass',label:'质量 mass',min:0.05,max:20,step:0.05,unit:'kg',siK:1,def:1},
-  // R57（用户 #7/#8）：弹簧的两个参数 —— k 直接对应「劲度系数 k」，L₀ 对应「自然长度」
-  // R61（用户：「弹簧的默认劲度系数没改变啊」）：def 必须跟随 SPR_KS_DEF，不能再写死 26 ——
-  // 建弹簧时用的是 SPR_KS_DEF（=94），面板却显示旧的 26，看起来就是「默认值没改」。
-  // R87-E（用户：「滑动条在正常区间调控」）：sk 量程从 [2,300] 收到 [2,100] ——
-  // 300 是旧 k=180 时代的量程，现在默认 50，留 2 倍余量到 100 已覆盖常见实验室弹簧。
-  // 输入框照旧不受 min/max 约束（物理边界 0..1e6 在 applyParam）。
-  // ★R119：SPR_KS_DEF 提到 150（用户拍板），量程必须跟着抬 —— 旧的 max=100 会让默认值
-  // 顶在量程外，面板一碰就把 k 拉回 100（「默认值没改」的同一类 bug，见 R61）。
-  // ★R130：默认 150→300 ⇒ max 必须同步抬到 600（= 2×默认），否则默认值顶在滑块上沿。
+  // 弹簧参数：k = 劲度系数，L₀ = 自然长度。
+  // def 必须跟随 SPR_KS_DEF，不能写死；否则建弹簧用的值与面板显示的默认不一致。
+  // max 取 2×默认（600）：默认值若超出滑块量程，面板一碰就会把 k 拉回 max。
+  // 输入框不受 min/max 约束（物理边界 0..1e6 在 applyParam）。
   sk:{key:'sk',label:'劲度系数 k',min:2,max:600,step:1,unit:'N/m',siK:1,def:SPR_KS_DEF},
-  // ★R126（用户：「你这个弹簧的默认长度和初始长度不一致啊，肯定以初始长度为准啊」）：
-  //   `def` 从写死的 170 改成 **引用 `SPR_SPAWN_LEN`**。原来两者是两个数（出生 110 / 默认 170）
-  //   ⇒ 面板上「自然长度 L₀」显示 0.423 m，点「默认」却跳到 0.654 m —— 用户看到的
-  //   「默认长度和初始长度不一致」。修后两者同源，改出生尺寸即机械跟随。
+  // def 引用 SPR_SPAWN_LEN，使「默认」与出生长度同源（否则点「默认」会从 0.423 m 跳到 0.654 m）。
   slen:{key:'slen',label:'自然长度 L₀',min:60,max:420,step:10,unit:'m',siK:PX_PER_M,def:SPR_SPAWN_LEN},
-  // R101⑦ 轻绳的绳长。**不复用 slen**（那行的标签是「自然长度 L₀」，对绳是错的称呼）；
-  // 量程随轻绳自己的 [ROPE_MIN_LEN, ROPE_MAX_LEN]（滑条常用区间取 60..600，数字框不受限）。
-  // ★R126：同 `slen` 那条 —— 轻绳出生 110px，`def` 却写死 170 ⇒ 点「默认」把绳从 0.423 m
-  //   跳到 0.654 m。改成引用 `ROPE_SPAWN_LEN`（同一个病理的**第二条通道**，用户还没报，
-  //   但同一句话的 bug 要把所有通道一次查干净 —— 见 MEMORY「同一句话有几个通道」）。
+  // 轻绳的绳长。不复用 slen（那行标签是「自然长度 L₀」，对绳是错误称呼）；
+  // 量程随轻绳的 [ROPE_MIN_LEN, ROPE_MAX_LEN]（滑条常用区间取 60..600，数字框不受限）。
+  // def 引用 ROPE_SPAWN_LEN，与出生长度同源。
   rlen:{key:'rlen',label:'绳长 L',min:60,max:600,step:10,unit:'m',siK:PX_PER_M,def:ROPE_SPAWN_LEN},
-  // ★R105-6：铰链的「固定铰链」开关（布尔）。关闭 = 完全光滑（相对转动不受限）；
-  // 开启 = 角度定死在开启那一刻（刚接）。**不再有**可调的角度数值（见上面 HINGE_FOLD_* 段）。
+  // 铰链的「固定铰链」开关（布尔）。关闭 = 完全光滑（相对转动不受限）；
+  // 开启 = 角度定死在开启那一刻（刚接）。没有可调角度数值（见 HINGE_FOLD_* 段）。
   hfix:{key:'hfix',label:'固定铰链',bool:true,def:0},
-  // R71④（用户：「弹簧的阻尼运动是不是也应该有一个参数可以调节（可以调到无阻尼的状态）」）：
-  // 阻尼系数独立成一条参数。D=0 即完全无阻尼；默认值仍是与刚度配套的 SPR_DAMP。
-  // R87-E：阻尼量程从 [0,60] 收到 [0,30] —— 默认 D 从 7.89 降到 4.2，旧量程太宽滑块不好用。
+  // 弹簧阻尼系数独立可调。D=0 即完全无阻尼；默认值是与刚度配套的 SPR_DAMP。
   sdamp:{key:'sdamp',label:'阻尼 D',min:0,max:30,step:0.2,unit:'',def:SPR_DAMP},
   frict:{key:'frict',label:'摩擦系数 μ',min:0,max:1,step:0.01,unit:'',def:0.1},
   scale:{key:'scale',label:'尺寸 scale',min:0.4,max:3,step:0.05,unit:'×',def:1},
   bz:{key:'bz',label:'磁场强度 B',min:-3,max:3,step:0.1,unit:'T',def:1},
   eacc:{key:'eacc',label:'电场强度 E',min:-3,max:3,step:0.1,unit:'V/m',def:1},
   iacc:{key:'iacc',label:'电流强度 I',min:-3,max:3,step:0.1,unit:'A',def:1},
-  // R64（用户：「给那些物体的参数里面增加可以调控质量大小，与地面的摩擦系数大小」）：
-  // W 体（画出来的线/图形/圆）的专属参数。wmass 是**乘数**：JS 侧 B.mass 与
-  // Matter 侧 setMass(自然质量×乘数) 同步 —— L024 的弹簧标定口径是「单位质量」，乘数只是把
-  // 本体的 m 从 1 换成用户值，R57/R58 的公式全部照旧成立（加速度限幅随 m 等比放大）。
+  // W 体（画出来的线/图形/圆）的专属参数。wmass 是乘数：JS 侧 B.mass 与
+  // Matter 侧 setMass(自然质量×乘数) 同步。弹簧标定口径是单位质量，乘数只是把
+  // 本体的 m 从 1 换成用户值，弹簧公式照旧成立（加速度限幅随 m 等比放大）。
   wmass:{key:'wmass',label:'质量 mass',min:0.2,max:5,step:0.1,unit:'kg',siK:1,def:1},
-  // wfrict 是**本体**的摩擦系数；实际接触用配对规则（动摩擦取双方 min、静摩擦取 min，
-  // R68 起静摩擦也取 min），面板下方会实时列出当前每对接触实际生效的数值。
+  // wfrict 是本体的摩擦系数；实际接触用配对规则（动/静摩擦均取双方 min），
+  // 面板下方会实时列出当前每对接触实际生效的数值。
   wfrict:{key:'wfrict',label:'摩擦系数 μ',min:0,max:1,step:0.01,unit:'',def:WFRICT_DEF},
-  // R65（用户：「关于物体和地面的弹性碰撞也搞一个参数可以调节」）：W 体的碰撞恢复系数。
-  // 没调过时保留 buildMatterBody 的默认（圆 = BALL_REST，其它 = 0），与 wfrict 同一条守卫规则。
+  // W 体的碰撞恢复系数。没调过时保留 buildMatterBody 的默认（圆 = BALL_REST，其它 = 0），与 wfrict 同一守卫规则。
   wbounc:{key:'wbounc',label:'弹性 bounce',min:0,max:1,step:0.01,unit:'',def:0},
-  // R72（用户：「弹簧阻尼调成 0 还是很快停止」的真凶）：W 体的**空气阻力**（frictionAir，
-  // 每帧按速度占比泄能）是一条独立于弹簧阻尼的耗散通道。设 0 = 无空气阻力（配 sdamp=0
-  // 即理想简谐振荡）。上限 0.5 = 物理边界（它是每帧速度占比，≥1 会把速度反向）。
-  // R73-C（用户：「空气阻力默认为 0，先暂时不要考虑空气阻力」）：默认值从 0.01 改成 0 ——
-  // 出厂状态就没有这条耗散通道，用户要阻尼时自己往上调。
+  // W 体的空气阻力（frictionAir，每帧按速度占比泄能），独立于弹簧阻尼的耗散通道。
+  // 设 0 = 无空气阻力（配 sdamp=0 即理想简谐振荡）；默认 0。
+  // 上限 0.5 是物理边界（每帧速度占比，≥1 会把速度反向）。
   wair:{key:'wair',label:'空气阻力 air',min:0,max:0.5,step:0.001,unit:'',def:0},
-  /* ★R115（用户 2026-09-22：「大概是引入了滚动摩擦导致的问题，把滚动摩擦的参数调节删了，
-   *   回退回之前没有滚动摩擦的相关圆的运动代码，就只留一个调节摩擦系数的」）：
-   *   原 `wroll:{key:'wroll',label:'滚动摩擦 ω',...}` 定义已**整体删除**。
-   *   连带删除（同一轮，一次删干净，不留半条链）：`wRollEff()`、`applyWRoll()`、
-   *   `ROLL_GRIP_SLIP`、stepMatter 里的 `applyWRoll(BW,false)` 调用、参数面板的 wroll 行
-   *   （paramV / applyParam / 本体映射 / 逐物配对表渲染）、以及 `pairOv*` 三兄弟里的 `roll` 字段。
-   *   ★圆的摩擦调节从此**只剩 μ 一个旋钮**（+ 质量/弹性/空气阻力，与其它 W 体一致）。
-   *   ★`highPureRoll` 已于 R117 **整体删除**（用户：「把这个圆的运动回退回去，用之前的来」
-   *     —— 回到 R91_pre：高中不再有任何「写 ω」的通道）。 */
-  // R99 传送带：带面速度（可正可负 = 正/反向）。内部 px/s，显示 m/s（siK=PX_PER_M=260）。
-  // ±4 m/s 覆盖课堂量级；def=260px/s = 1 m/s。只有 belt 才显示这一行（见 paramDef）。
+  // 传送带带面速度（可正可负 = 正/反向）。内部 px/s，显示 m/s（siK=PX_PER_M）。
+  // ±4 m/s 覆盖课堂量级。只有 belt 才显示这一行（见 paramDef）。
   convspeed:{key:'convspeed',label:'带速 v',min:-1040,max:1040,step:10,unit:'m/s',siK:PX_PER_M,def:CONV_DEF},
-  // R101③（用户：「也可以在里面的参数设置中调节（角度）」）：带子的角度行。
-  // 内部单位 = **弧度**（B.th 的本体），显示/输入单位 = 度：靠 siK=π/180 换算
-  // （面板口径是 internal = SI × siK，见 renderParamPanel 的 kSI）。于是：
-  //   滑块 min/max = ±π/(π/180) = ±180°，step = 1°，回读 = th×180/π。
-  // ★面板这一路是**自由角度**（37° 就存 37°）—— 45° 量化只属于旋转手柄那一路：
-  //   手柄是「快速摆到几个常用档」，面板是「要多少度给多少度」，两条各司其职。
-  //   两者最后都写同一个字段（B.th）且都经 setBeltAngle，所以不会打架。
+  // 传送带角度行。内部单位 = 弧度（B.th），显示/输入单位 = 度：靠 siK=π/180 换算
+  // （面板口径 internal = SI × siK，见 renderParamPanel 的 kSI），滑块 ±180°、step 1°。
+  // 面板是自由角度（37° 就存 37°），45° 量化只属于旋转手柄那一路；
+  // 两者都经 setBeltAngle 写同一个 B.th，不会冲突。
   beltangle:{key:'beltangle',label:'角度 θ',min:-Math.PI,max:Math.PI,step:Math.PI/180,unit:'°',siK:Math.PI/180,def:0}
 };
-// ★R104-7：参数**标签**必须随模式切换。同一个 sdamp 字段在两种模式下是两种物理量：
-//   大学模式 = Rayleigh 阻尼系数 D（有量纲），高中模式 = 阻尼比 ζ（无量纲，见 springDamp）。
-//   旧实现在高中模式把阻尼恒置 0（滑块无效），所以标签一直没暴露这个问题；现在它真的起
-//   作用了，标签也得说实话 —— 否则用户看到「阻尼 D」而实际调的是耗散比，等于文案撒谎。
+// 参数标签随模式切换：同一个 sdamp 字段在大学模式是 Rayleigh 阻尼系数 D（有量纲），
+// 高中模式是阻尼比 ζ（无量纲，见 springDamp）。
 function paramLabel(spec){
   if(spec&&spec.key==='sdamp'&&PHYS_MODE==='high')return '阻尼比 ζ';
   return spec?spec.label:'';
@@ -204,16 +140,12 @@ function specIdForLetter(d,B){
   if(t==='m')return 'mass';
   if(t==='M')return 'massM';
   if(t==='g')return 'grav';
-  /* ★★R131-45（用户：「a 里面的面板应该要能调节角度、和 v 一样」）：真因=**这里有一条
-   *  更早的旧映射 `return 'acc'`**，它先返回 ⇒ 下面新加的 asize/aang 永远到不了（实测
-   *  面板里只有一行"加速度 a"、没有方向行/方向盘）。a 现语义 = **赋予持续加速度** ⇒ 删掉旧映射。 */
-  /* if(t==='a')return 'acc';  ← R131-45 移除（a 已改为赋予型字符） */
-  /* ★★R131-34：v 不再有「弹性」参数（用户：所有字符弹性一致、用默认值）——v 改为
-   *  **赋予速度**参数（vsize 大小 + vang 方向）。 */
+  /* a 语义 = 赋予持续加速度，映射到 asize/aang；不要在此之前保留旧的 return 'acc'，否则方向行永远到不了。 */
+  /* v 不再是弹性参数，而是赋予速度（vsize 大小 + vang 方向）；vt 杆上 v 控制杆长。 */
   if(t==='v')return (B&&B.kind==='T')?'rodlen':'vsize';
-  if(t==='a')return 'asize';   // ★R131-42：a = 赋予持续加速度（与 v 同构）
+  if(t==='a')return 'asize';   // a = 赋予持续加速度（与 v 同构）
   if(t===MU)return 'frict';
-  /* ★R131-34：t = 世界时间倍率（Δt）；q = 电荷量 */
+  /* t = 世界时间倍率（Δt）；q = 电荷量 */
   if(t==='t')return 'tscale';
   if(t==='q')return 'qcharge';
   if(t==='r')return 'scale';
@@ -226,37 +158,24 @@ function specIdForLetter(d,B){
 function paramDef(B){
   var ids=[];
   if(!B)return ids;
-  if(B.kind==='T'){ids.push('rodlen');ids.push('rodmass');return ids;}   // R71⑧ 加质量
-  // R57：弹簧暴露 劲度系数 k 与 自然长度 L₀
-  // R101⑦：铰链没有可调参数（光滑 = 无摩擦、长度恒 0）；轻绳只有绳长。
-  // ★R105-6：铰链的参数行从「限位角」改成「固定铰链」开关（默认关，开启后角度被定死）。
+  if(B.kind==='T'){ids.push('rodlen');ids.push('rodmass');return ids;}
+  // 弹簧暴露 k / L₀ / 阻尼；铰链只有「固定铰链」开关（光滑、长度恒 0）；轻绳只有绳长。
   if(B.kind==='S'&&B.hinge){ids.push('hfix');return ids;}
   if(B.kind==='S'&&B.rope){ids.push('rlen');return ids;}
-  if(B.kind==='S'){ids.push('sk');ids.push('slen');ids.push('sdamp');return ids;}   // R71④ 加阻尼
-  // R64：W 体暴露 质量（乘数）与 摩擦系数 —— 之前 W 体没有 mem 字母，永远走不到参数分支
-  // R65：再加 弹性 bounce（W 体的碰撞恢复系数）
-  // R72：再加 空气阻力 air（独立于弹簧阻尼的耗散通道，设 0 = 真·无阻尼）
-  // ★R115：R91 加的「滚动摩擦 wroll」行已删（用户要求回退）—— 圆的摩擦调节只剩 μ 一个旋钮。
-  /* R108：地面/墙面**只发两行**（长度 / 角度）—— 它的语义就是「一块可以摆角的静态板」，
-   *   质量/摩擦/弹性/空气阻力对它没有意义（它是外部支撑源，不是被模拟的物体）。
-   *   与传送带「只发带速」同一条纪律：不把永远没用的旋钮摆给用户。 */
+  if(B.kind==='S'){ids.push('sk');ids.push('slen');ids.push('sdamp');return ids;}
+  // W 体暴露 质量（乘数）/ 摩擦 / 弹性 / 空气阻力；圆的摩擦调节只有 μ 一个旋钮（无滚动摩擦）。
+  /* 地面/墙面只发两行（长度 / 角度）：它是外部支撑源（可摆角的静态板），
+   * 质量/摩擦/弹性/空气阻力对它没有意义。 */
   if(B.gnd)return ['gndlen','gndang'];
   if(B.kind==='W'){
-    // R100③（用户：「那个传送带，里面的参数不需要其他东西，只要速度」）：传送带**只发带速**。
-    // 它不是「一块可以被调的板」，而是一台机器 —— 质量/摩擦/弹性/空气阻力这四个旋钮
-    // 留给用户只会让人以为「这带子怎么调都不对」。带面 μ=0.6 固定在 makeBelt 里（器件自带
-    // 属性），要改就去改那个常量。早退在 push 任何内建项**之前**，面板不可能漏掉一行。
+    // 传送带只发带速与角度：它是一台机器，质量/摩擦/弹性/空气阻力旋钮只会让人困惑。
+    // 带面 μ=0.6 固定在 makeBelt 里。早退必须在 push 任何内建项之前。
     if(B.belt)return ['convspeed','beltangle'];
     ids.push('wmass');ids.push('wfrict');ids.push('wbounc');ids.push('wair');
-    if(B.charge)ids.push('wcharge');   // ★R131-34：被赋予电荷的物体可再调电荷量
-    /* ★R131-44（用户：「a 融合进物体后在参数面板中也要可以调节」）：被 a 赋予过加速度的
-     *  物体，面板里出现「赋予加速度」（大小 + 方向）两行。 */
-    /* ★★R131-60（用户：「物体面板里不是还要有关于其角度的调节面板吗」）：原来只 push 了
-     *  `wacc`（大小）——方向行 `waccang` **定义了、读写分支也全有，却从来没进过这个清单**
-     *  （`paramIdsForLetter` 里的 'wacc→[wacc,waccang]' 只有右键**字母**时才走，
-     *  而 `specIdForLetter` 从不返回 'wacc' ⇒ 那一行分支是死的）。
-     *  ⇒ 赋予之后**只能改大小、改不了方向**，方向永远停在出厂的 0°（水平向右）
-     *  —— 这正是「我给了向上的加速度却飞不起来」的一半原因。 */
+    if(B.charge)ids.push('wcharge');   // 被赋予电荷的物体可再调电荷量
+    /* 被 a 赋予过加速度的物体，面板里出现「赋予加速度」大小 + 方向两行。 */
+    /* 方向行 waccang 必须和 wacc 一起进清单：paramIdsForLetter 的 'wacc' 分支只在右键字母时走，
+     * 而 specIdForLetter 从不返回 'wacc'，漏掉这里就只能改大小、改不了方向（恒为 0°）。 */
     if(B.accGive!=null||B.accX!=null||B.accY!=null){ids.push('wacc');ids.push('waccang');}
     return ids;
   }
@@ -279,36 +198,29 @@ function paramDef(B){
   }
   return ids;
 }
-// PER-LETTER param rows: right-clicked letter decides which row the panel shows.
-// 右键哪个字母 -> 调整那个字母的参数（m→mass, g→grav, v→bounc, μ→frict, r→scale,
-// a→acc, B→bz, E→eacc, I→iacc, M→massM）。无参数的字母（½/²/c/t/q/G…）返回空。
+// 按字母分行：右键哪个字母，面板就显示那个字母的参数。
+// 无参数的字母（½/²/c/G…）返回空。
 function paramDefForLetter(B,d){
   if(!B)return [];
   var sid=specIdForLetter(d,B);
-  /* ★R131-34：v 的参数面板要两行——**速度大小** + **速度方向**（方向默认水平向右=0°）。 */
+  /* v 的面板两行：速度大小 + 速度方向（默认 0° = 水平向右）。 */
   if(sid==='vsize')return ['vsize','vang'];
   if(sid==='asize')return ['asize','aang'];
   if(sid==='wacc')return ['wacc','waccang'];
   return sid?[sid]:[];
 }
-/* ★★R126：「默认值」不一定是个**常数** —— 它可以**随本体而定**（用户口径：「以初始值为准」）。
- *   `wbounc`（弹性 bounce）就是这种参数：圆的出厂恢复系数是 `BALL_REST`（0.52），其它 W 体是 0
- *   —— 这是**本体自己的出生状态**，不是「没设过就随便给个 0」。
- *   于是出现与弹簧长度同款的不一致（实测 `_diag_r126a.py`）：
- *     圆 · 弹性行：出生读数 0.52，点「默认」却写 0 ⇒ 把用户改到「它出生时都不是这个数」的状态。
- *   ★修法 = **读数与默认值共用同一个真源**（本函数）：`paramV` 的 wbounc 分支改用 `wBouncDef(B)`，
- *     面板的「默认」按钮/清空按钮改走 `paramDefVal(B,spec)`。两处再也不可能各写一套表达式。
- *   （这个「同一语义两处真源」的病，本文件已经犯过三次：R97 的 110/170、R102 的 CONV_DEF、
- *     R125 的 GROUND_SPAWN_LEN —— 每次都靠实测量出来，不能靠读代码。） */
+/* 默认值可以随本体而定：wbounc 的出厂值对圆是 BALL_REST（0.52），其它 W 体是 0。
+ * 读数（paramV 的 wbounc 分支）与「默认」按钮（paramDefVal）共用本函数，保证两者同源，
+ * 否则会出现圆出生读数 0.52、点「默认」却写 0 的不一致。 */
 function wBouncDef(B){
-  if(PHYS_MODE==='high')return 0;                        // 高中：μ/e 全 0（R74-D/J 口径）
+  if(PHYS_MODE==='high')return 0;                        // 高中模式：μ/e 全 0
   return (B&&B.wshape==='circle')?BALL_REST:0;
 }
-/* 面板按钮/输入框清空时统一从这里取「该回到的值」：
- *   ① 先问「这个参数有没有动态口径」—— 有就用它（目前只有 `wbounc`）；
- *   ② 否则回落到静态的 `spec.def`。
- * ★今后新增「默认值随本体而定」的参数，只改**这一个**分派点 + 加一个 `<x>Def(B)` 函数；
- *   不许再往按钮/输入框那些调用点里各写一套表达式（那正是本文件反复栽的「两处真源」）。 */
+/* 面板「默认」按钮 / 输入框清空时统一从这里取回退值：
+ *   ① 有动态口径（随本体而定）的参数用它（目前只有 wbounc）；
+ *   ② 否则回落到静态的 spec.def。
+ * 新增「默认值随本体而定」的参数时只改这一个分派点 + 加一个 <x>Def(B) 函数，
+ * 不要在按钮/输入框调用点各写一套表达式。 */
 function paramDefVal(B,spec){
   if(!spec)return 0;
   if(spec.key==='wbounc')return wBouncDef(B);
@@ -316,9 +228,8 @@ function paramDefVal(B,spec){
 }
 function paramV(B,id){
   var spec=PARAM_DEFS[id];
-  /* ★★R131-42b：**新参数的读取分支曾整体缺失**（tscale/vang/qcharge/wcharge/aang 全无）
-   *  ⇒ 面板显示的一直是 spec.def、与真实值不同步（用户看到的"改了没反应"就是这个）。
-   *  这里统一补齐：Δt 全局量；v/a/q 的赋值存在字符（paramLetter）或宿主字段上。 */
+  /* 赋予型参数的读取：Δt 读全局量；v/a/q 的值存在宿主字段或字符（paramLetter）上。
+   * 缺了读取分支面板会一直显示 spec.def，与真实值不同步。 */
   if(id==='tscale')return TIME_SCALE;
   if(id==='vsize')return (B&&B.vGive!=null)?B.vGive:((paramLetter&&paramLetter.vGive!=null)?paramLetter.vGive:spec.def);
   if(id==='vang')return (B&&B.vAng!=null)?B.vAng:((paramLetter&&paramLetter.vAng!=null)?paramLetter.vAng:spec.def);
@@ -328,51 +239,43 @@ function paramV(B,id){
   if(id==='wcharge')return (B&&B.charge!=null)?B.charge:0;
   if(id==='wacc'){
     if(!B)return 0;
-    if(B.accX!=null||B.accY!=null)return Math.hypot(B.accX||0,B.accY||0);   // ★合成大小
+    if(B.accX!=null||B.accY!=null)return Math.hypot(B.accX||0,B.accY||0);   // 合成大小
     return (B.accGive!=null)?B.accGive:0;
   }
   if(id==='waccang'){
     if(!B)return 0;
     if(B.accX!=null||B.accY!=null){
-      var _ag=Math.atan2(B.accY||0,B.accX||0)*180/Math.PI;                 // ★合成方向
+      var _ag=Math.atan2(B.accY||0,B.accX||0)*180/Math.PI;                 // 合成方向
       return _ag;
     }
     return (B.accAng!=null)?B.accAng:0;
   }
-  // R61：弹簧的 k / L₀ **不是** B.param 里的条目，而是 B.ks / B.len（pv 只读 B.param 和 spec.def）。
-  // 不特判的话面板永远显示 spec.def，用户改了 k 也会被面板盖掉 —— 「默认劲度系数没改变」就是这么来的。
+  // 弹簧的 k / L₀ 存在 B.ks / B.len，不在 B.param 里（pv 只读 B.param 和 spec.def）。
+  // 不特判的话面板永远显示 spec.def，用户改的值会被面板盖掉。下面各专用字段同理。
   if(id==='sk'&&B&&B.kind==='S')return B.ks;
   if(id==='slen'&&B&&B.kind==='S')return B.len;
-  // R101⑦：轻绳的绳长。与 sk/slen 同一条「专用字段」纪律（不特判 ⇒ 面板永远显示 def，
-  // 用户改过也会被 def 盖回去 —— R61 在 k 上吃过一次）。
+  // 轻绳的绳长（专用字段 B.len）。
   if(id==='rlen'&&B&&B.rope)return B.len;
-  // R64：W 体的质量乘数 / 摩擦系数存在专用字段（同弹簧的 B.ks 陷阱：pv 只读 B.param，不特判
-  // 面板就永远显示 def，滑一动还会把用户值盖回去 —— R61 已在弹簧上吃过一次）
+  // W 体的质量乘数 / 摩擦系数存在专用字段。
   if(id==='wmass'&&B&&B.kind==='W')return B.mMul||1;
-  if(id==='wfrict'&&B&&B.kind==='W')return (B.wFrict!=null)?B.wFrict:(PHYS_MODE==='high'?0:WFRICT_DEF);   // R76：高中默认 0
-  // R99：带速存在 B.conv（同弹簧 B.ks 的陷阱：pv 只读 B.param，不特判面板就永远显示 def）
+  if(id==='wfrict'&&B&&B.kind==='W')return (B.wFrict!=null)?B.wFrict:(PHYS_MODE==='high'?0:WFRICT_DEF);   // 高中默认 0
+  // 带速存在 B.conv（专用字段）
   if(id==='convspeed'&&B&&B.belt)return B.conv||0;
-  /* R108：地面/墙面的两个参数也存在**专用字段**（B.len / B.th），
-   *   不特判就会踍上带子/铁钉的同一个陨阱（R61、R99 都吃过）。
-   *   角度必须返回**度**（与 PARAM_DEFS.gndang 的 unit:'°' 一致）。 */
+  /* 地面/墙面的长度/角度存在专用字段 B.len / B.th。
+   * 角度必须返回度（与 PARAM_DEFS.gndang 的 unit:'°' 一致）。 */
   if(id==='gndlen'&&B&&B.gnd)return B.len||0;
   if(id==='gndang'&&B&&B.gnd)return (B.th||0)*180/Math.PI;
-  // R101③：带子角度。角度**不是** B.param 里的条目而是 B.th 本体（与 sk/rodmass 同一条
-  // 「专用字段」纪律）—— 不特判的话面板永远显示 def=0，拖过手柄再开面板也会被 0 盖掉。
+  // 传送带角度存在 B.th（专用字段），不特判则面板显示 def=0，拖过手柄再开面板也会被 0 盖掉。
   if(id==='beltangle'&&B&&B.belt)return B.th||0;
-  // R65：弹性 —— 没调过时显示**实际生效**的默认（圆 = BALL_REST，其它 = 0），不是写死 0
-  // R74-D/J：高中模式下默认全 0（与 wEffE 同步）
-  if(id==='wbounc'&&B&&B.kind==='W')return (B.wBounc!=null)?B.wBounc:wBouncDef(B);   // ★R126：与「默认」按钮同源
-  // R72：空气阻力 —— 没调过时显示**实际生效**的默认（R73-C 起全为 0）
-  if(id==='wair'&&B&&B.kind==='W')return WAIR_GLOBAL;   // ★R131：全局参数，读同一份真源
-  // ★R115：`wroll` 的读数分支已删（参数本身已移除，见 PARAM_DEFS 处的 R115 详录）。
-  // R71⑬：g 的参数是**全局**重力，面板显示当前全局 GRAV（不再是本体私有覆盖值）
+  // 弹性：没调过时显示实际生效的默认（圆 = BALL_REST，其它 = 0；高中模式全 0，与 wEffE 同步）
+  if(id==='wbounc'&&B&&B.kind==='W')return (B.wBounc!=null)?B.wBounc:wBouncDef(B);   // 与「默认」按钮同源
+  // 空气阻力：全局参数（默认 0）
+  if(id==='wair'&&B&&B.kind==='W')return WAIR_GLOBAL;   // 全局参数，读同一份真源
+  // g 的参数是全局重力，面板显示当前全局 GRAV（不是本体私有覆盖值）
   if(id==='grav')return GRAV;
-  // R71④：弹簧阻尼（可调到 0 = 无阻尼）。与 sk/slen 同一条「专用字段」纪律，否则面板
-  // 永远显示 def、滑块一动就被 def 盖回去（R61 在 k 上已经吃过一次）。
+  // 弹簧阻尼（可调到 0 = 无阻尼），专用字段 B.damp。
   if(id==='sdamp'&&B&&B.kind==='S')return (B.damp!=null)?B.damp:SPR_DAMP;
-  // R71⑧：杆的质量。与 sk/wmass 同一条「专用字段」纪律 —— 不特判的话面板永远显示 def，
-  // 滑块一动就被 def 盖回去（R61 在 k、R64 在 wmass 上各吃过一次）。
+  // 杆的质量，专用字段。
   if(id==='rodmass'&&B&&B.kind==='T')return rodMassOf(B);
   return pv(B,spec.key,spec.def);
 }
@@ -381,55 +284,44 @@ function applyParam(B,spec,val){
   if(!B.param)B.param={};
   B.param[spec.key]=val;
   var key=spec.key;
-  /* ★★R132-9d（用户 2026-10-01：「v 数值改成 c 后，怎么再修改数值都修改不了了？」）：
-   *  光速态原本只由 `bossFinish/bossAbort` 复位 ⇒ 用户把 v 设成 c 之后，`bossLightState()` 恒真，
-   *  面板那一行被锁在「c = 光速」（数字框被清空 + placeholder='c'、滑块顶到最右）⇒ 再也改不回数字。
-   *  修：**一旦按数值途径写入 vsize，就退出光速态**（不重渲染，免得正在编辑的输入框失焦）。
-   *  （输入 `c` 那条路走的是 `bossLightOn`，在 keydown 里，不受这里影响。） */
+  /* 按数值途径写入 vsize 时退出光速态（不重渲染，免得正在编辑的输入框失焦）。
+   * 光速态原本只由 bossFinish/bossAbort 复位，不在这里退出的话面板会被锁在「c = 光速」改不回数字。
+   * 输入 c 走 keydown 里的 bossLightOn，不受这里影响。 */
   if(key==='vsize'&&typeof bossLightState==='function'&&bossLightState()
      &&typeof bossLightReset==='function')bossLightReset(true);
-  /* ★★R131-34：新参数的写入——Δt 写全局 TIME_SCALE；v 的大小/方向写字符字段；
-   *  q 的电荷写字符 qCharge；物体的电荷写 B.charge（并同步 Matter 体的电荷渲染）。 */
+  /* 赋予型参数的写入：Δt 写全局 TIME_SCALE；v 的大小/方向写字符字段；
+   * q 的电荷写字符 qCharge；物体的电荷写 B.charge（并同步 Matter 体的电荷渲染）。 */
   if(key==='tscale'){
     TIME_SCALE=(val<0)?0:(val>20?20:val);
     return;
   }
-  /* dock 字符的参数宿主是临时体 ⇒ **同时写回字符本身**（paramLetter），否则拖出来就丢了。
-   * ★★R132-9d（用户 2026-10-01：「改一个字符 v 的值，怎么后面拖出来所有的 v 里面数值都变了？」）：
-   *   面板（dock）里的字符是**单例**（`vO`/`aO`/`qO`…），而面板行编辑时 `paramLetter` 就是那个单例
-   *   ⇒ 写回单例 = 把数值钉在模板上，之后每次从面板拖出的克隆都会继承它
-   *   （`gdDown` 的克隆分支会拷贝 `d.vGive`）⇒ 用户看到「改一个，后面拖出来的全变了」。
-   *   修：**dock 态不写回**（模板只负责颜值，不负责数值）；只有世界里那个字符本身才写回。
-   *   ⇒ 每个拖出来的 v 各自独立，改谁只影响谁。 */
-  /* 面板上的改法见上（CHAR_DEF）；**世界里那个字符**才写回它自己。 */
+  /* dock 字符的参数宿主是临时体，需要把值写回字符本身（paramLetter），否则拖出来就丢了。
+   * 但面板（dock）里的字符是单例模板（vO/aO/qO…），gdDown 克隆时会拷贝 vGive 等字段：
+   * dock 态不要写回模板（改走 charDefWrite），否则之后拖出的所有克隆都会继承这个值。
+   * 只有世界里那个字符本身才写回，每个拖出来的字符各自独立。 */
   if(key==='vsize'){B.vGive=(val<0?0:val);
     if(paramLetter){if(paramLetter.state!=='dock')paramLetter.vGive=B.vGive;else charDefWrite(paramLetter,'vGive',B.vGive);}return;}
   if(key==='vang'){B.vAng=val;
     if(paramLetter){if(paramLetter.state!=='dock')paramLetter.vAng=val;else charDefWrite(paramLetter,'vAng',val);}return;}
-  /* ★R132-9k：a 的两行同口径（面板单例不写回；世界里那个字符才写回）。 */
+  /* a 的两行同口径（dock 单例不写回；世界里那个字符才写回）。 */
   if(key==='asize'){B.aGive=(val<0?0:val);
     if(paramLetter){if(paramLetter.state!=='dock')paramLetter.aGive=B.aGive;else charDefWrite(paramLetter,'aGive',B.aGive);}return;}
   if(key==='aang'){B.aAng=val;
     if(paramLetter){if(paramLetter.state!=='dock')paramLetter.aAng=val;else charDefWrite(paramLetter,'aAng',val);}return;}
-  /* ★★R132-9k（用户 2026-10-02：「q 赋予抽搐问题，我又成功复现了，现在更加精准，
-   *  是**对 q 调节过参数之后**再进行赋予就会出现这样的问题」）：
-   *  R132-9d 只给 `vsize`/`vang` 两行加了 `paramLetter.state!=='dock'` 的门 **✗ 漏了这三行**
-   *  ⇒ 面板里的 q/a 单例仍被数值写回 —— 用户在面板上把 q 调过参数之后，
-   *    之后拖出来的每个 q 克隆都带着这个值（`gdDown` 的克隆分支会拷贝 `d.qCharge`），
-   *    与"赋予"路径叠加就出了用户报的抽搐。
-   *  ⇒ 与 v 同口径：**dock 态不写回**（模板只负责颜值，不负责数值）。 */
+  /* q 同口径：dock 态不写回单例模板。否则面板上调过 q 后拖出的每个克隆都带着该值
+   * （gdDown 克隆会拷贝 qCharge），与「赋予」路径叠加会导致抽搐。 */
   if(key==='qcharge'){B.qCharge=val;
     if(paramLetter){if(paramLetter.state!=='dock')paramLetter.qCharge=val;else charDefWrite(paramLetter,'qCharge',val);}return;}
   if(key==='wcharge'){B.charge=val;return;}
   if(key==='wacc'){
-    /* ★R131-50：改「合成大小」= 保持当前方向、重设长度（等价于把合成矢量重新标定） */
+    /* 改「合成大小」= 保持当前方向、重设长度 */
     var _cur=Math.atan2(B.accY||0,B.accX||0);
     B.accGive=(val<0?0:val);
     B.accX=Math.cos(_cur)*B.accGive;B.accY=Math.sin(_cur)*B.accGive;
     return;
   }
   if(key==='waccang'){
-    /* ★R131-50：改「合成方向」= 保持当前大小、旋转矢量 */
+    /* 改「合成方向」= 保持当前大小、旋转矢量 */
     var _len0=Math.hypot(B.accX||0,B.accY||0)||(B.accGive||0);
     var _rb=val*Math.PI/180;
     B.accX=Math.cos(_rb)*_len0;B.accY=Math.sin(_rb)*_len0;
@@ -437,71 +329,62 @@ function applyParam(B,spec,val){
     return;
   }
   if(key==='mass'){
-    // R72：质量无上限；只守 >0（质量 ≤0 违反物理）
+    // 质量无上限；只守 >0（质量 ≤0 违反物理）
     B.mass=(val>0)?val:0.001;
   }else if(key==='massM'){
     B.massCap=(val>0)?val:0.001;  // capital-M mass (independently tunable from lowercase m)
   }else if(key==='grav'){
-    // R71⑬（用户：「右键 g 的修改里面的参数影响的是**全局**的重力加速度，包括那些物体
-    // （其他之前没有重力的字符不受影响）」）：g 的参数不再写进本体的 B.grav（那是「只让这个体
-    // 变重」的私有覆盖），而是改**全局** GRAV —— 与 stepPhysics 的 `GRAV`、stepMatter 的
-    // `MW.engine.gravity.y=GRAV/1000` 同源，所以看得见的物体会一起变重。
-    // 「原本无重力的字符不受影响」自动成立：重力力的入口仍是 `if(B.hasG)`，没有 hasG 的
-    // 公式字母/参数控件本来就不落，改了 GRAV 也不会突然获得重力。
-    // 保留 B.grav 通道本身（物理侧照旧认它），只改**面板写哪里** —— r69 的 2c 用例直接写
-    // nb.grav=2600 验证加速度，靠的就是这条通道。
-    GRAV=clamp(val,0,1e7);    // R72：上限只是防 NaN 的护栏，物理上 g 不设上限
+    // g 的参数改全局 GRAV（不写本体的 B.grav 私有覆盖）：与 stepPhysics 的 GRAV、
+    // stepMatter 的 MW.engine.gravity.y=GRAV/1000 同源，所有受重力物体一起变重。
+    // 原本无重力的字符不受影响：重力入口仍是 if(B.hasG)。
+    // B.grav 通道本身保留（物理侧照旧认它，回归用例会直接写 nb.grav 验证加速度）。
+    GRAV=clamp(val,0,1e7);    // 上限只是防 NaN 的护栏，物理上 g 不设上限
     if(MW)MW.engine.gravity.y=GRAV/1000;
   }else if(key==='acc'){
     B.acc=val;
   }else if(key==='bounc'){
-    B.bounc=clamp(val,0,1);   // 物理边界：恢复系数 ∈[0,1]（用户 R72 明确认可的唯一一类上限）
+    B.bounc=clamp(val,0,1);   // 物理边界：恢复系数 ∈[0,1]
   }else if(key==='gndlen'){
-    // R108：绕**质心**对称伸缩（与 setRodLen 的语义一致），走 setGroundEnds 唯一咽喉
+    // 绕质心对称伸缩（与 setRodLen 语义一致），统一走 setGroundEnds
     if(B.gnd){
       var gh=B.len/2,gu=Math.cos(B.th||0),gv=Math.sin(B.th||0);
       var glen=clamp(val,GROUND_MIN_LEN,GROUND_MAX_LEN);
       setGroundEnds(B,B.x-gu*glen/2,B.y-gv*glen/2,B.x+gu*glen/2,B.y+gv*glen/2,true);
     }
   }else if(key==='gndang'){
-    // R108：角度（度）。走 setGroundAngle（只写 th + 摆镜像）
+    // 角度（度）。走 setGroundAngle（只写 th + 摆镜像）
     if(B.gnd)setGroundAngle(B,val*Math.PI/180);
   }else if(key==='rodlen'){
-    // R72：原 40..520 是「别让杆横穿全屏」的实用护栏，不是物理约束 —— 杆长无物理上限。
-    // 只保留 L>0（零长杆无意义）。
-    // R98-1：改走 setRodLen 咽喉 —— 旧实现只写 B.len+refresh，镜像碰撞板不跟着重建
-    //   （_diag_r97d_rodlen.py 实测：改到 300，boundsW 恒为建板时的 170）。force=true 无条件重建。
+    // 杆长无物理上限，只保留 L>0。
+    // 必须走 setRodLen（force=true 无条件重建）：只写 B.len+refresh 时镜像碰撞板不会跟着重建。
     if(B.kind==='T')setRodLen(B,val,true);
     else B.len=clamp(val,1,1e7);
   }else if(key==='rodmass'){
-    // R71⑧：杆的质量。手写通道的冲量份额、以及绕质心的转动惯量 I=mL²/12 都取自它；
-    // 杆的 Matter 镜像是「位置驱动」的（只跟随姿态，不参与求解），所以不需要同步到 Matter。
-    // R72：质量无物理上限，>0 即可。
+    // 杆的质量：手写通道的冲量份额、绕质心转动惯量 I=mL²/12 都取自它；无物理上限，>0 即可。
+    // 杆的 Matter 镜像是位置驱动的（只跟随姿态，不参与求解），无需同步到 Matter。
     B.rmass=clamp(val,0.01,1e7);
   }else if(key==='frict'){
-    B.frict=val;              // R72：μ>1 完全物理（橡胶-玻璃≈2），不设上限
+    B.frict=val;              // μ>1 是物理的（橡胶-玻璃≈2），不设上限
   }else if(key==='sk'){
-    // R57 弹簧劲度系数。R72：刚度无物理上限
+    // 弹簧劲度系数，无物理上限
     B.ks=clamp(val,0,1e6);
   }else if(key==='slen'){
-    // R58：改 L₀ 要让弹簧**真的跟着变长/变短**（springSetLen），而不是只改一个数字 ——
-    // 旧实现改完画面纹丝不动，还因为 cur≠L₀ 被染成红/蓝，用户两条反馈同源于此。
-    // 两端都拴住时几何由宿主决定，springSetLen 退化为「只改 L₀」= 预紧力语义。
+    // 改 L₀ 要让弹簧真的变长/变短（springSetLen），而不只改数字（否则画面不动且因 cur≠L₀ 被染色）。
+    // 两端都拴住时几何由宿主决定，springSetLen 退化为只改 L₀ = 预紧力语义。
     if(B.kind==='S')springSetLen(B,val);
     else B.len=clamp(val,1,1e7);
   }else if(key==='rlen'){
-    // R101⑦：改绳长走 springSetLen（同 slen 那条「改完要让绳**真的**变长」，不是只改一个数）。
-    // 两端都拴住时几何由宿主决定，springSetLen 退化为「只改 L」= 松弛量变化的语义。
+    // 改绳长同样走 springSetLen 让绳真的变长；
+    // 两端都拴住时退化为只改 L = 松弛量变化。
     if(B.rope)springSetLen(B,val);
     else B.len=clamp(val,1,1e7);
   }else if(key==='hfix'){
-    // ★R105-6：铰链的「固定铰链」开关（0=关/1=开）。开启 = 角度被定死在**此刻**的构型上
-    //   ⇒ 必须作废旧基准：否则会瞬跳回「两端刚连上那一刻」的旧折角（用户切换时看得见的跳变）。
-    //   hingeFoldLimit 下一帧按当前几何重新捕获（B._hFold0==null 那条懒捕获分支）。
+    // 「固定铰链」开关（0/1）。开启 = 角度定死在此刻的构型上，必须作废旧基准 B._hFold0，
+    // 否则会瞬跳回两端刚连上那一刻的折角；hingeFoldLimit 下一帧按当前几何懒捕获。
     if(val&&B.hinge){B._hFold0=null;}
   }else if(key==='sdamp'){
-    // R71④：弹簧阻尼系数（0 = 无阻尼）。存专用字段 B.damp，stepSprings / springGuideForce
-    // 都读它，缺省回落到 SPR_DAMP。R72：阻尼无物理上限（越大只是越快进入过阻尼）。
+    // 弹簧阻尼系数（0 = 无阻尼），存 B.damp，stepSprings / springGuideForce 都读它，缺省回落 SPR_DAMP。
+    // 无物理上限（越大只是越快进入过阻尼）。
     B.damp=clamp(val,0,1e6);
   }else if(key==='scale'){
     if(!(val>0))val=1;                       // guard: scale must stay positive (input is unclamped)
@@ -516,40 +399,35 @@ function applyParam(B,spec,val){
   }else if(key==='iacc'){
     B.iacc=val;
   }else if(key==='wmass'){
-    // R64：质量乘数。JS 侧 B.mass（弹簧 Δv=f/m、手写 SAT 冲量份额）与 Matter 侧
+    // 质量乘数。JS 侧 B.mass（弹簧 Δv=f/m、手写 SAT 冲量份额）与 Matter 侧
     // setMass(自然质量×乘数) 同步；setMass 会按比例调惯量，重的方块更难被拧转。
-    // 重力加速度与质量无关（两边都是 a=g），所以「重」只体现在碰撞与弹簧响应上。
-    // fixed（static）体跳过 setMass：static 的质量是 Infinity 语义，不该被改写。
-    var mv64=clamp(val,0.01,1e7);   // R72：质量无物理上限，>0 即可
+    // 重力加速度与质量无关，「重」只体现在碰撞与弹簧响应上。
+    // static 体跳过 setMass（static 质量是 Infinity 语义）。
+    var mv64=clamp(val,0.01,1e7);   // 质量无物理上限，>0 即可
     B.mMul=mv64;B.mass=mv64;
     if(B.mb&&B._natMass&&!B.mb.isStatic)Matter.Body.setMass(B.mb,B._natMass*mv64);
   }else if(key==='convspeed'){
-    // R99：带面速度。**只写 B.conv 一个字段**（beltTract 每帧现读它），不需要同步任何
-    // Matter 材质 —— 牵引是手写通道里加的，Matter 侧从来没参与（见 beltTract 的实测注释）。
-    // 可正可负：负值 = 反向（渲染的人字纹也会跟着掉头）。
+    // 带面速度只写 B.conv（beltTract 每帧现读），无需同步 Matter 材质 —— 牵引在手写通道里加。
+    // 负值 = 反向（人字纹渲染也跟着掉头）。
     if(B.belt)B.conv=clamp(val,-1e5,1e5);
   }else if(key==='beltangle'){
-    // R101③：面板改角度。写入走 setBeltAngle（pts/hull/镜像板一次做全），绕**质心**转，
-    // 带长与中心都不动。val 是弧度（面板已按 siK 换算），shortAng 归一化到 (−π,π]。
-    // 这里**不做 45° 量化**：量化只属于旋转手柄那条路（理由见 PARAM_DEFS.beltangle）。
+    // 面板改角度走 setBeltAngle（pts/hull/镜像板一次做全），绕质心转，带长与中心不动。
+    // val 是弧度（面板已按 siK 换算），shortAng 归一化到 (−π,π]。这里不做 45° 量化。
     if(B.belt)setBeltAngle(B,shortAng(val),null);
   }else if(key==='wfrict'){
-    // R64：本体摩擦系数（动摩擦配对取 min、静摩擦取 max —— Matter 规则）。
-    // 改完必须同步刷一遍**当前活动中的碰撞对**：pair.friction 只在 collisionStart 算一次，
-    // 不刷新的话「贴着地面调 μ」要等重新接触才生效，用户看到的就是「滑块没反应」。
-    B.wFrict=clamp(val,0,1e6);   // R72：μ>1 完全物理，不设上限
+    // 本体摩擦系数（动摩擦配对取 min、静摩擦取 max —— Matter 规则）。
+    // 改完必须刷新当前活动碰撞对：pair.friction 只在 collisionStart 算一次，不刷新要等重新接触才生效。
+    B.wFrict=clamp(val,0,1e6);   // μ>1 是物理的，不设上限
     applyWFrict(B);
   }else if(key==='wbounc'){
-    // R65：W 体的碰撞恢复系数。Matter 取碰撞双方 restitution 的 max，地面/普通体保持 0，
-    // 所以只改本体（含 parts）+ 刷活动对就够 —— 与 wfrict 同一套「运行时改材质」纪律。
+    // W 体碰撞恢复系数。Matter 取双方 restitution 的 max，地面/普通体保持 0，
+    // 所以只改本体（含 parts）+ 刷活动对即可。
     B.wBounc=clamp(val,0,1);     // 物理边界：e∈[0,1]
     applyWBounc(B);
   }else if(key==='wair'){
-    // R72：空气阻力（独立于弹簧阻尼的耗散通道）。设 0 = 真·无空气阻力；上限 0.5 是物理
-    // 边界（它是「每帧速度占比」，≥1 会把速度反向，违反物理）。存专用字段 B.wAir，
-    // wAirDef/applyWAir/refreshAllPairs 都认它。
-    /* ★R131：全局化 —— 一调全场上所有 W 体同步（含各自 parts），新出生体经 wAirDef
-     *   回退到 WAIR_GLOBAL 也拿到同一值。clamp 边界不变（它是「每帧速度占比」，≥1 反物理）。 */
+    // 空气阻力（独立于弹簧阻尼的耗散通道），0 = 无空气阻力；上限 0.5 是物理边界
+    // （每帧速度占比，≥1 会把速度反向）。
+    /* 全局参数：一调全场所有 W 体同步（含 parts），新出生体经 wAirDef 回退到 WAIR_GLOBAL 拿到同一值。 */
     WAIR_GLOBAL=clamp(val,0,0.5);
     for(var _iw=0;_iw<bodies.length;_iw++){
       var _bw=bodies[_iw];
@@ -558,13 +436,10 @@ function applyParam(B,spec,val){
       applyWAir(_bw);
     }
   }
-  /* ★R115：`wroll` 的写入分支已删（连同 B.wRoll 字段、applyWRoll、wRollEff、
-   *   ROLL_GRIP_SLIP 与逐物配对的 roll 通道一起移除）。 */
   return val;
 }
-// R60c：从 seed 出发沿「弹簧 ↔ 宿主」的锚定关系走到底，得到整个装配体的成员。
-// 这是「复制整体」的唯一真相来源 —— 点弹簧要得到「弹簧+两端物体」，点其中一个物体也要
-// 得到同一套成员，所以两边共用这个函数（用户：「不管哪里都是复制整体」）。
+// 从 seed 出发沿「弹簧 ↔ 宿主」锚定关系走到底，得到整个装配体的成员。
+// 「复制整体」的唯一来源：点弹簧或点其中一个物体都得到同一套成员。
 function springAssemblyOf(seed){
   if(!seed)return [];
   var set=[],seen=[seed],q=[seed],guard=0;
@@ -590,11 +465,9 @@ function springAssemblyOf(seed){
   }
   return set;
 }
-// R60c：复制一个画出来的线/图形（W 体）。
-// **这个函数是「点装配体里的物体 -> 卡死」的修法本体**：旧代码只判 `if(src.kind)`，而 W 体的
-// kind 是 'W'（真值），于是被当成场源走 spawnField('W') —— 造出一个 kind='W' 但**没有 B.pts**
-// 的畸形体，drawBoundaries / nearInk / distToHost 每帧读 B.pts[0] 全部抛异常，rAF 链断掉，
-// 页面彻底卡死（实测复制后每帧一条 "Cannot read properties of undefined (reading '0')"）。
+// 复制一个画出来的线/图形（W 体）。
+// W 体不能走 spawnField('W')：那会造出没有 B.pts 的畸形体，drawBoundaries / nearInk / distToHost
+// 每帧读 B.pts[0] 抛异常，rAF 链断掉、页面卡死。
 function copyWBody(src,dx,dy,quiet){
   if(!src||src.kind!=='W'||!src.pts||src.pts.length<2)return null;
   // 直接把 src 的**本地** pts 平移过去（不把转角烘进点里）：mkBoundary 会按同样的点算出同样的
@@ -604,7 +477,7 @@ function copyWBody(src,dx,dy,quiet){
   var opt={shape:src.wshape||'poly',rad:src.rad||0,closed:!!src.closed,notch:src.notch||null};
   if(src.ell)opt.ell={cx:src.x+src.ell.lcx+dx,cy:src.y+src.ell.lcy+dy,
                       rx:src.ell.rx,ry:src.ell.ry,a0:src.ell.a0,a1:src.ell.a1};
-  // R68：凹槽真弧元数据随副本平移（本地 -> 世界，mkBoundary 会再转回本地）
+  // 凹槽真弧元数据随副本平移（本地 -> 世界，mkBoundary 会再转回本地）
   if(src.arcs)opt.arcs=src.arcs.map(function(a){
     return {i0:a.i0,i1:a.i1,cx:src.x+a.lcx+dx,cy:src.y+a.lcy+dy,
             mx:src.x+a.lmx+dx,my:src.y+a.lmy+dy,r:a.r};});
@@ -612,16 +485,13 @@ function copyWBody(src,dx,dy,quiet){
   if(!B)return null;
   if(src.th){B.th=src.th;if(B.mb)Matter.Body.setAngle(B.mb,src.th);}
   B.sc=src.sc||1;
-  // R64：副本继承用户调过的质量乘数与摩擦系数（applyWMul 走 B.mb 已就位的路径）
-  // R65：弹性也一并继承
+  // 副本继承用户调过的质量乘数、摩擦系数与弹性（applyWMul 走 B.mb 已就位的路径）
   if(src.mMul)B.mMul=src.mMul;
   if(src.wFrict!=null)B.wFrict=src.wFrict;
   if(src.wBounc!=null)B.wBounc=src.wBounc;
   applyWMul(B);
-  /* ★R110：**器件身份也要跟着复制**。旧版只拷 pts/th/质量/固定标志，
-   *   于是「地面/墙面」的副本变成一块**普通木板**（没有 gnd、参数面板也不对）。
-   *   ★同一类缺口在 `belt` 上也存在（传送带副本同样丢身份）—— 那是既有行为，
-   *   本轮只补自己新加的这一个（不越权改旧器件的复制语义）。 */
+  /* 器件身份也要复制：否则地面/墙面的副本会变成普通木板（无 gnd、参数面板不对）。
+   * 已知限制：belt 的副本同样会丢身份，尚未处理。 */
   if(src.gnd){B.gnd=1;B.len=src.len;B.hw=(src.len||GROUND_SPAWN_LEN)/2;B.hh=src.hh||GROUND_TH/2;}
   if(src.fixed){B.fixed=true;if(B.mb&&MW){Matter.Body.setStatic(B.mb,true);Matter.Sleeping.set(B.mb,false);}}
   B.pop=1;B.orbPulse=1;B.copied=true;
@@ -633,7 +503,7 @@ function copyWBody(src,dx,dy,quiet){
 }
 function copySpringBody(src,dx,dy,quiet){
   var sdx=src.e1.x-src.e0.x,sdy=src.e1.y-src.e0.y;
-  // R101⑦：复制也按标志分派（铰链的两端重合，用 sdx/sdy 造会退化成长度 1 的假弹簧）。
+  // 复制按标志分派（铰链两端重合，用 sdx/sdy 造会退化成长度 1 的假弹簧）。
   var ns=src.hinge?makeHinge(src.x+dx,src.y+dy)
         :src.rope?makeRope(src.e0.x+dx,src.e0.y+dy,src.e0.x+dx+sdx,src.e0.y+dy+sdy)
         :makeSpring(src.e0.x+dx,src.e0.y+dy,src.e0.x+dx+sdx,src.e0.y+dy+sdy);
@@ -641,8 +511,8 @@ function copySpringBody(src,dx,dy,quiet){
   else if(!ns.hinge){ns.len=src.len;ns.ks=src.ks;}
   if(src.dirLock)ns.dirLock={mx:src.dirLock.mx+dx,my:src.dirLock.my+dy,
                              ux:src.dirLock.ux,uy:src.dirLock.uy,
-                             auto:!!src.dirLock.auto};   // R64：导轨随副本平移；R83：auto 标记一并继承
-                             // （漏掉 auto 的后果：高中模式复制出来的弹簧会突然开始冻结宿主自转）
+                             auto:!!src.dirLock.auto};   // 导轨随副本平移，auto 标记一并继承
+                             // （漏掉 auto：高中模式复制出来的弹簧会开始冻结宿主自转）
   refreshSpringGeom(ns);
   ns.pop=1;ns.orbPulse=1;ns.copied=true;
   if(!quiet)ringGo(ns.x,ns.y);
@@ -679,8 +549,7 @@ function copyAssembly(src,mem){
 }
 function copyBody(src){
   if(!src)return;
-  // R60c（用户 #2/#3）：装配体必须**整体**复制 —— 点弹簧只复制弹簧、点物体又卡死，都是这里
-  // 没把「弹簧 ↔ 宿主」当成一组。成员 >1 就走整体复制；单体才走各自的旧行为。
+  // 装配体必须整体复制：成员 >1 走整体复制；单体才走各自的复制逻辑。
   var mem=springAssemblyOf(src);
   if(mem.length>1){
     var hasS=false,hasW=false;
@@ -691,24 +560,21 @@ function copyBody(src){
     if(hasS&&hasW){var got=copyAssembly(src,mem);sortPanel();return got;}
   }
   if(src.kind==='S'){
-    // R57 弹簧：复制一条同长同角度的新弹簧（锚点不复制 —— 新弹簧从「没接上」开始）
+    // 弹簧：复制一条同长同角度的新弹簧（锚点不复制 —— 新弹簧从「没接上」开始）
     var ns=copySpringBody(src,56,44,false);
     sortPanel();
     return ns;
   }
   if(src.kind==='W'){
-    // R60c：画出来的线/图形 —— 以前会掉进下面的 `if(src.kind)` 当成场源，造出没有 pts 的
-    // 畸形体并每帧抛异常（页面卡死）。现在按几何原样复制一份。
+    // 画出来的线/图形：按几何原样复制（不能落到下面的 if(src.kind) 场源分支，见 copyWBody）。
     return copyWBody(src,56,44,false);
   }
   if(src.kind==='T'){
     // copy a vt-rod: a fresh rod of the same length + rotation
     var nr=makeRod(src.x+48+Math.random()*40-20,src.y+42+Math.random()*30-15,0,0);
     nr.th=src.th||0;nr.len=src.len||170;nr.hw=nr.len/2+2;
-    /* ★R110：副本也要带上**反棘轮的目标长度**。
-     *   `_rodL` 是 `rodSyncAnchors` 计算 `err` 的基准（见 R107-1）；
-     *   不复制的话只能靠惰初始化 —— 那一帧的 `err` 会按旧值算，
-     *   不该把这个细节留给「恰好下一帧会自己补上」。 */
+    /* 副本带上反棘轮目标长度 _rodL（rodSyncAnchors 计算 err 的基准），
+     * 否则惰初始化前的那一帧 err 会按旧值算。 */
     nr._rodL=src._rodL||nr.len;
     nr.pop=1;nr.orbPulse=1;nr.copied=true;
     refresh(nr);
@@ -716,9 +582,7 @@ function copyBody(src){
     return nr;
   }
   if(src.kind){
-    // FIELD-SOURCE copy (B / q / I / E): right-clicking an electric field used to clone a
-    // bare "m" because copyBody only knew formula bodies. Replicate the SAME kind of source
-    // with its own direction / polarity kept (E keeps th, B keeps Bz, q/I keep their sign).
+    // 场源复制（B / q / I / E）：复制同种场源并保留方向/极性（E 保留 th，B 保留 Bz，q/I 保留符号）。
     var nb=spawnField(src.kind,src.x+48+Math.random()*40-20,src.y+42+Math.random()*30-15,0,0);
     if(src.kind==='E'){nb.th=src.th||0;if(src.er)nb.er={l:src.er.l,r:src.er.r,t:src.er.t,b:src.er.b};}
     else if(src.kind==='B'){nb.Bz=src.Bz;}
@@ -765,7 +629,7 @@ function copyBody(src){
 }
 /* ================= PARAM PANEL (per-letter rows: slider + number + 默认) ================= */
 var paramBody=null,paramLetter=null,paramRows=[];
-// R73-B：当前展开的配对行（'mu' = 摩擦系数、'e' = 弹性；null = 都没展开，接触区按摩擦口径）。
+// 当前展开的配对行（'mu' = 摩擦、'e' = 弹性；null = 都没展开，接触区按摩擦口径）。
 var pairOpenField=null;
 function openParams(B,d){
   if(!B)return;
@@ -775,18 +639,17 @@ function openParams(B,d){
   paramBody=B;
   paramLetter=d||null;
   paramRows=[];
-  pairOpenField=null;   // R73-B：换成另一个物体 = 配对展开状态重来（否则会带着上一体的口径）
+  pairOpenField=null;   // 换成另一个物体 = 配对展开状态重置
   pbox.style.left=clamp(B.x-120,4,W-248)+'px';
   pbox.style.top=clamp(B.y+44,4,H-190)+'px';
   pbox.classList.add('on');
   renderParamPanel();
-  // R65：同右键菜单 —— 面板行数（+接触区）变高后固定偏移会把底部顶出视口。
-  // 先显示、再量**实际**尺寸、按视口收。接触区行数每帧还会变，逐帧复收见 clampParamPanel。
+  // 先显示、再量实际尺寸、按视口收（面板行数变多时固定偏移会把底部顶出视口）。
+  // 接触区行数每帧还会变，逐帧复收见 clampParamPanel。
   clampParamPanel();
 }
-// R65：参数面板视口收位。以**当前 style 位置**为基准做夹紧（不追踪物体位置 —— 面板打开后
-// 物体掉落/被拖走时面板不能跟着瞬移），只保证整块落在窗口内。接触区（updateParamContacts）
-// 每帧增减行高后调用，行高变大也不会把底部顶出屏幕。
+// 参数面板视口收位。以当前 style 位置为基准夹紧，不追踪物体位置（物体移动时面板不能跟着瞬移），
+// 只保证整块落在窗口内。接触区（updateParamContacts）每帧增减行高后调用。
 function clampParamPanel(){
   if(!paramBody||!pbox.classList.contains('on'))return;
   var prr=pbox.getBoundingClientRect();
@@ -797,43 +660,33 @@ function clampParamPanel(){
   pbox.style.left=clamp(l,4,Math.max(4,window.innerWidth-prr.width-6))+'px';
   pbox.style.top=clamp(t,4,Math.max(4,window.innerHeight-prr.height-6))+'px';
 }
-// R72（用户：「很多个框，怎么没有写哪个是对哪个物体的」）：整块物体一次暴露多行参数时
-// （GMm/r² 有 M/m/r 三行、弹簧有 k/L₀/D 三行、vt 杆有长度/质量两行），每行标注归属 ——
-// 符号参数归它自己的字母，弹簧三行归 kx，杆两行归 vt，W 体的四行是本体自己。
-// 放在独立的 .pown span 里、不动 .plab 的文本（旧探针按 .plab 取标签）。
+// 整块物体一次暴露多行参数时（GMm/r² 有 M/m/r、弹簧有 k/L₀/D、vt 杆有长度/质量），每行标注归属：
+// 符号参数归它自己的字母，弹簧归 kx，杆归 vt，W 体归本体。
+// 放在独立的 .pown span 里、不动 .plab 的文本（探针按 .plab 取标签）。
 var PARAM_OWNER={mass:'m',massM:'M',grav:'g',acc:'a',bounc:'v',frict:'μ',scale:'r',
   bz:'B',eacc:'E',iacc:'I',rodlen:'vt 杆',rodmass:'vt 杆',
   sk:'kx 弹簧',slen:'kx 弹簧',sdamp:'kx 弹簧',
-  wmass:'本体',wfrict:'本体',wbounc:'本体',wair:'本体',convspeed:'本体',beltangle:'本体',rlen:'本体'};   // R99 带速；R101⑦ 绳长；★R115 删 wroll
+  wmass:'本体',wfrict:'本体',wbounc:'本体',wair:'本体',convspeed:'本体',beltangle:'本体',rlen:'本体'};
 function renderParamPanel(){
   if(!paramBody)return;
-  // R71⑪（用户：「菜单标题写物体的具体名称（圆1、弧1…）」）：标题直接用编号名，
-  // 不再显示裸的 kind（'W' / 'S' / 'T' 这种对用户毫无意义的内部代号）。
-  /* ★★R132-9m（用户：「在字符 t 的参数面板里为什么标题写的是物体1，而不是 t？还有没有其他字符
-   *  也是这样的」）：**所有字符都是这样**，不只 t。原因是右键字符时传进来的 `paramBody` 是
-   *  一个**临时参数宿主体**（`openMenu(...,mb,d)` 里的 `mb`，见 R131-49 的注释：
-   *  「赋予型字符 promote 后**有宿主但不在 glyphs/mem 里**」），它没有字号/名称信息，
-   *  `bodyName()` 只能按 kind 编出「物体1」。
-   *  ⇒ 只要这次面板是**针对某个字符**打开的（`paramLetter` 非空），标题就用字符本身
-   *    （`t · 参数`），而不是那个临时宿主体的编号。整块物体（`paramLetter` 为空）时保持原样。 */
+  // 标题用编号名（圆1、弧1…），不显示裸 kind（'W'/'S'/'T'）。
+  /* 针对某个字符打开面板（paramLetter 非空）时标题用字符本身：此时 paramBody 是临时参数宿主体
+   * （openMenu 里的 mb，不在 glyphs/mem 里），bodyName() 只能编出「物体1」。 */
   ptitleEl.textContent=(paramLetter?paramLetter.ch:bodyName(paramBody))+' · 参数';
   var sub=[];
   if(paramLetter)sub.push(paramLetter.ch+' → '+specIdForLetter(paramLetter,paramBody));
   else sub.push(paramBody.mem.length?paramBody.mem.map(function(g){return g.type;}).join(' '):(paramBody.kind||''));
   pvalEl.textContent=sub.join(' ');
   var ids=(paramLetter)?paramDefForLetter(paramBody,paramLetter):paramDef(paramBody);
-  // rebuild rows
   prows.innerHTML='';
   paramRows=[];
   for(var i=0;i<ids.length;i++){
     var spec=PARAM_DEFS[ids[i]];
-    // R71⑪：W 体的弹性/摩擦不再是「一条无差别的滑块」，而是下拉框 + 逐物配对表。
+    // W 体的弹性/摩擦用「下拉框 + 逐物配对表」渲染，而不是普通滑块。
     if(paramBody.kind==='W'&&ids[i]==='wbounc'){appendPairRow(spec,'e');continue;}
     if(paramBody.kind==='W'&&ids[i]==='wfrict'){appendPairRow(spec,'mu');continue;}
-    // ★R115：原先这里还有一条 `if(ids[i]==='wroll'){appendPairRow(spec,'roll');continue;}` ——
-    //   滚动摩擦已移除，配对表只剩 弹性 e / 摩擦 μ 两条通道。
-    // ★R105-6：布尔参数（「固定铰链」开关）—— 渲染成一个开/关按钮，不是滑块+数字框。
-    //   复用设置面板那套 `.sbtn/.sbtn.act` 的选中视觉（同一门「看起来是同一类控件」的纪律）。
+    // 布尔参数（「固定铰链」开关）渲染成开/关按钮，不是滑块+数字框；
+    // 复用设置面板 .sbtn/.sbtn.act 的选中视觉。
     if(spec.bool){
       var rowB=document.createElement('div');rowB.className='prow';
       var hdB=document.createElement('div');hdB.className='prhead';
@@ -880,25 +733,17 @@ function renderParamPanel(){
     var pb=document.createElement('div');
     pb.className='presets';
     row.appendChild(head);row.appendChild(sl);row.appendChild(nu);
-    /* ★★R131-35：**可视化的角度调节**——v 的方向行加一个可拖动的指向箭头（圆盘），
-     *  拖动箭头即改角度（与数字框/滑块双向同步，0°=水平向右，屏幕坐标系向下为正）。 */
+    /* 可视化角度调节：方向行加一个可拖动的指向箭头圆盘，与数字框/滑块双向同步
+     * （0° = 水平向右，屏幕坐标系向下为正）。 */
     if(spec.key==='vang'||spec.key==='aang'||spec.key==='waccang'){
-      /* ★★R131-61（用户：「我明明改了角度再给物体融合，融合过后物体的角度还是 0」）：
-       *  这个圆盘是 vang / aang / waccang **三行共用**的，但原来**把 vang 写死了**：
-       *    · 初始箭头读 `paramV(paramBody,'vang')`；
-       *    · 拖动写 `applyParam(paramBody,PARAM_DEFS.vang,deg)`；
-       *    · 写回字符只写 `paramLetter.vAng`。
-       *  ⇒ 在 a 的「加速度方向 θ」或物体的「加速度方向 θ」上拖圆盘，**改的一律是 v 的角度**，
-       *     aAng / accAng 从未被写过 ⇒ 融合后 accAng 恒 0（用户看到的就是 0）。
-       *  另外两处同类的脆写法：`rr=paramRows[paramRows.length-1]`（靠"角度行恰好在最后"才没炸）、
-       *  以及直接引用循环变量 `sl/nu/val`（它们是**函数作用域**，与 R124「默认按钮」同一个坑）。
-       *  修：整段包进 IIFE，逐行捕获**自己那一行**的 spec / sl / nu / val。 */
+      /* 圆盘由 vang / aang / waccang 三行共用，必须用 IIFE 逐行捕获自己那一行的 spec / sl / nu / val：
+       * 不要写死 vang，也不要直接引用循环变量（函数作用域，循环结束后停在最后一行）
+       * 或用 paramRows[paramRows.length-1] 取控件。 */
       (function(_spec,_sl,_nu,_val){
       var dial=document.createElement('div');
       dial.className='pdial';
       dial.style.cssText='width:44px;height:44px;flex:none;cursor:grab;touch-action:none;margin:2px 0 0 6px';
-      /* ★R131-36c：轮盘重做——贴合周围的控件语言（半透明白底 + 细边框 + 柔和阴影 +
-       *  四周刻度 + 圆头指针 + 中心小圆），与 .ttoggle / .sbtn 同一套观感。 */
+      /* 轮盘外观与 .ttoggle / .sbtn 一致：半透明白底 + 细边框 + 柔和阴影 + 四周刻度 + 圆头指针 + 中心小圆。 */
       var _ticks='';
       for(var _ti=0;_ti<12;_ti++){
         var _a=_ti*30*Math.PI/180, _r1=15.5, _r2=(_ti%3===0)?11.5:13.5;
@@ -917,7 +762,7 @@ function renderParamPanel(){
         var g=dial.querySelectorAll('.darw,.dknob');
         for(var _q=0;_q<g.length;_q++)g[_q].setAttribute('transform','rotate('+(deg+90)+' 22 22)');
       };
-      _setArrow(paramV(paramBody,_spec.key)||0);   // ★R131-61：读**本行**的角度（原来恒读 vang）
+      _setArrow(paramV(paramBody,_spec.key)||0);   // 读本行的角度
       var _drag=false;
       dial.addEventListener('pointerdown',function(e){
         e.preventDefault();e.stopPropagation();_drag=true;dial.style.cursor='grabbing';
@@ -930,14 +775,13 @@ function renderParamPanel(){
         var deg=Math.atan2(e.clientY-cy,e.clientX-cx)*180/Math.PI;
         deg=Math.round(deg);
         _setArrow(deg);
-        /* 与滑块/数字框同一入口：写回参数（applyParam）⇒ 重渲染同步显示。
-         * ★R131-61：写**本行**的 spec（原来恒写 vang），写回字符也按本行分派。 */
+        /* 与滑块/数字框同一入口写回参数（applyParam），写回字符也按本行分派。 */
         applyParam(paramBody,_spec,deg);
         if(paramLetter){
           if(_spec.key==='vang')paramLetter.vAng=deg;
           else if(_spec.key==='aang')paramLetter.aAng=deg;
         }
-        /* ★R131-61：同步**本行**的滑块/数字框/读数（原来取"最后一行"的控件） */
+        /* 同步本行的滑块/数字框/读数 */
         _sl.value=deg;_nu.value=deg;
         if(_val)_val.textContent=fmtVal(deg,_spec);
       });
@@ -946,38 +790,28 @@ function renderParamPanel(){
       dial.addEventListener('pointerenter',function(){dial.style.filter='brightness(1.03)';});
       dial.addEventListener('pointerleave',function(){dial.style.filter='';});
       row.appendChild(dial);
-      })(spec,sl,nu,val);   // ★R131-61：IIFE 收口 —— 每个圆盘只认自己那一行的 spec/控件
+      })(spec,sl,nu,val);   // IIFE 收口：每个圆盘只认自己那一行的 spec/控件
     }
-    // R68：面板以 SI 单位显示/输入（SI = 内部/siK），内部仍是 px —— 滑块范围、步长一并换算。
+    // 面板以 SI 单位显示/输入（SI = 内部/siK），内部仍是 px —— 滑块范围、步长一并换算。
     var kSI=spec.siK||1;
     var cur=paramV(paramBody,ids[i])/kSI;
     sl.min=spec.min/kSI;sl.max=spec.max/kSI;sl.step=spec.step/kSI;sl.value=cur;
     nu.value=Math.round(cur*1000)/1000;
     val.textContent=fmtVal(cur,spec);
-    /* ★★R132 BOSS：光速态回显 —— 面板重渲染（换体/点默认/拖圆盘）后不能把「c = 光速」丢回数字。
-     *  滑块顶到最右（max 临时放宽到光速），数字框留空 + placeholder='c'。 */
+    /* 光速态回显：面板重渲染（换体/点默认/拖圆盘）后保留「c = 光速」。
+     * 滑块顶到最右（max 临时放宽到光速），数字框留空 + placeholder='c'。 */
     if(spec.key==='vsize'&&bossLightState()){
       sl.max=C_LIGHT;sl.value=C_LIGHT;
       nu.value='';nu.placeholder='c';
-      /* ★R132-9n（用户：「给 v 输入框输入 c 的时候，那个参数面板里面显示的不是 v=299… 什么的吗，
-       *  把那个 = 改成 ≈」）：显示成 `v ≈ …`（`c` 是约定的精确值，但屏幕上给的是换算后的
-       *  px/s 量级读数，写成等号过强）—— 与 `bossLightOn` 里那条保持同一份文案。 */
+      /* 用 ≈ 而非 =：屏幕上是换算后的读数，与 bossLightOn 里的文案保持一致。 */
       val.textContent='c ≈ '+C_LIGHT+' m/s';
     }
     // single 默认 button: resets THIS row's param to its default value
     var dflt=document.createElement('button');
     dflt.textContent='默认';
     dflt.title='回到默认数值';
-    // ★★R124 修（用户实测：「点默认也没变化」）：原来这里直接闭包引用**循环变量** `spec`。
-    //   `var spec=PARAM_DEFS[ids[i]]` 是**函数作用域**，循环结束后它停在**最后一行**的 spec
-    //   ⇒ 面板上**每一行**的「默认」都只会把**最后一行**的参数打回默认：
-    //     弹簧面板（sk / slen / sdamp）⇒ 只有 sdamp 会动；
-    //     W 体面板（wmass / wair） ⇒ 只有 wair 会动。
-    //   实测（`_diag_r124a.py`，真实鼠标点击）：arm 成 ks=200 / slen=220 / sdamp=5.8 后，
-    //   点 **sk 行**的「默认」⇒ **sdamp 回落 0.8**、ks 纹丝不动（仍 200）—— 实锤。
-    //   ★同一段下方的 `sl.oninput` / `nu.onchange` 早就用了 IIFE 捕获 `spec2`，唯独这里漏了。
-    //   修法：同款 IIFE 把**本行**的 spec 固定住。`paramBody` 仍取全局引用（面板显示的就是
-    //   当前选中体；一换体 `openParams` 就整体重渲染，与滑块捕获 B2 在下述意义上等价）。
+    // 用 IIFE 固定本行的 spec：spec 是函数作用域的循环变量，直接闭包引用会让每一行的
+    // 「默认」都只重置最后一行的参数。paramBody 取全局引用即可（换体时 openParams 会整体重渲染）。
     dflt.addEventListener('click',(function(spec2){
       return function(e){e.stopPropagation();applyParam(paramBody,spec2,paramDefVal(paramBody,spec2));renderParamPanel();};
     })(spec));
@@ -991,10 +825,8 @@ function renderParamPanel(){
     nu.onchange=(function(spec2,B2,nu2,sl2,val2,k2){
       return function(){
         var v=+nu2.value;
-        /* ★★R132-9d：**光速态下输入框是空的**（placeholder='c' 是占位符）。
-         *  此时 change/blur 再按“空 ⇒ 回默认值”处理会把刚设好的光速打回 1800，
-         *  并且顺手清掉光速态 ⇒ 用户报的「改成 c 后怎么再修改都修改不了了」。
-         *  ⇒ 这个分支直接跳过（保持光速态）；想改回数字就直接输一个数（那条路不受影响）。 */
+        /* 光速态下输入框是空的（placeholder='c'）。此时不要按「空 ⇒ 回默认值」处理，
+         * 否则会把光速打回默认并清掉光速态；直接跳过，想改回数字就输入一个数。 */
         if((isNaN(v)||nu2.value==='')&&typeof bossLightState==='function'&&bossLightState())return;
         if(isNaN(v)||v==='')v=paramDefVal(B2,spec2)/k2;
         // number input has UNLIMITED range — no clamp here. The slider is clamped by
@@ -1011,10 +843,8 @@ function renderParamPanel(){
     nu.addEventListener('blur',(function(spec2,B2,nu2,sl2,val2,k2){
       return function(){
         var v=+nu2.value;
-        /* ★★R132-9d：**光速态下输入框是空的**（placeholder='c' 是占位符）。
-         *  此时 change/blur 再按“空 ⇒ 回默认值”处理会把刚设好的光速打回 1800，
-         *  并且顺手清掉光速态 ⇒ 用户报的「改成 c 后怎么再修改都修改不了了」。
-         *  ⇒ 这个分支直接跳过（保持光速态）；想改回数字就直接输一个数（那条路不受影响）。 */
+        /* 光速态下输入框是空的（placeholder='c'）。此时不要按「空 ⇒ 回默认值」处理，
+         * 否则会把光速打回默认并清掉光速态；直接跳过，想改回数字就输入一个数。 */
         if((isNaN(v)||nu2.value==='')&&typeof bossLightState==='function'&&bossLightState())return;
         if(isNaN(v)||v==='')v=paramDefVal(B2,spec2)/k2;
         applyParam(B2,spec2,v*k2);
@@ -1023,14 +853,12 @@ function renderParamPanel(){
         val2.textContent=fmtVal(v,spec2);
       };
     })(spec,paramBody,nu,sl,val,kSI));
-    // R72（用户：「参数输入后回车即完成输入」）：number 框的 change 在回车时本就会触发应用，
-    // 但焦点仍留在框里 —— 后续按键继续被当成编辑，画布的快捷键也回不来。回车 = 应用 + 交还焦点。
+    // 回车 = 应用 + 交还焦点：否则焦点留在框里，后续按键仍被当成编辑，画布快捷键失效。
     nu.addEventListener('keydown',(function(nu2){
       return function(e){ if(e.key==='Enter'){e.stopPropagation();nu2.blur();} };
     })(nu));
-    /* ★★R132 BOSS：**v 的大小参数框里输入字母 c ⇒ 数值变成光速**。
-     *  `<input type=number>` 本身会把字母吞掉（keydown 之后 value 变空），所以只能在
-     *  keydown 阶段捕获。只在 vsize 行生效，其余行不受影响。 */
+    /* v 的大小框里输入字母 c ⇒ 数值变成光速。
+     * <input type=number> 会吞掉字母（keydown 之后 value 变空），所以只能在 keydown 阶段捕获。只在 vsize 行生效。 */
     if(spec.key==='vsize'){
       nu.addEventListener('keydown',(function(nu2,val2){
         return function(e){
@@ -1050,15 +878,14 @@ function fmtVal(v,spec){
   return ''+v;
 }
 function closeParams(){if(pbox)pbox.classList.remove('on');paramBody=null;paramLetter=null;}
-// R71⑪（用户：「菜单标题写物体的具体名称（圆1、弧1…）」）：每个物体都有**稳定**的中文名。
-// 名字只在第一次被请求时生成并缓存进 B._nm —— 之后即使前面同类的物体被删掉，名字也不变
-// （否则用户按名字设好的配对系数会因为改名而「跑掉」，这比编号不连续糟得多）。
+// 每个物体都有稳定的中文名：首次请求时生成并缓存进 B._nm，之后即使前面同类物体被删也不变
+// （否则按名字设好的配对系数会因改名而错位）。
 function nameBase(B){
   if(!B)return '物体';
   if(B.kind==='W'){
     if(B.wshape==='circle'&&B.rad)return '圆';
-    // R102（用户：「改叫做圆轨」）：显示名 圆环 → **圆轨**。内部键仍是 'ring'（见形状按钮处注释）。
-    if(B.wshape==='ring'&&B.rad)return '圆轨';   // R82 空心圆 / R102 改名
+    // 显示名「圆轨」，内部键仍是 'ring'。
+    if(B.wshape==='ring'&&B.rad)return '圆轨';   // 空心圆
     if(B.wshape==='arc')return '弧';
     if(B.wshape==='tri')return '三角';
     if(B.wshape==='trough')return '半凹槽';
@@ -1110,7 +937,7 @@ function peerNameByKey(k){
   return '（已移除）';
 }
 // 一对 (A,B) 实际生效的配对覆盖。返回 {e:…|null, mu:…|null}（null = 用默认规则）。
-// 双方都显式设过同一条 → 取平均（两边都是用户的明确意图，平均是唯一不偏袒任一方的读法）。
+// 双方都显式设过同一条 → 取平均（不偏袒任一方）。
 function pairOvAB(A,B){
   var ka=A?bodyPid(A):null, kb=B?bodyPid(B):null;
   var oa=(A&&A.pOv&&kb)?A.pOv[kb]:null;
@@ -1123,18 +950,16 @@ function pairOvAB(A,B){
     var o=oa||ob;
     return o?(o[f]!=null?o[f]:null):null;
   }
-  // ★R115：原 `roll:pick('roll')`（滚动摩擦的第三通道）已删。配对覆盖只剩 弹性 e / 摩擦 μ。
   return {e:pick('e'),mu:pick('mu')};
 }
 function setPairOv(B,key,field,val){
   if(!B||!key)return;
   if(!B.pOv)B.pOv={};
-  if(!B.pOv[key])B.pOv[key]={e:null,mu:null};   // ★R115：删 roll
+  if(!B.pOv[key])B.pOv[key]={e:null,mu:null};
   B.pOv[key][field]=val;
-  // R74-C（用户：「A 面板里把『相对于 B』的某参数调成 c ⇒ B 面板里『相对于 A』的那个参数同步为 c」）：
-  // A↔B 双向镜像写入。只对能反查出**场上实体**的键联动（地面/墙没有面板，且 pairOvAB 里
-  // B 自己那一侧已生效，镜像进去是行为惰性的死数据，不写）；本体默认行（key=null）走
-  // applyParam 不经这里。镜像用同一 field 同值，last-write-wins，两侧状态恒一致。
+  // A↔B 双向镜像写入：A 面板里设「相对于 B」的值，B 面板里「相对于 A」同步。
+  // 只对能反查出场上实体的键联动（地面/墙没有面板，镜像进去是死数据，不写）；
+  // 本体默认行（key=null）走 applyParam 不经这里。同 field 同值，last-write-wins。
   var peer=null;
   if(typeof key==='string'&&key.charAt(0)==='b'){
     for(var i=0;i<bodies.length;i++){
@@ -1146,7 +971,7 @@ function setPairOv(B,key,field,val){
     if(!peer.pOv)peer.pOv={};
     var rev=bodyPid(B);
     if(rev){
-      if(!peer.pOv[rev])peer.pOv[rev]={e:null,mu:null};   // ★R115：删 roll（A↔B 双向镜像）
+      if(!peer.pOv[rev])peer.pOv[rev]={e:null,mu:null};   // A↔B 双向镜像
       peer.pOv[rev][field]=val;
     }
   }
@@ -1158,8 +983,8 @@ function bodyOfMb(mb){
   for(var i=0;i<bodies.length;i++)if(bodies[i].mb===mb)return bodies[i];
   return null;
 }
-// R64：Matter 体 -> 可读名字（接触区用）。ground/wall 是引擎常驻静态体，其余按 mb 反查实体。
-// R71⑪：名字换成编号名（圆1/弧1/杆1…），与配对表里的标题同源。
+// Matter 体 -> 可读名字（接触区用）。ground/wall 是引擎常驻静态体，其余按 mb 反查实体，
+// 用编号名（圆1/弧1/杆1…），与配对表标题同源。
 function matterBodyLabel(mb){
   if(!MW)return '物体';
   if(mb===MW.ground)return '地面';
@@ -1181,9 +1006,8 @@ function pairPeers(B){
   }
   return out;
 }
-// R71⑪：一行「下拉框 + 展开的配对表」。specId = 'wbounc'(弹性 e) 或 'wfrict'(摩擦 μ)。
-// 结构刻意保留 .prow/.prhead/.plab/.prval/.presets —— 旧探针按这些类名数行/取标签，
-// 只有中间的控件从 range 换成了「下拉 + 逐对输入」，行数与语义都不变。
+// 一行「下拉框 + 展开的配对表」。specId = 'wbounc'(弹性 e) 或 'wfrict'(摩擦 μ)。
+// 结构保留 .prow/.prhead/.plab/.prval/.presets —— 探针按这些类名数行/取标签。
 function appendPairRow(spec,field){
   var B=paramBody;
   var row=document.createElement('div');
@@ -1192,8 +1016,7 @@ function appendPairRow(spec,field){
   head.className='prhead';
   var lab=document.createElement('span');
   lab.className='plab';lab.textContent=spec.label;
-  // R72-D（用户：「怎么没有写哪个是对哪个物体的？」）：μ / e 走的是这条「下拉 + 逐物配对」
-  // 的独立渲染分支，归属标注不能只在主参数行加 —— 否则最常调的两行反而没有标注。
+  // μ / e 走这条独立渲染分支，归属标注也要在这里加。
   var own=document.createElement('span');
   own.className='pown';own.textContent=PARAM_OWNER[spec.key]||'';
   own.title='该参数归属的对象';
@@ -1208,12 +1031,10 @@ function appendPairRow(spec,field){
 
   var pane=document.createElement('div');
   pane.className='ppairs';
-  // ★R115：原第三态 'roll'（滚动摩擦 ω）已删，只剩 弹性 e / 摩擦 μ。
   pane.innerHTML='<div class="pph"><span>物体</span><span>'+
                  (field==='e'?'弹性 e':'摩擦 μ')+
                  '</span><span></span></div>';
-  // R73-B：面板重建（改一个配对值 / 换默认都会走 renderParamPanel）时把展开状态还原 ——
-  // pairOpenField 是模块级的，重建后 DOM 是新的，不还原的话用户输一个数展开就塌了。
+  // 面板重建时还原展开状态：pairOpenField 是模块级的，重建后 DOM 是新的，不还原则输入一个数展开就塌了。
   if(pairOpenField===field){pane.classList.add('on');dd.classList.add('open');dd.textContent='配对 ▴';}
   var peers=pairPeers(B);
   for(var i=0;i<peers.length;i++){
@@ -1224,8 +1045,7 @@ function appendPairRow(spec,field){
       nm.className='ppn';nm.textContent=pe.name;
       var inp=document.createElement('input');
       inp.className='ppc';inp.type='number';inp.min=0;
-      // R92：输入域的上限/步长取 **spec**（μ/e 都是 1 / 0.01）——写死会让参数能填到
-      // 物理上无意义的区间。★R115：滚动摩擦那档（0.5 / 0.001）已随该参数一起删除。
+      // 输入域的上限/步长取 spec（μ/e 都是 1 / 0.01），不要写死。
       inp.max=(spec.max!=null)?spec.max:1;
       inp.step=(spec.step!=null)?spec.step:0.01;
       inp.placeholder='默认';
@@ -1261,7 +1081,7 @@ function appendPairRow(spec,field){
           refreshPairUI();
         };
       })(pe,inp);
-      // R72：与主参数行同一条「回车即完成输入」纪律
+      // 回车即完成输入（同主参数行）
       inp.addEventListener('keydown',(function(inp3){
         return function(e){ if(e.key==='Enter'){e.stopPropagation();inp3.blur();} };
       })(inp));
@@ -1272,10 +1092,8 @@ function appendPairRow(spec,field){
     var on=pane.classList.toggle('on');
     dd.classList.toggle('open',on);
     dd.textContent=on?'配对 ▴':'配对 ▾';
-    // R73-B（用户：「展开摩擦系数，就显示关于摩擦的接触，展开弹力系数，就显示关于弹力的接触情况」）：
-    // 下方接触区跟着**最后展开的那一行**走（两个都展开时以最近点的为准，语义无歧义）。
-    // 这里**不能**调 renderParamPanel() —— 它会重建整个面板，展开状态当场丢掉；
-    // 接触区本来就是逐帧刷新的，直接调一次让它立刻换口径即可。
+    // 下方接触区跟着最后展开的那一行走。
+    // 这里不能调 renderParamPanel()（会重建面板、展开状态丢失）；接触区本就逐帧刷新，直接调一次即可。
     pairOpenField = on ? field : (pairOpenField===field ? null : pairOpenField);
     updateParamContacts();
     clampParamPanel();
@@ -1301,21 +1119,16 @@ function refreshPairUI(){
   if(paramBody&&paramBody.kind==='W')refreshWPairs(paramBody);
   if(paramBody)renderParamPanel();
 }
-// R64（用户：「如果此时该物体还接触了其他的物体，则还会临时显示与该物体的摩擦系数大小」）：
-// 参数面板开着且对象是 W 体时，列出配对摩擦的**实际生效**数值（动摩擦 = 双方 min、
-// 静摩擦 = 双方 max —— 面板里调的 μ 只是本体的那一份）。
-// R72（用户：「参数的下面怎么还显示的接触起效，我不是说了，不需要接触就能识别到吗，
-// 是对全场存在的东西的」）：不再只列「正在接触」的对 —— 改为列**全场所有对象**
-// （含地面/墙），接触中的显示 Matter pair 的实际生效值，未接触的显示按配对规则
-// 「将要生效」的值（μ=min 双方）。识别对象从来不需要先接触。
+// 参数面板开着且对象是 W 体时，列出全场所有对象（含地面/墙）的配对实际生效值：
+// 接触中的显示 Matter pair 的实际值，未接触的显示按配对规则将要生效的值。
+// （动摩擦 = 双方 min、静摩擦 = 双方 max；面板里调的 μ 只是本体那一份。）
 function updateParamContacts(){
   if(!pcontacts)return;
   var show=paramBody&&paramBody.kind==='W'&&paramBody.mb&&MW&&pbox.classList.contains('on');
   if(!show){pcontacts.classList.remove('on');pcontacts.innerHTML='';return;}
-  // R73-B（用户：「如果展开摩擦系数，就显示关于摩擦的接触，如果展开弹力系数，就显示关于弹力的
-  // 接触情况」）：这一区显示的量跟着**展开的配对行**走 —— 展开 μ 行看摩擦、展开 e 行看弹性、
-  // 两行都收起（或从没展开）时维持旧口径（摩擦）。pairOpenField 由 appendPairRow 的配对按钮维护。
-  var isE=(pairOpenField==='e');   // ★R115：isRoll 已删（滚动摩擦移除）
+  // 显示的量跟着展开的配对行走：展开 μ 看摩擦、展开 e 看弹性、都收起时看摩擦。
+  // pairOpenField 由 appendPairRow 的配对按钮维护。
+  var isE=(pairOpenField==='e');
   // 接触中的 Matter pair 索引（实际生效值优先于规则推算值）
   var map={},list=MW.engine.pairs.list,i;
   for(i=0;i<list.length;i++){
@@ -1341,22 +1154,19 @@ function updateParamContacts(){
   var rows='',n=0;
   function row(name,pr,muOther,restOther,muIdealOther,othMb){
     var txt;
-    /* ★R115：原 `if(isRoll){…}else if(isE){…}` 里的滚动摩擦分支已删 ——
-     *   那一支是「滚动摩擦没有 Matter pair 字段，生效值由 wRollEff 链条自己算」的读数
-     *   （读的是「将要/正在生效」的数），随滚动摩擦一起移除。 */
     if(isE){
-      if(pr)txt='e='+Math.round(pr.restitution*1000)/1000;   // ⑦ 显式配对覆盖已写进 pr，直接用实际值
+      if(pr)txt='e='+Math.round(pr.restitution*1000)/1000;   // 显式配对覆盖已写进 pr，直接用实际值
       else if(restOther!=null){
-        var effE=Math.max(wEffE(paramBody),restOther);       // 默认规则：取双方 max（R65/R70⑥）
-        // R76：μ=0 极值 ⇒ rest=1 的**显示**也必须与物理同源 —— 只在显式声明 μ=0 时才算，
-        // 否则高中模式的默认 μ=0 会让这里每一行都显示 e=1，而实际物理是 0（读数骗人）。
+        var effE=Math.max(wEffE(paramBody),restOther);       // 默认规则：取双方 max
+        // μ=0 极值 ⇒ rest=1 的显示与物理同源：只在显式声明 μ=0 时才算，
+        // 否则高中模式默认 μ=0 会让每行都显示 e=1，而实际物理是 0。
         if(muIdealOther||wMuIdeal(paramBody))effE=1;
         txt='max 规则 → '+Math.round(effE*1000)/1000;
       }else txt='—';
     }else{
       if(pr)txt='μ='+Math.round(pr.friction*1000)/1000+'（静 '+Math.round(pr.frictionStatic*1000)/1000+'）';
       else if(muOther!=null){
-        var eff=Math.min(wEffMu(paramBody),muOther);         // 默认规则：取双方 min（R68）
+        var eff=Math.min(wEffMu(paramBody),muOther);         // 默认规则：取双方 min
         txt='μ=min 规则 → '+Math.round(eff*1000)/1000;
       }else txt='—';
     }
@@ -1374,7 +1184,7 @@ function updateParamContacts(){
   pcontacts.innerHTML='<div class="pc-t">全场对象 · 配对'+
                       (isE?'弹性 e':'摩擦 μ')+
                       '（● 接触中 / ○ 未接触）</div>'+rows;
-  clampParamPanel();   // R65：接触行每帧增减，面板高度变了就重新夹紧（不追踪物体位置）
+  clampParamPanel();   // 接触行每帧增减，面板高度变了就重新夹紧
 }
 if(pclose)pclose.addEventListener('click',function(){closeParams();});
 document.addEventListener('pointerdown',function(e){
@@ -1389,13 +1199,9 @@ function inPanel(x,y){
   var r=panel.getBoundingClientRect();
   return x>r.left-12&&x<r.right+12&&y>r.top-12&&y<r.bottom+12;
 }
-/* ★★R111：**把支撑体拖走时，压在它上面的东西必须被唤醒**。
- *   它们是**睡着**的（静止在平台上 ⇒ Matter 让它们睡了），而睡眠体不会因为
- *   「脚下的东西走了」自己醒过来 ⇒ 球悬在空中不动。
- *   （用户：「球静止在那个器件地面上，移开地面，球会悬浮在空中不动，**有概率**」
- *    ——「有概率」正是因为睡没睡是随机的）
- *   ★与 R109 的 `killBody` 唤醒是**同一条病、另一条路径**（那条修的是「删掉」，本条修的是「搬走」）。
- *   只唤醒**附近**的睡眠体：拖动是交互态，全场景唤醒会白费休眠。 */
+/* 把支撑体拖走时唤醒压在它上面的睡眠体：Matter 的睡眠体不会因为脚下支撑消失而自己醒来，
+ * 否则会悬在空中（是否睡着有随机性，所以表现为「有概率」）。删除体的同类处理见 killBody。
+ * 只唤醒附近的：拖动是交互态，全场唤醒会白费休眠。 */
 function wakeSleepNear(x,y,rad){
   if(!MW||!MW.engine||typeof Matter==='undefined'||!Matter.Sleeping)return 0;
   var bs=Matter.Composite.allBodies(MW.engine.world),n=0;
@@ -1406,23 +1212,18 @@ function wakeSleepNear(x,y,rad){
 }
 
 function clearAll(){
-  /* ★★R131-42（用户：「黑洞出现后双击垃圾桶清屏，黑洞底下的粒子效果还残留」）：
-   *  清屏必须把**黑洞特效状态**一并复位（粒子/光环/合并态/终局态），否则粒子继续飘。 */
+  /* 清屏必须把黑洞特效状态一并复位（粒子/光环/合并态/终局态），否则粒子残留。 */
   try{
     if(typeof particles!=='undefined'&&particles&&particles.length)particles.length=0;
     if(typeof rings!=='undefined'&&rings&&rings.length)rings.length=0;
     if(typeof sparks!=='undefined'&&sparks&&sparks.length)sparks.length=0;
     if(typeof BH_MERGE!=='undefined')BH_MERGE=null;
     if(typeof BH_FINALE!=='undefined')BH_FINALE=null;
-    /* ★R131-43（用户：「清屏后字符回到初始排列，和下拉按钮又重合、a 又跑回原位」）：
-     *  清屏会把 dock 字符重新 dockLetter ⇒ 布局回到默认 ⇒ 必须**重跑 fixPanelSlot**
-     *  把第 4 格留空、a 换行的排布重新施加。 */
+    /* 清屏会重新 dockLetter，布局回到默认 ⇒ 必须重跑 fixPanelSlot 重新施加面板排布。 */
     if(typeof fixPanelSlot==='function')setTimeout(fixPanelSlot,0);
   }catch(e){}
-  /* ★★R110：**清空必须连约束一起清**。clearAll 走的是它自己那条销毁路径
-     （不是 killBody），所以 R109 挂在 killBody 上的约束清理**跑不到**
-     ⇒ 铰链的真 Constraint 会残留并累积（_diag_r110 C3/C4 实测：建 1 → 清空后仍 1 → 再建一对变 2）。
-     体都没了，约束就没有意义 ⇒ 直接把世界的 constraints 列表清空。 */
+  /* 清空必须连约束一起清：clearAll 不走 killBody，那里的约束清理跑不到，
+   铰链的真 Constraint 会残留并累积。体都没了，直接清空世界的 constraints 列表。 */
   if(MW&&MW.engine&&MW.engine.world&&typeof Matter!=='undefined'&&Matter.Composite){
     var _cs2=Matter.Composite.allConstraints(MW.engine.world);
     for(var _cj=_cs2.length-1;_cj>=0;_cj--)Matter.Composite.remove(MW.engine.world,_cs2[_cj]);
@@ -1448,8 +1249,7 @@ function clearAll(){
     bodies.splice(i,1);
   }
   if(MW)Matter.Composite.clear(MW.wLayer,false);   // W bodies & rod mirrors; static frame stays
-  // restore panel singletons: alive ones go back to dock; dead ones are rebuilt from scratch
-  // so a black hole that consumed a panel letter does not leave the panel crippled.
+  // 恢复面板单例：活着的回 dock；死掉的（被黑洞吞掉）从头重建，避免面板残缺。
   var kids=[mO,M2O,gO,aO,vO,rO,halfO,muO,cO,GO,tO,BO,EO,qO,IO,kO,xO];
   var names=['mO','M2O','gO','aO','vO','rO','halfO','muO','cO','GO','tO','BO','EO','qO','IO','kO','xO'];
   for(var i2=0;i2<kids.length;i2++){
@@ -1462,7 +1262,7 @@ function clearAll(){
         case 'vO':vO=nd;break;case 'rO':rO=nd;break;case 'halfO':halfO=nd;break;case 'muO':muO=nd;break;
         case 'cO':cO=nd;break;case 'GO':GO=nd;break;case 'tO':tO=nd;break;case 'BO':BO=nd;break;
         case 'EO':EO=nd;break;case 'qO':qO=nd;break;case 'IO':IO=nd;break;
-        case 'kO':kO=nd;break;case 'xO':xO=nd;break;   // R57：新增 k / x
+        case 'kO':kO=nd;break;case 'xO':xO=nd;break;
       }
       d=nd;
     }
@@ -1475,8 +1275,7 @@ function clearAll(){
   for(var k=freeL.length-1;k>=0;k--){killLetter(freeL[k]);freeL.splice(k,1);}
   for(var f=formulas.length-1;f>=0;f--){killFormula(formulas[f]);formulas.splice(f,1);}
   panel.style.opacity='';   // un-fade the panel after panel-eating has punched it
-  // purge any duplicate docked clones left behind by earlier dock bugs — the palette holds
-  // exactly the canonical singletons, one cell each.
+  // 清掉 dock 异常遗留的重复克隆：面板只保留规范单例，每格一个。
   var canon=[mO,M2O,gO,aO,vO,rO,halfO,muO,cO,GO,tO,BO,EO,qO,IO,kO,xO];
   [].slice.call(panel.querySelectorAll('.char')).forEach(function(e){
     var keep=false;
@@ -1484,16 +1283,13 @@ function clearAll(){
     if(!keep&&e.parentNode===panel)panel.removeChild(e);
   });
   sortPanel();
-  /* ★★R132 BOSS：**清屏必须把 boss 也一起收掉**。
-   *  `bossFinish` 走的就是 `clearAll()`，所以这里必须容忍「已经被 bossFinish 置成 null」；
-   *  `bossAbort()` 自己开头 `if(!BOSS)return;`。反过来，用户手动双击垃圾桶清屏时
-   *  （boss 正悬在空中）也必须把平台/遮罩/被冻结的原型体一并撤掉，否则清屏后天上还挂着一行公式。 */
+  /* 清屏时一并收掉 boss。bossFinish 本身调用 clearAll()，所以要容忍 BOSS 已被置 null
+   * （bossAbort 开头 if(!BOSS)return）；手动清屏时必须撤掉平台/遮罩/冻结的原型体。 */
   try{ if(typeof bossAbort==='function')bossAbort(); }catch(e){}
 }
 trash.addEventListener('dblclick',function(e){e.preventDefault();clearAll();});
-/* ★★R131-32f（用户：「杆固定一端后双击无法解除」）：**原生 dblclick 通道**（捕获阶段）——
- *  双击锚定端/锚定点 ⇒ 断开该端锚定。不依赖 pointerdown 的 dblState 路径（实测手柄
- *  与各分支会把它吃掉）。 */
+/* 原生 dblclick 通道（捕获阶段）：双击锚定端/锚定点 ⇒ 断开该端锚定。
+ * 不依赖 pointerdown 的 dblState 路径（手柄与其它分支会把它吃掉）。 */
 DD.addEventListener('dblclick',function(e){
   var x=e.clientX,y=e.clientY;
   if(typeof springDisconnectAtPoint==='function'&&springDisconnectAtPoint(x,y)){
@@ -1502,8 +1298,8 @@ DD.addEventListener('dblclick',function(e){
     e.preventDefault();e.stopPropagation();
   }
 },true);
-/* ★R131-27b（触屏）：dblclick 在触屏不可靠 ⇒ 用两次 tap（<450ms）触发清屏；
- *  单指按住拖动 = 拖垃圾桶（trashDrag 由 pointerdown 启动，触屏同样走 pointer 事件）。 */
+/* 触屏：dblclick 不可靠 ⇒ 用两次 tap（<450ms）触发清屏；
+ * 单指按住拖动 = 拖垃圾桶（trashDrag 由 pointerdown 启动）。 */
 var trashTapT=0;
 trash.addEventListener('pointerup',function(e){
   if(!uiTouch())return;
@@ -1515,7 +1311,7 @@ var trashDrag={active:false};
 function overlap(a,b){return !(a.right<b.left||a.left>b.right||a.bottom<b.top||a.top>b.bottom);}
 function eraseUnderTrash(){
   var r=trash.getBoundingClientRect();
-  var rcx=r.left+r.width/2, rcy=r.top+r.height/2;    // R61：弹簧/杆没有字形，要按线段判
+  var rcx=r.left+r.width/2, rcy=r.top+r.height/2;    // 弹簧/杆没有字形，要按线段判
   for(var i=freeL.length-1;i>=0;i--){
     var d=freeL[i];
     if(overlap(r,d.el.getBoundingClientRect()))killLetter(d);
@@ -1523,9 +1319,7 @@ function eraseUnderTrash(){
   for(var j=bodies.length-1;j>=0;j--){
     var B=bodies[j],hit=false;
     if(B.kind==='S'){
-      // R61（用户：「将垃圾桶拖到弹簧上无法删除，拖到弹簧的整体上也无法删除」）：
-      // 弹簧没有字形（B.glyphs 为空），旧代码落到 else 分支里空转一圈 -> hit 永远 false，
-      // 于是垃圾桶怎么拖都删不掉它。用线圈线段（带 SPR_GRAB 容差）+ 两端点做判定。
+      // 弹簧没有字形（B.glyphs 为空），用线圈线段（带 SPR_GRAB 容差）+ 两端点做命中判定。
       hit=segPointDist(B.e0.x,B.e0.y,B.e1.x,B.e1.y,rcx,rcy)<SPR_GRAB
           ||overlap(r,{left:Math.min(B.e0.x,B.e1.x)-6,right:Math.max(B.e0.x,B.e1.x)+6,
                        top:Math.min(B.e0.y,B.e1.y)-6,bottom:Math.max(B.e0.y,B.e1.y)+6});
@@ -1565,13 +1359,10 @@ function killLetter(d){
   if(d.el&&d.el.parentNode)d.el.parentNode.removeChild(d.el);
 }
 function killBody(B){
-  /* ★R107-5：铰链被删除时必须把那条真 Constraint 一起摘掉；
-     否则它会继续把两个宿主永久钉在一起（而且是隐形的）。 */
+  /* 铰链被删除时必须摘掉它的真 Constraint，否则会继续把两个宿主隐形地钉在一起。 */
   if(B&&B._hcon&&typeof hingeConstraintDrop==='function')hingeConstraintDrop(B);
-  /* ★★R109：删体 ⇒ **世界里任何引用它的约束都要摘掉**（不管那条约束属于谁）。
-     为什么放在这里而不是 hingeSolve / springSyncEnds：宿主被删后，`hingeSolve` 第一行 `if(!h0||!h1)return;` 就返回了，
-     而 springSyncEnds 只在铰链仍被 stepSprings 走到时才会跑 —— 两条路u90fd可能跑不到（_diag_r109 H2 实测：删宿主后约束数 1 → 1）。
-     → 改在**删除的源头**上做：一个体没了，引用它的约束就没有意义，留下来就是把另一个体隐形地钉住。 */
+  /* 删体 ⇒ 世界里任何引用它的约束都要摘掉。放在删除源头而非 hingeSolve / springSyncEnds：
+   宿主被删后 hingeSolve 第一行就返回，springSyncEnds 也可能跑不到，约束会残留并隐形地钉住另一个体。 */
   if(B&&B.mb&&MW&&typeof Matter!=='undefined'&&Matter.Composite&&Matter.Composite.allConstraints){
     var _cs=Matter.Composite.allConstraints(MW.engine.world);
     for(var _ci=0;_ci<_cs.length;_ci++){
@@ -1581,12 +1372,9 @@ function killBody(B){
   }
   var i=bodies.indexOf(B);if(i>=0)bodies.splice(i,1);
   removeMatterBody(B);    // boundaries & rod mirrors live in the Matter world as well
-  /* ★★R109：**删掉一个支撑体后，压在它上面的东西可能正睡着**；
-     没人唤醒它们 ⇒ 支撑消失了但它们仍然挂在空中。
-     实测（_dbg_r109_sleep.py）：删平台后方块停在 y=561.36 且 `isSleeping=true`，
-     强制 `Matter.Sleeping.set(false)` 后掉到 y=692.69（画布地面）。
-     → 在**删除的源头**上做：把世界里所有睡眠的非静止体唤醒。
-     开销可控：只在删体时做一次，不影响常规每帧开销（睡眠本身是为了省开销）。 */
+  /* 删掉支撑体后唤醒世界里所有睡眠的非静止体，否则它们会挂在空中
+   （实测删平台后方块停在 y=561 且 isSleeping=true，唤醒后落到地面 y=693）。
+   只在删体时做一次，不影响每帧开销。 */
   if(MW&&typeof Matter!=='undefined'&&Matter.Composite&&Matter.Composite.allBodies&&Matter.Sleeping){
     var _bs=Matter.Composite.allBodies(MW.engine.world);
     for(var _bi=0;_bi<_bs.length;_bi++){

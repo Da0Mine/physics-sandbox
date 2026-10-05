@@ -13,11 +13,10 @@ function openFormulaMenu(){
   fmenu.classList.add('on');fmask.classList.add('on');
 }
 function closeFormulaMenu(){fmenu.classList.remove('on');fmask.classList.remove('on');}
-// R74-D：设置面板（左上角工具下拉 → 设置）。PHYS_MODE 切换即时生效：
-// 空气阻力由 refreshAllPairs 每帧重刷（applyWAir/wAirDef 都读 PHYS_MODE），弹簧阻尼与力矩
-// 在下一帧 stepSprings 自然按新模式作用。弹性（R74-D/J）由 applyEffRest 刷 mb.restitution ——
-// 默认体没调过参不经过 applyWFrict/applyWBounc，需在切换时扫场上 W 体主动刷一遍，否则旧体
-// 的 mb.restitution 仍是 buildMatterBody 初值（圆 BALL_REST），refreshAllPairs 读到旧值。
+// 设置面板（左上角工具下拉 → 设置）。PHYS_MODE 切换即时生效：空气阻力由 refreshAllPairs 每帧重刷
+// （applyWAir/wAirDef 都读 PHYS_MODE），弹簧阻尼与力矩在下一帧 stepSprings 按新模式作用。
+// 弹性由 applyEffRest 刷 mb.restitution：默认体没调过参不经过 applyWFrict/applyWBounc，切换时需扫场上 W 体
+// 主动刷一遍，否则旧体仍是 buildMatterBody 的初值（圆为 BALL_REST）。
 var smenu=document.getElementById('smenu'),smask=document.getElementById('smask'),
     sclose=document.getElementById('sclose');
 function syncModeUI(){
@@ -26,7 +25,7 @@ function syncModeUI(){
   for(var i=0;i<bs.length;i++){
     bs[i].classList.toggle('act',bs[i].getAttribute('data-mode')===PHYS_MODE);
   }
-  /* ★R131-27：交互模式（自动/电脑版/触屏版）按钮高亮 */
+  /* 交互模式（自动/电脑版/触屏版）按钮高亮 */
   var us=smenu.querySelectorAll('.ubtn');
   for(i=0;i<us.length;i++){
     us[i].classList.toggle('act',us[i].getAttribute('data-ui')===UI_MODE);
@@ -34,7 +33,7 @@ function syncModeUI(){
   var tip=smenu.querySelector('#uitip');
   if(tip)tip.textContent=uiTouch()?('当前：触屏版（长按=右键 · 点选后可再点放置）'):('当前：电脑版');
 }
-/* ★R131-27：交互模式切换按钮 */
+/* 交互模式切换按钮 */
 function bindUIModeBtns(){
   if(!smenu)return;
   var us=smenu.querySelectorAll('.ubtn');
@@ -49,8 +48,8 @@ function bindUIModeBtns(){
   }
 }
 function openSettings(){smenu.classList.add('on');smask.classList.add('on');syncModeUI();}
-/* ★★R132-8：关设置时把问号气泡一并收掉 —— 气泡挂在 body（不是 .smenu 内），
- *  面板关了它还浮在屏幕上就成了孤儿（触屏路径尤其容易漏，因为它没有 mouseleave）。 */
+/* 关设置时把问号气泡一并收掉：气泡挂在 body 上（不在 .smenu 内），面板关了它会变成孤儿
+ * （触屏路径没有 mouseleave，尤其容易漏）。 */
 function closeSettings(){
   smenu.classList.remove('on');smask.classList.remove('on');
   var pop=DD.getElementById('qpop');if(pop)pop.classList.remove('on');
@@ -58,17 +57,15 @@ function closeSettings(){
   for(var qi=0;qi<qs.length;qi++)qs[qi].classList.remove('on');
 }
 
-// ★★R130 记录模式（用户原话：「在设置里面增加一个按钮，点击后进入记录模式，然后我开始复现，
-//   软件也进行记录，复现完我让你去读相关记录的参数来判断」）
-// 设计要点（每一条都是踩过或预防过的坑）：
-//  · **逐帧全场快照**：每个 body 的位置/速度/角速度/角度/质量/是否固定/是否睡眠 + 有效 μ/e，
-//    外加弹簧的长度/端点/ks、当前模式、GRAV、物理时间戳。物理量一律 *60 换成 px/s 与 rad/s
-//    （MU-01），时间戳同时记墙钟与 `engine.timing.timestamp`（后者才是物理时间，§2 的老坑）。
-//  · **环形缓冲 90 秒**：bug 一般发生在复现的**末尾**，所以满了就丢最旧的，而不是停止记录。
-//  · **操作事件单独记**：pointerdown/up/move（节流 40ms）/右键菜单/滚轮/键盘/面板 input，
-//    记下目标元素的 tag#id.class 与文字 ⇒ 事后能把「哪一帧的读数」和「用户按了什么」对上。
-//  · **只读**：整个通道不写任何物理量，只是看 —— 记录模式不该改变被测行为。
-//  · 导出 = Blob 下载 + 一份写进 localStorage（download 被浏览器挡住时还有退路）。
+// 记录模式：从设置进入，复现问题时逐帧记录，事后读参数判断。
+//  · 逐帧全场快照：每个 body 的位置/速度/角速度/角度/质量/是否固定/是否睡眠 + 有效 μ/e，外加弹簧的
+//    长度/端点/ks、当前模式、GRAV、物理时间戳。物理量一律 *60 换成 px/s 与 rad/s；时间戳同时记墙钟与
+//    engine.timing.timestamp（后者才是物理时间）。
+//  · 环形缓冲 90 秒：bug 一般发生在复现末尾，满了丢最旧的而不是停止记录。
+//  · 操作事件单独记：pointerdown/up/move（节流 40ms）/右键菜单/滚轮/键盘/面板 input，记下目标元素的
+//    tag#id.class 与文字，事后能把读数与操作对上。
+//  · 只读：不写任何物理量，记录不改变被测行为。
+//  · 导出 = Blob 下载 + 一份写进 localStorage（下载被浏览器挡住时的退路）。
 var REC={on:false,t0:0,frames:[],events:[],raf:0,lastMove:0,tickUI:0};
 var REC_MAX=5400;                 // 90s @60fps
 var REC_EVMAX=4000;
@@ -81,14 +78,9 @@ function recSnap(){
   f.bs=[];
   for(var i=0;i<bodies.length;i++){
     var B=bodies[i],mb=B&&B.mb;
-    /* ★★R131-47（自测发现的真因）：**杆（T）/铰链（S+hinge）没有 Matter 体（mb）**
-     *  ⇒ 被这里的 `if(!mb)continue` 直接跳过 ⇒ 历次 REC 里**根本没有杆的记录**
-     *  （我此前把原因归给"你没刷新页面"，是错的——是我的记录器漏了它们）。
-     *  修：杆/铰链用**自身坐标**（B.x/B.y/B.th）记录，不受 mb 限制。 */
+    /* 杆（T）/铰链（S+hinge）没有 Matter 体（mb），用自身坐标 B.x/B.y/B.th 记录，不能被 `if(!mb)continue` 跳过。 */
     var _isRod=!!(B&&(B.kind==='T'||(B.kind==='S'&&B.hinge)));
-    /* ★R132-9ze：场源体 B/E/q/I **没有 Matter 体**（`stepPhysics` 把它们跳��、由场通道自己积分），
-     *   原来这里 `if(!mb&&!_isRod)continue;` 把**整类静默跳过** ⇒ 录屏里从来看不见用户放在
-     *   画布上的 q 场源体，几轮定位都被它骗了。现在：无 mb 的**场源体也要记**（用 B.x/B.y）。 */
+    /* 场源体 B/E/q/I 也没有 Matter 体（由场通道自己积分），同样要记（用 B.x/B.y），不能整类跳过。 */
     var _isField=!!(B&&(B.kind==='B'||B.kind==='E'||B.kind==='q'||B.kind==='I'));
     if(!mb&&!_isRod&&!_isField)continue;
     var o={i:i,k:B.kind};
@@ -107,12 +99,8 @@ function recSnap(){
     }
     if(typeof wEffMu==='function')o.mu=+wEffMu(B).toFixed(4);
     if(typeof wEffE==='function')o.e=+wEffE(B).toFixed(4);
-    /* ★★R132-9zd（用户 2026-10-03 的录屏 `rec_2026-10-03-03-54-59.json` 让定位卡了两轮）：
-     *   录屏里**只有体心 (x,y)、质量 m、形状标签 s**，**没有墨迹几何** ⇒ 我无法判断
-     *   「落点到底在不在图形上」，只能反推 user's 意图（用户也强调「我并没有放偏」）。
-     *   ⇒ 给 W 体补记**本地几何**：半宽/半高、点数、以及**降采样后的顶点串**（≤24 点）。
-     *   有了 `pts` + `a`（角度）+ `x/y`，任何一次「把字母给谁」的复现都能在探针里
-     *   **逐位重建**当时那个图形，不必再猜形状。 */
+    /* W 体补记本地几何：半宽/半高、点数、降采样后的顶点串（≤24 点）。
+     * 有了 pts + a（角度）+ x/y，复现时就能逐位重建当时的图形（例如判断落点是否在图形上）。 */
     if(B.pts&&B.pts.length>=2){
       var _mnx=1e9,_mxx=-1e9,_mny=1e9,_mxy=-1e9;
       for(var _q=0;_q<B.pts.length;_q++){
@@ -133,9 +121,8 @@ function recSnap(){
       o.pts=_out;
     }
     if(B.charge!=null)o.q=+B.charge;
-    /* ★★R131-43（用户：「杆链脱钩你不是有日志吗？把日志输出内容改多点不就行了」）：
-     *  REC 里为**杆（T）与铰链（S+hinge）**补记诊断字段——长度/当前长度/两端锚定状态/
-     *  两端锚定到的体序号/端点世界坐标/锚点本地偏移（脱钩时 ox,oy 或 anc 会立刻暴露）。 */
+    /* 杆（T）与铰链（S+hinge）的诊断字段：长度/当前长度/两端锚定状态/锚到的体序号/端点世界坐标/锚点本地偏移
+     * （脱钩时 ox,oy 或 anc 会立刻暴露）。 */
     if(B.kind==='T'||(B.kind==='S'&&B.hinge)){
       o.len=(B.len!=null)?+B.len.toFixed(2):null;
       o.cur=(B.cur!=null)?+B.cur.toFixed(2):null;
@@ -154,9 +141,8 @@ function recSnap(){
     }
     f.bs.push(o);
   }
-  // ★弹簧也在 `bodies` 里（kind==='S'）—— **没有**名为 springs 的全局数组。
-  //   第一版写了 `typeof springs!=='undefined' && …` ⇒ 恒 false、把全部弹簧**静默**漏掉
-  //   （守卫式访问在本项目反复成坑：符号不存在必须**大声**，不能悄悄跳过）。
+  // 弹簧也在 bodies 里（kind==='S'），没有名为 springs 的全局数组。
+  // 不要写 `typeof springs!=='undefined'` 这类守卫：恒 false，会静默漏掉全部弹簧（符号不存在必须报错，不能悄悄跳过）。
   var sps=[];
   for(var q=0;q<bodies.length;q++){
     var S=bodies[q];
@@ -166,11 +152,8 @@ function recSnap(){
               dir:(S.dirLock&&S.dirLock.axis)?S.dirLock.axis:null,
               e0:[+S.e0.x.toFixed(1),+S.e0.y.toFixed(1)],
               e1:[+S.e1.x.toFixed(1),+S.e1.y.toFixed(1)]};
-    /* ★★R131-64（补上一轮登记的**仪器缺口**）：原来只记 T（杆）与 S+hinge 的
-     *  `anc/ancI/ox/oy` ⇒ **普通弹簧 / 轻绳的锚定关系在 REC 里完全不可见**。
-     *  代价实测过：bug②「旋转弹簧时弹簧+方块一起抽搐飞出屏幕」三份录屏里，
-     *  只能看到 e0/e1 的坐标，**无法判断哪一端锚在谁身上** ⇒ 只能靠几何反推。
-     *  这里与杆同款补齐：锚定标志 / 锚到的体序号 / 锚点本地偏移 / 压缩状态量。 */
+    /* 普通弹簧/轻绳也记锚定关系（与杆同款）：锚定标志 / 锚到的体序号 / 锚点本地偏移 / 压缩状态量。
+     * 否则录屏里只有 e0/e1 坐标，无法判断哪一端锚在谁身上。 */
     var _sa0=S.anc&&S.anc[0], _sa1=S.anc&&S.anc[1];
     _sp.anc=[_sa0?1:0,_sa1?1:0];
     _sp.ancI=[(_sa0&&_sa0.B)?bodies.indexOf(_sa0.B):-1,
@@ -182,9 +165,7 @@ function recSnap(){
     sps.push(_sp);
   }
   if(sps.length)f.sp=sps;
-  /* ★★R131-50（自测发现：REC 里**完全没有自由字符**）：历次 REC 只有 bodies，而 a/t/v/q
-   *  这类字符长期是**自由字符（freeL）** ⇒ 它们的消失/瞬移/抓不动全都"无据可查"。
-   *  这里补记自由字符：字符、坐标、状态、速度、以及赋予型参数（便于定位相关 bug）。 */
+  /* 补记自由字符（freeL，如 a/t/v/q）：字符、坐标、状态、速度、赋予型参数，便于定位其消失/瞬移/抓不动等问题。 */
   var fls=[];
   for(var q2=0;q2<freeL.length;q2++){
     var L=freeL[q2];
@@ -263,8 +244,7 @@ function recStop(){
   if(REC.raf)cancelAnimationFrame(REC.raf);
   REC.raf=0;recEv('stop',null);recUI();
 }
-// ★★R132-10n：把 payload 的构建从 recDump 里抽出来 —— 「提交到后端」也要用它，
-//   但**不能**走 recDump（那个会触发下载）。两处共用同一个 recPayload()，口径不会分叉。
+// payload 构建与 recDump 分开：提交到后端也要用它，但不能走 recDump（会触发下载）。两处共用 recPayload()，口径不分叉。
 function recPayload(){
   var payload={v:1,kind:'sandbox-rec',savedAt:new Date().toISOString(),
     meta:{},frames:REC.frames,events:REC.events};
@@ -291,18 +271,15 @@ function recDump(){
   return {name:name,frames:REC.frames.length,events:REC.events.length,bytes:s.length};
 }
 if(recbtn)recbtn.addEventListener('click',function(){
-  /* ★★R132-10n（用户 2026-10-03）：「点击结束后，**不下载**那个文件，而是弹出提交框，
-   *   编辑文字说明，提交就可以将 json 文件和文字说明一起提交到后端」。
-   *   ⇒ 停止后走 openBugDlg()；下载降级为弹框里的「仅下载文件」备选。 */
+  /* 停止录制后弹出提交框（openBugDlg）填写说明并提交到后端；下载降级为弹框里的「仅下载文件」备选。 */
   if(REC.on){recStop();openBugDlg();}else{recStart();}
 });
 window.REC=REC;window.recStart=recStart;window.recStop=recStop;window.recDump=recDump;
 window.recPayload=recPayload;
 
-/* ★★R132-10n：Bug 提交（弹框写说明 → POST 到后端）。
-   端点契约：POST <BUG_ENDPOINT>，body = {"desc":"...","rec":{…录制 JSON…}}，
-   返回 {"ok":true,"id":"..."} 或 {"ok":false,"err":"..."}。
-   ★部署好 Cloudflare Worker 后，把它的地址填进 BUG_ENDPOINT（留空 = 只支持下载）。 */
+/* Bug 提交（弹框写说明 → POST 到后端）。
+ * 端点契约：POST <BUG_ENDPOINT>，body = {"desc":"...","rec":{…录制 JSON…}}，
+ * 返回 {"ok":true,"id":"..."} 或 {"ok":false,"err":"..."}。BUG_ENDPOINT 留空 = 只支持下载。 */
 var BUG_ENDPOINT='https://sandbox-bug-api.pages.dev/submit';
 var bugmask=DD.getElementById('bugmask'),bugbox=DD.getElementById('bugbox'),
     bugdesc=DD.getElementById('bugdesc'),buginfo=DD.getElementById('buginfo'),
@@ -330,8 +307,7 @@ function bugSubmit(){
   var s='';
   try{s=JSON.stringify(recPayload());}catch(e){s='';}
   if(!s){if(bugstatus)bugstatus.textContent='录制内容为空，没什么可提交的。';return;}
-  /* ★直接拼串而**不** JSON.parse 再 stringify —— 录制 JSON 可能有几 MB，
-   *   double-encode 既浪费内存也白白放大体积。 */
+  /* 直接拼串，不 JSON.parse 再 stringify：录制 JSON 可能有几 MB，二次编码浪费内存、放大体积。 */
   var body='{"desc":'+JSON.stringify(desc)+',"rec":'+s+'}';
   if(bugstatus)bugstatus.textContent='提交中……（'+Math.round(body.length/1024)+' KB）';
   if(bugsubmit)bugsubmit.disabled=true;
@@ -354,76 +330,64 @@ if(bugsubmit)bugsubmit.addEventListener('click',bugSubmit);
 window.openBugDlg=openBugDlg;window.bugSubmit=bugSubmit;window.closeBugDlg=closeBugDlg;
 smask.addEventListener('click',closeSettings);
 sclose.addEventListener('click',closeSettings);
-/* ★R131-27b：触屏面板把手（点按展开/收起符号面板） */
+/* 触屏面板把手（点按展开/收起符号面板） */
 if(DD.getElementById('panelToggle')){
   DD.getElementById('panelToggle').addEventListener('click',function(ev){
     ev.stopPropagation();
     DD.body.classList.toggle('touch-panel-folded');
-    /* ★R131-29：图标用 .ttoggle 同款 SVG——展开/收起用旋转表达（不再换文字） */
+    /* 图标用 .ttoggle 同款 SVG，展开/收起用旋转表达 */
     var sv=DD.getElementById('panelToggle');
     if(sv)sv.classList.toggle('open',!DD.body.classList.contains('touch-panel-folded'));
   });
 }
 applyUIModeClasses();
 window.addEventListener('resize',function(){alignPanelToggle();});
-/* ★★R132-8：全屏按钮 + 两个问号按钮的初始化。
- *  `fullscreenchange` 是**唯一**的真相来源（Esc / F11 / 浏览器 UI 退出都会走它），
- *  点击只是「请求」，外观由这条事件统一刷 —— 避免「按 Esc 退出后按钮还显示退出全屏」。 */
+/* 全屏按钮 + 两个问号按钮的初始化。
+ * fullscreenchange 是唯一的真相来源（Esc / F11 / 浏览器 UI 退出都会走它），点击只是请求，外观由这条事件统一刷新。 */
 syncFullscreenUI();
 ['fullscreenchange','webkitfullscreenchange'].forEach(function(ev){
   DD.addEventListener(ev,function(){syncFullscreenUI();});
 });
 bindQBtn('qphys');
 bindQBtn('quitipbtn');
-/* 设置面板关闭 / 点遮罩 ⇒ 气泡一起收（它挂在 body 上，不跟着面板走） */
 setTimeout(fixPanelSlot,600);
 setTimeout(fixPanelSlot,1500);
-/* ★R132-9t：设置面板每次打开都把**当前生效值**回填进输入框（localStorage 覆盖过默认值） */
+/* 设置面板每次打开都把当前生效值回填进输入框（localStorage 可能覆盖过默认值） */
 smenu.addEventListener('click',function(e){
   e.stopPropagation();
-  /* ★R131-27：交互模式按钮（自动/电脑版/触屏版） */
+  /* 交互模式按钮（自动/电脑版/触屏版） */
   var ub=e.target.closest('.ubtn');
   if(ub){setUIMode(ub.getAttribute('data-ui')||'auto');touchClearSel();syncModeUI();return;}
   var b=e.target.closest('.sbtn');if(!b)return;
   PHYS_MODE=b.getAttribute('data-mode');
   syncModeUI();
-  // R74-D/J：切换模式后扫场上 W 体重刷 mb.restitution（effRest 读 PHYS_MODE）
-  // R76：改成调 applyWFrict —— 高中模式的**默认 μ=0** 同样只是「读 PHYS_MODE 的显示值」，
-  //   不主动扫一遍的话场上旧体的 mb.friction 还是 0.08（applyWFrict 内部会连带刷 effRest/air）。
-  // R89（用户⑥）：**还必须**逐体调 applyWBounc —— 旧版只调 applyWFrict，e 链只被
-  //   applyWFrict 的连带调用覆盖；applyWFrict 现在对未调过的体在大学模式也真写默认，
-  //   但它**只管 μ 通道**；圆的 mb.restitution=BALL_REST 这类 e 默认必须 applyWBounc 亲自写
-  //   （且 applyWBounc 内部带 parts/pair 刷新）。两个都调 = μ 与 e 两条链在切换时全部同源。
+  // 切换模式后逐体调 applyWFrict 与 applyWBounc，让 μ 与 e 两条链同源刷新：
+  //   · applyWFrict 管 μ 通道（高中模式默认 μ=0 只是读 PHYS_MODE 的显示值，不扫的话旧体 mb.friction 仍是 0.08），
+  //     并连带刷 effRest/air；
+  //   · 圆的 mb.restitution=BALL_REST 这类 e 默认必须由 applyWBounc 亲自写（它内部带 parts/pair 刷新）。
   for(var ji=0;ji<bodies.length;ji++){
     if(bodies[ji].kind!=='W')continue;
     applyWFrict(bodies[ji]);
     applyWBounc(bodies[ji]);
   }
-  // ★R118（用户：「这个问题（大学摇晃 → 切高中）这样修吧，如果切换模式的话，就把转动量强制归零」）：
-  //   切换模式的那一刻把场上所有**可动** W 体的角速度清零。
-  //   为什么（_diag_r116i.py 实测）：大学摇晃攒下的 ω，切到高中后**没有任何衰减通道**
-  //   （力矩通道被 springForceOn 的 px=null 掐掉 + 锚点被 _noRot 冻结 + 无空气阻力）
-  //   ⇒ 方形带着切换时刻的 ω 永远匀速转下去（实测 Δθ=+200°、dEdge 漂移 17.3px）。
-  //   切模式 = 换一套物理定律，旧模式攒下的自旋在新模式里没有合法语义 ⇒ 用户拍板归零。
-  //   两个方向都清（uni→high / high→uni 同一个处理器）；静态体跳过（isStatic 的 ω 本就无意义）。
+  // 切换模式时把场上所有可动 W 体的角速度清零（两个方向都清；静态体跳过）。
+  // 旧模式攒下的自旋在新模式里没有合法语义：例如大学模式攒的 ω 切到高中后没有任何衰减通道
+  // （力矩通道关闭 + 锚点冻结 + 无空气阻力），物体会永远匀速转下去。
   for(var jw=0;jw<bodies.length;jw++){
     var BW2=bodies[jw];
     if(BW2.kind!=='W'||!BW2.mb||BW2.dead||BW2.mb.isStatic)continue;
     Matter.Body.setAngularVelocity(BW2.mb,0);
   }
-  // R77（用户④ 配套）：切换模式后**按当前几何重算**所有弹簧锚点的本地偏移 —— 高中模式记的是
-  //   「相对质心的世界分量」（不随自转），大学模式记的是「R(θ)·local」。就在此刻重算，新约定下
-  //   算出来的偏移恰好让端点停在它现在所在的位置 ⇒ 切换瞬间零跳变，之后才按新约定跟随。
-  //   漏了这一步的后果：球已经滚到某个角度时切模式，端点会按新约定突然跳到另一个位置。
+  // 切换模式后按当前几何重算所有弹簧锚点的本地偏移：高中模式记「相对质心的世界分量」（不随自转），
+  // 大学模式记「R(θ)·local」。此刻重算让端点停在原位，切换瞬间零跳变；漏掉则端点会按新约定突然跳位。
   for(var js=0;js<bodies.length;js++){
     var S78=bodies[js];
     if(S78.kind!=='S'||S78.dead)continue;
     for(var je=0;je<2;je++){if(S78.anc[je]&&S78.anc[je].B)springAnchorOffset(S78,je);}
-    // R83：切进高中模式时给**已有**弹簧补上自动轴锁，让「没有斜弹簧」立刻对全场生效。
-    //   用**当前**方向而不是「吸到最近的轴」：吸附要把端点搬动最多 |垂向分量|（近 45° 时可到
-    //   len/√2 ≈ 200px），画面上一根弹簧会突然跳位；而用户要的是「方向从此不再变化」，
-    //   用当前方向同样满足，且零跳变。**新画**的弹簧仍走 makeSpring 的吸附路径。
-    //   切回大学模式时把 auto 锁摘掉（手动「固定方向」的锁不摘 —— 那是用户显式设的）。
+    // 切进高中模式时给已有弹簧补上自动轴锁（高中模式没有斜弹簧）。用当前方向而不是吸到最近的轴：
+    // 吸附会把端点搬动最多 |垂向分量|（近 45° 时约 len/√2），弹簧会突然跳位；用当前方向同样满足
+    // 「方向不再变化」且零跳变。新画的弹簧仍走 makeSpring 的吸附路径。
+    // 切回大学模式时摘掉 auto 锁（手动「固定方向」的锁是用户显式设的，不摘）。
     if(PHYS_MODE==='high'){
       if(!S78.dirLock){
         var sdx=S78.e1.x-S78.e0.x,sdy=S78.e1.y-S78.e0.y,sd=Math.hypot(sdx,sdy)||1e-6;
@@ -446,9 +410,8 @@ function setToolMode(m){
   cv.classList.toggle('cur-draw',!!m);
   syncToolUI();
 }
-// R69（用户「一路过去的图形重复」）：双击进入连续绘制模式时弹提示，让用户有感知。
-// 之前只有按钮角上一个细小的 ∞ 角标，绝大多数人看不到 —— 于是在连续模式里每次单击画布
-// 都落一个默认图形、还不解除武装，一路点过去就叠成一串。提示条 2s 自动消失。
+// 双击进入连续绘制模式时弹提示：否则用户不知道处于连续模式，每次单击画布都落一个默认图形、叠成一串。
+// 提示条 2s 自动消失。
 var _fhT=null;
 function flashHint(msg){
   var el=document.getElementById('fhashint');
@@ -458,14 +421,11 @@ function flashHint(msg){
   if(_fhT)clearTimeout(_fhT);
   _fhT=setTimeout(function(){el.classList.remove('on');},2000);
 }
-/* ★★R132-9（用户：「在放置处弹出一个 error 的错误提示（上浮显示，上浮消失，就好像一行
- *  代码划过一样）」）：**在 (x,y) 处**冒一行红字代码，上浮 + 横扫 + 淡出，1.9s 后自毁。
- *  · 为什么不用 `flashHint`：那是**屏幕底部居中**的固定条（同一时刻只能有一条），
- *    语义是「提示当前模式」；用户要的是**发生在落点上的错误**（位置会说话：错在哪里）。
- *  · 元素挂在 `<body>` 下（不是画布、不是面板）—— 画布是 canvas 画不出 DOM 文字，
- *    面板有 transform 会变成 fixed 后代的包含块（R132-8 踩过，见 `#qpop` 那条注释）。
- *  · `pointer-events:none`（CSS 里）⇒ 它浮在落点上也不会吃掉随后的手势。
- *  · 返回计数给守卫读（`window.__errTipN`），实现里不做任何"只有测试才走"的分支。 */
+/* 在 (x,y) 处冒一行红字代码，上浮 + 横扫 + 淡出，1.9s 后自毁。
+ *  · 不用 flashHint：那是屏幕底部居中的固定条（同一时刻只有一条），语义是提示当前模式；这里要表达落点上的错误。
+ *  · 元素挂在 <body> 下：canvas 画不出 DOM 文字；面板有 transform，会成为 fixed 后代的包含块（见 #qpop）。
+ *  · CSS 里 pointer-events:none，不吃掉随后的手势。
+ *  · 返回计数给守卫读（window.__errTipN），实现里没有测试专用分支。 */
 function errTip(x,y,msg){
   var el=DD.createElement('div');
   el.className='errtip';
@@ -478,18 +438,16 @@ function errTip(x,y,msg){
   setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},1900);
   return el;
 }
-/* ★★R132-9：**光速 v 落到普通物体/公式上 ⇒ 拒绝赋予**。
- *  物理：有静止质量的物体不可能被加速到光速（相对论）—— 所以这次「赋予」被当成一次
- *  **运行时异常**抛出来：v 不并入、被弹开（走 bossRepel 同款手感），落点冒一行 error。
- *  ★只拦 `vLight`。普通 v（几 m/s）照旧走 giveFromLetter 赋予速度，一根毛都不动。
- *  ★调用点必须排在 `bossTryPlace` **之后** —— ½mv² 那条召唤通道要先有机会接住它。 */
+/* 光速 v 落到普通物体/公式上 ⇒ 拒绝赋予：有静止质量的物体不可能被加速到光速。
+ * v 不并入、被弹开（同 bossRepel 手感），落点冒一行 error。只拦 vLight，普通 v 照旧走 giveFromLetter。
+ * 调用点必须排在 bossTryPlace 之后：½mv² 的召唤通道要先有机会接住它。 */
 function vLightReject(B,d){
   var x=(d&&d.wx!=null)?d.wx:((pointer&&pointer.x!=null)?pointer.x:(B?B.x:0));
   var y=(d&&d.wy!=null)?d.wy:((pointer&&pointer.y!=null)?pointer.y:(B?B.y:0));
   var ux=x-(B?B.x:0),uy=y-(B?B.y:0),L=Math.hypot(ux,uy);
   if(!(L>1)){ux=0;uy=-1;L=1;}
   ux/=L;uy/=L;
-  /* 弹开：把这个 v 从物体上**推开**（与 bossRepel 同一套手感：一个初速度 + 略上抛） */
+  /* 弹开：给 v 一个远离物体的初速度 + 略上抛（同 bossRepel） */
   d.state='free';d.cat=1;d.pop=1;d.massless=false;
   d.wx=x;d.wy=y;
   d.vx=ux*1500;d.vy=uy*1500-360;
@@ -498,23 +456,18 @@ function vLightReject(B,d){
   burstParticles(x,y,14,0.7);
   if(B)ringGo(B.x,B.y);
   shake(4,0.22);
-  /* ★R132-9b（用户 2026-10-01：「落点也不需要冒红字 ▌ Error: 物体不能达到光速 c，
-   *  只需要 Error 就行（对于上面文字的添加你不要自作主张）」）：
-   *  ⇒ 文案**只有 `Error` 三个字母**，不加前缀竖条、不加原因、不加任何补充说明。
-   *  **不要再自作主张往这里加文案。** */
+  /* 文案只有 'Error'，不加前缀、原因或其他说明（用户明确要求，不要自行添加）。 */
   errTip(x,y,'Error');
   return true;
 }
-// R57（用户 #1）：单击 = 画一次；双击 = 连续；再单击 = 取消。供 brush / shape 两类按钮共用。
-// key 标识「哪一个按钮」，mode 是要进入的工具模式，extra 交给调用方做下拉框等副作用。
+// 单击 = 画一次；双击 = 连续；再单击 = 取消。供 brush / shape 两类按钮共用。
+// key 标识哪一个按钮，mode 是要进入的工具模式，extra 交给调用方做下拉框等副作用。
 function toolTap(key,mode,extra){
   var now=performance.now();
   if(TOOL.mode&&TOOL.armedKey===key){
     if(now-TOOL.lastTap<=TOOL_DBL_MS){
       TOOL.cont=true;   // 双击 -> 升级为连续绘制
-      // R69：进连续模式立刻弹提示——之前只有按钮角上一个 ∞ 角标，用户毫无感知，
-      // 一路单击画布就叠出一串重复图形（用户的 bug）。现在明确告诉「连续模式已开启」。
-      // R96：器件是「点一下放一个」，没有「拖出尺寸」这一步，所以它的提示不能说「单击不落体」。
+      // 进连续模式立刻弹提示。器件是点一下放一个，没有拖出尺寸这一步，提示文案不同。
       flashHint((mode==='brush')?'连续模式·一直画，再点按钮取消'
                 :((mode==='device')?'连续模式·每点一次放一个器件，再点按钮取消'
                                    :'连续模式·每次拖出形状，单击不落体'));
@@ -541,7 +494,7 @@ function syncToolUI(){
     subs[i].classList.toggle('act',on);
     subs[i].classList.toggle('cont',on&&TOOL.cont);
   }
-  // R96：器件按钮与器件 chip —— 与上面形状那两段逐条对应（行按钮高亮 + 选中的那一个 chip 高亮）。
+  // 器件按钮与器件 chip：与上面形状那两段对应（行按钮高亮 + 选中的 chip 高亮）。
   var dev=tRow.querySelector('[data-tool="device"]');
   if(dev)dev.classList.toggle('act',TOOL.mode==='device');
   if(dev)dev.classList.toggle('cont',TOOL.mode==='device'&&TOOL.cont);
@@ -571,26 +524,20 @@ tRow.addEventListener('click',function(e){
     // 行按钮有自己的 key：它和下面的形状 chip 是不同的按钮，不能算成「同一按钮点两下」
     toolTap('shaperow:'+TOOL.shape,'shape');
     tSub.classList.toggle('on',TOOL.mode==='shape');   // 取消时自动收起，武装时展开
-    dSub.classList.remove('on');                       // R96：两行子面板互斥，不叠着开
+    dSub.classList.remove('on');                       // 两行子面板互斥，不叠着开
   }
   else if(t==='device'){
-    // R96：与形状行同构 —— 行按钮用自己的 key，展开自己那一行器件。
+    // 与形状行同构：行按钮用自己的 key，展开自己那一行器件。
     toolTap('devrow:'+TOOL.device,'device');
     dSub.classList.toggle('on',TOOL.mode==='device');
     tSub.classList.remove('on');
   }
   else if(t==='fullscreen'){toggleFullscreen();}
 });
-/* ★★R132-8（用户 2026-10-01：「在左边下拉框里面设置按钮的右边增加一个按钮，进入全屏，
- *  点击后用来进入浏览器全屏显示的功能」）。
- *  用 Fullscreen API（`requestFullscreen` / `exitFullscreen`）。
- *  ★三处必须处理，否则在不同浏览器上会「点了没反应」：
- *   ① 前缀：Safari 老版本只有 `webkitRequestFullscreen`；用 `el.requestFullscreen||el.webkitRequestFullscreen`
- *      取**实际存在**的那个再调（直接调不存在的属性会抛 TypeError）。
- *   ② 返回值是 Promise：某些浏览器（新版 Chromium）**拒绝**时会抛未捕获异常（典型场景：不是
- *      用户手势、或 iframe 里没给 `allow="fullscreen"`）⇒ 必须 `.catch()` 吞掉，否则控制台报错。
- *   ③ 状态同步：全屏可以由 **Esc / F11 / 浏览器 UI** 退出，那不是我们点的 ⇒ 监听
- *      `fullscreenchange`（含 webkit 前缀）**反过来**刷新按钮外观，而不是只在点击时切。 */
+/* 浏览器全屏（Fullscreen API）。三处必须处理，否则在不同浏览器上会点了没反应：
+ *  ① 前缀：Safari 老版本只有 webkitRequestFullscreen；取实际存在的那个再调（调不存在的属性会抛 TypeError）。
+ *  ② 返回值是 Promise：被拒绝时（非用户手势、iframe 没给 allow="fullscreen"）会抛未捕获异常 ⇒ 必须 .catch()。
+ *  ③ 状态同步：Esc / F11 / 浏览器 UI 也能退出全屏，监听 fullscreenchange（含 webkit 前缀）反过来刷新按钮外观。 */
 function fsElement(){
   return DD.fullscreenElement||DD.webkitFullscreenElement||null;
 }
@@ -613,7 +560,7 @@ function toggleFullscreen(){
   syncFullscreenUI();
   return true;
 }
-/* 按钮外观 = 当前**真实**全屏态（四角外扩=进全屏 / 四角内收=退全屏） */
+/* 按钮外观 = 当前真实全屏态（四角外扩=进全屏 / 四角内收=退全屏） */
 function syncFullscreenUI(){
   var b=DD.getElementById('fsbtn'),ic=DD.getElementById('fsicon');
   if(!b)return;
@@ -626,8 +573,8 @@ function syncFullscreenUI(){
       : '<path d="M4 9V4h5"/><path d="M15 4h5v5"/><path d="M20 15v5h-5"/><path d="M9 20H4v-5"/>';
   }
 }
-/* ★★R132-8：问号按钮的两条显示路径 —— 桌面 hover / 触屏 click（用户原话分得明白）。
- *  气泡定位用**按钮自身的 rect**（面板随屏幕高度居中，写死坐标在手机上必然错位）。 */
+/* 问号按钮的两条显示路径：桌面 hover / 触屏 click。
+ * 气泡定位用按钮自身的 rect（面板随屏幕高度居中，写死坐标在手机上会错位）。 */
 var QPOP_TEXT={
   qphys:'<b>高中模式</b><br>① 弹簧不算力矩（拉任何部位效果相同）<br>'
       + '② 不算弹簧阻尼<br>③ 不算空气阻力<br>④ 默认弹性系数全为 0<br>'
@@ -672,15 +619,13 @@ function bindQBtn(id){
     if(pop&&pop.classList.contains('on'))qpopHide(b);else qpopShow(b);
   });
 }
-/* ---- ④ 器件行（R96）：从面板**拖出** / 点选 --------------------------------------------- */
-// 同一个按钮上挂两种手势，靠「按下之后指针有没有动」区分（阈值 6px；finishShapeDrag 那个 12px
-// 是「算不算拖出尺寸」，语义不同，别混用）：
-//   · 没动   -> 交给 toolTap：单击武装 / 双击连续 / 再点取消（与画笔、预设物体同一套手感）
-//   · 动了   -> 进入拖出：指针到哪，画布上就在哪画一个落点虚影（drawDeviceGhost），
-//               在画布上松手 = 放下一个；丢回面板/菜单上 = 取消，什么都不生成。
-// ★ 这里**不挂 click**：pointerdown 里做了 preventDefault 之后，部分浏览器不再派发兼容鼠标事件，
-//   而「click + pointerup」两条路并存又会出现「点一下放两个」。状态机全部收在
-//   pointerdown（这里）/ pointermove / pointerup（DD 上那两处）三处。
+/* ---- ④ 器件行：从面板拖出 / 点选 --------------------------------------------- */
+// 同一按钮挂两种手势，靠按下之后指针有没有动区分（阈值 6px；finishShapeDrag 的 12px 是
+// 「算不算拖出尺寸」，语义不同，别混用）：
+//   · 没动 -> 交给 toolTap：单击武装 / 双击连续 / 再点取消
+//   · 动了 -> 拖出：画布上在指针处画落点虚影（drawDeviceGhost），在画布上松手 = 放下一个；丢回面板/菜单 = 取消。
+// 这里不挂 click：pointerdown 里 preventDefault 后部分浏览器不再派发兼容鼠标事件，
+// 而 click 与 pointerup 并存又会点一下放两个。状态机全部收在 pointerdown（这里）/ pointermove / pointerup（DD 上）三处。
 var DEV_PANEL_MIN=6;
 function startDeviceOut(e,btn){
   TOOL.devDrag={id:btn.getAttribute('data-device'),x:e.clientX,y:e.clientY,
@@ -695,8 +640,8 @@ function moveDeviceOut(e){
   d.x=e.clientX;d.y=e.clientY;
   if(Math.abs(d.x-d.sx)>DEV_PANEL_MIN||Math.abs(d.y-d.sy)>DEV_PANEL_MIN)d.moved=true;
   if(!d.moved){d.over=false;return;}
-  // 「松手会不会放下」= 指针底下不是面板/菜单（这些浮层都盖在画布上）。用 elementFromPoint
-  // 而不是「在不在某个矩形里」，正是 R60c 那条教训：透明容器照样挡事件，矩形判断会漏。
+  // 「松手会不会放下」= 指针底下不是面板/菜单（这些浮层盖在画布上）。
+  // 用 elementFromPoint 而不是矩形判断：透明容器照样挡事件，矩形判断会漏。
   var el=DD.elementFromPoint(d.x,d.y);
   d.over=!!el&&!el.closest('#tools,#pbox,#menu,#smenu,#fmenu');
 }
@@ -705,9 +650,8 @@ function endDeviceOut(){
   if(!d)return;
   if(!d.moved){deviceTap(d.id);return;}   // 没拖动 = 就是点了一下按钮
   if(!d.over)return;                      // 丢回面板/菜单 = 取消
-  // R96：与「器件模式下点画布」走**同一条收尾**：放下一个就解除武装（除非双击进了连续模式）。
-  // 少了这一句的后果实测过（_probe_r96.py C2）：从面板拖出一个之后仍然武装着，用户接着点一下
-  // 画布想取消选择，却又落下第二个弹簧 —— 与 R57「单击画布 = 只放一次」的契约不一致。
+  // 与「器件模式下点画布」同一条收尾：放下一个就解除武装（除非双击进了连续模式）。
+  // 否则拖出一个后仍武装着，用户再点画布想取消却又落下一个，违反「单击画布 = 只放一次」。
   var B=placeDevice(d.id,d.x,d.y);
   if(B&&!TOOL.cont)setToolMode(null);
 }
@@ -727,7 +671,7 @@ tSub.addEventListener('click',function(e){
   e.stopPropagation();
   var b=e.target.closest('.tbtn');if(!b)return;
   var sh=b.getAttribute('data-shape');
-  // R57（用户 #1）：单击画一次 / 双击连续 / 再单击取消。换成**另一个**形状则直接切过去。
+  // 单击画一次 / 双击连续 / 再单击取消。换成另一个形状则直接切过去。
   toolTap('shape:'+sh,'shape',function(){TOOL.shape=sh;});
 });
 // opening the formula menu leaves the row up (so you can pick another tool right after), but

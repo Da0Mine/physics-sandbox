@@ -1,33 +1,32 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-page-node-id="A9eyw9WPtrH5nl5ub04oNg">
-<head data-page-node-id="G6NNsXC9b1q1lPiYn6Z8eo">
-<meta charset="UTF-8" data-page-node-id="sZDF7dFFip78zHd1Y1sYUt">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" data-page-node-id="GG2UpZlX9FgLBNbL5d2TYy">
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="color-scheme" content="light">
 <meta name="darkreader-lock" content="true">
 <title>m g a v r</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
-<body data-page-node-id="b9AleLmR7rm5yRMONcsoPM">
-<div class="ground" data-page-node-id="W6lOmQt89cguU1FqSHa9n0"></div>
-<canvas class="cv" id="cv" data-page-node-id="bdmBFkreuwwDCQaXtsGjkG"></canvas>
-<div class="shadow" id="shadow" data-page-node-id="sN2Psm5DWcZvAnnXNbc42B"></div>
-<div class="panel" id="panel" data-page-node-id="IxHsX99YHhBxUCvOrfagEf"></div>
+<body>
+<div class="ground"></div>
+<canvas class="cv" id="cv"></canvas>
+<div class="shadow" id="shadow"></div>
+<div class="panel" id="panel"></div>
 <button id="panelToggle" title="符号面板"><svg width="21" height="21" viewBox="0 0 24 24"
   fill="none" stroke="#26221C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
   <path d="M5 9l7 7 7-7"/></svg></button>
-<div class="handle" id="handle" data-page-node-id="UWXij0BVCyFd48XE5uApY0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="iq2t982utHvvc3sXaYMC36"><polyline points="22 4 22 10 16 10" data-page-node-id="ohwEGt9cOKw0vOjq0x7pgt"></polyline><path d="M19.5 15a8.5 8.5 0 1 1-2-8.9L22 10" data-page-node-id="BZdi6I8wfnH2vjHAB3pOfe"></path></svg></div>
-<!-- R56：圆弧两端的角度手柄（= PPT 弧形的黄控制点）：悬浮弧上时出现，拖动改扫过角 -->
+<div class="handle" id="handle"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 4 22 10 16 10"></polyline><path d="M19.5 15a8.5 8.5 0 1 1-2-8.9L22 10"></path></svg></div>
+<!-- 圆弧两端的角度手柄：悬浮在弧上时出现，拖动改变扫过角 -->
 <div class="arknob" id="ark0"></div>
 <div class="arknob" id="ark1"></div>
-<!-- R98-3：轻质杆两端的**长度手柄**（悬浮杆上时出现在两端，拖一个改长短，远端不动）。
-     与圆弧端点手柄同族观感（18px 圆点），但描边用青绿 #3E7C74 区分「调长度」vs「调角度」。 -->
+<!-- 轻质杆两端的长度手柄：悬浮在杆上时出现，拖一端改长度、另一端不动；青绿描边以区别于圆弧的角度手柄 -->
 <div class="rodlen" id="rodh0"></div>
 <div class="rodlen" id="rodh1"></div>
-<div class="menu" id="menu" data-page-node-id="6VGyPwgjDMxecAgAzNFgq6"><div class="menu-item" data-act="fix"><span class="fix-lab">固定</span></div><div class="menu-item hide" data-act="dirlock"><span class="dl-lab">固定方向</span></div><div class="menu-item hide" data-act="rodlock"><span class="rl-lab">固定角度</span></div><div class="menu-item" data-act="copy">复制</div><div class="menu-item" data-act="param">参数</div></div>
+<div class="menu" id="menu"><div class="menu-item" data-act="fix"><span class="fix-lab">固定</span></div><div class="menu-item hide" data-act="dirlock"><span class="dl-lab">固定方向</span></div><div class="menu-item hide" data-act="rodlock"><span class="rl-lab">固定角度</span></div><div class="menu-item" data-act="copy">复制</div><div class="menu-item" data-act="param">参数</div></div>
 <div class="params" id="pbox"><div class="phead"><span class="ptitle"></span><button class="pclose" id="pclose">✕</button></div><div class="pval"></div><div class="rows" id="prows"></div><div class="pcontacts" id="pcontacts"></div></div>
-<div class="trash" id="trash" data-page-node-id="tBnA0GugXEjEA4Bj0p78wr"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="Wy6GVFxd8XmDRAEGWhPxXT"><path d="M3 6h18" data-page-node-id="j1e5UDbTiSQX2PRvFn1l0s"/><path d="M19 6l-1.2 13.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 6" data-page-node-id="8vPqrmuPOYVYT5IuSkhrk0"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" data-page-node-id="BOvZg3ANs7YL4AFDi9CQwm"/><path d="M10 11v6M14 11v6" data-page-node-id="UJETdIFnRQ6JfdWxVY1UIM"/></svg></div>
-<div class="ring" id="ring" data-page-node-id="VE0Y4pdjQvvUddHHV3DAjq"></div>
+<div class="trash" id="trash"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6l-1.2 13.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M10 11v6M14 11v6"/></svg></div>
+<div class="ring" id="ring"></div>
 <div class="fresize" id="fresize"><span>⇔</span></div>
 <div class="tools" id="tools">
   <button class="ttoggle" id="ttoggle" title="工具">
@@ -51,55 +50,19 @@
         <rect x="3.4" y="3.4" width="9.4" height="9.4" rx="1.6"/><circle cx="16" cy="16" r="4.9"/>
       </svg>
     </button>
-    <!-- R96（用户：「再在左上角下拉框增加一个类别按钮，叫做器件，里面是可以拉出各种器件的，首先
-         第一个叫做弹簧，也就是那个 kx 组成的弹簧可以从这里面直接拖出」）：
-         「器件」= 与「预设物体」并列的**类别按钮**，点开在它下面展开一行器件（#dsub）。
-
-         ★图标换了三版，一次一次收敛（R96b → R96b2 → R97c）：
-           ① 第一版：一条**锯齿折线**（想表达弹簧）。用户：「那个器件的图标你咋用这个？这个图标
-              在这里并不适用」—— 类别按钮不该拿某一个**具体器件**当符号，而且稀疏折线在 22px 下
-              像心电波形。
-           ② 第二版：**六角螺母**（六边形 + 圆孔）。用户：「器件的这些图标还是不行」。
-              回头看的毛病：它与右侧的**齿轮（设置）**同属「圆乎乎带个洞」，两者斜对门放着，
-              大屏上第一眼分不开；而且「螺母」是紧固件，与这一行将来要放的弹簧/杆/铰链/绳
-              不是同一类东西。
-           ③ 本版：**箱子**（用户：「你要不改成 mc 里面的那种箱子的那个图标」）。
-              正面箱 = 外框 + 偏上 1/3 处一条盖缝 + 骑在缝上的**空心**小扣锁。
-              ★R97d（用户：「这个箱子搞成正方形的，扣锁改成空心的」）：
-                · 箱体由 17.6×13.2 的横矩形改成**正方形** 16.8×16.8（x/y=3.6，r=1.6，
-                  在 24 网格里四边留 3.6 —— 与齿轮（r=9 的圆，直径 18）视觉外径接近，
-                  不会因为「矮胖」而显得比邻居小一号）。正方形也正是 MC 箱子的正投影。
-                · 扣锁由**实心** 4.2×3.4 改成**空心** 5.4×4.4（r=0.8，fill 继承根节点的
-                  `none`，只描边）。空心后必须**单独把描边调细到 1.7**（根是 2.1）：5.4−1.7=3.7
-                  网格单位的净空 ⇒ 22px 下孔洞约 3.4×2.5px，孔还在；若沿用 2.1，净空只剩
-                  3.3×2.3 单位 ≈ 3.0×2.1px 且被描边吃掉一半，看起来还是实心。
-                  顺带把扣锁外形从 4.2×3.4 放大到 5.4×4.4 —— 空心件靠**轮廓**读，
-                  轮廓太小就只剩一团墨；放大的同时它仍只占箱宽 32%（不是大得喧宾夺主）。
-              选它的理由：箱子 = **装各种零件的东西**，正好是「里面可以拉出各种器件」的字面意思；
-              轮廓是「宽矩形 + 一条横线 + 一个小方块」，与齿轮（圆 + 一圈齿）、方块+圆（小方 +
-              右下圆）都不撞。
-              候选与对比见 `_r97b_icon_candidates.html`（箱1/箱2 两版，都在**真实工具行**里
-              带 4 个真邻居渲染 + 放大 3 倍）。 -->
+    <!-- 「器件」类别按钮（箱子图标）：点开后在下方展开器件行 #dsub -->
     <button class="tbtn" data-tool="device" title="器件">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3.6" y="3.6" width="16.8" height="16.8" rx="1.6"/><path d="M3.6 9h16.8"/><rect x="9.3" y="6.8" width="5.4" height="4.4" rx="0.8" stroke-width="1.7"/>
       </svg>
     </button>
     <button class="tbtn" data-tool="settings" title="设置">
-      <!-- R77（用户③「设置的那个图标你改成那个一般的设置的图标，不是这个图标，是那种一般通用的
-           设置符号图标」）：R76 那版是自绘的「齿圈 + 8 根细短齿」，齿形太细，整体读起来仍像太阳，
-           不是「通用设置符号」。换成 **Feather / Lucide 的 settings 图标原路径** —— 一圈带 8 个
-           梯形齿的工业齿轮轮廓 + 中心 r=3 圆孔，就是各类 App 里最常见的那个「齿轮 = 设置」符号。
-           线宽/圆角沿用工具行的 2.1 / round，视觉重量与相邻按钮一致（viewBox 24、渲染 22px）。 -->
+      <!-- 设置（Feather / Lucide 的 settings 图标） -->
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
       </svg>
     </button>
-    <!-- ★★R132-8（用户 2026-10-01：「在左边下拉框里面设置按钮的右边增加一个按钮，
-         进入全屏，点击后用来进入浏览器全屏显示的功能」）：
-         放在「设置」**右边**（= 工具行最末一个）。图标用**四角外扩**（四个直角折线，
-         与「进入全屏」的通用语义一致）；进全屏后同一按钮切成**四角内收** + 标题改
-         「退出全屏」—— 一个按钮表达两态，不新增控件。 -->
+    <!-- 全屏切换：进入全屏后图标换成四角内收、标题改为「退出全屏」 -->
     <button class="tbtn" data-tool="fullscreen" id="fsbtn" title="全屏">
       <svg id="fsicon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
         <path d="M4 9V4h5"/><path d="M15 4h5v5"/><path d="M20 15v5h-5"/><path d="M9 20H4v-5"/>
@@ -113,14 +76,7 @@
     <button class="tbtn" data-shape="circle" title="圆形">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.4"/></svg>
     </button>
-    <!-- R82（用户：「把圆改成空心的，里面可以放东西进去，因为有时也需要圆形轨道」）：
-         圆轨（原名**圆环**，R102 用户：「把图形中的那个圆环的改一下，改叫做圆轨，默认是保持
-         固定的」）= 空心圆。视觉与「圆形」逐像素相同（同一条 BND_HH*1.55 描边），但物理从
-         「实心圆盘」变成「一圈墨线厚的环」—— 里面是空的，能放东西，球也能沿内壁滚（圆形轨道）。
-         ★改名后**只有显示名**变了，内部标识 `wshape==='ring'` / `data-shape="ring"` 一字未动
-           （它们是 39 处分派点依赖的键，改键等于重做整个功能，收益为零）。
-         ★「默认固定」不是画在按钮上，而是**画出来的那一刻**就置 fixed —— 见落体处 R102 注释。
-         图标按「两条同心圆」画，与实心圆一眼可分。 -->
+    <!-- 圆轨：空心圆，里面可放东西、球可沿内壁滚；画出即默认固定。显示名叫「圆轨」，内部键仍是 ring（多处分派依赖它，不要改） -->
     <button class="tbtn" data-shape="ring" title="圆轨（空心圆轨道，里面能放东西、球可沿内壁滚；默认固定）">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="5"/></svg>
     </button>
@@ -128,15 +84,7 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5 4 5.5 19.5 19.5 Z"/></svg>
     </button>
     <button class="tbtn" data-shape="trough" title="半凹槽">
-      <!-- R71a（用户①：「半凹槽的图标还是不对，现在你的图标是全凹槽」）：R70b 把凹口画成
-           居中深 U 形槽（竖壁 + 半圆槽底）—— 而 全凹槽(tub) 图标是「两侧竖壁 + 宽半圆碗口」，
-           两者在 16px 下都是「两条竖墙夹一个碗」，ASCII 对比（_diag_icon3.py，72px）几乎逐行重合，
-           当然分不出谁是谁。
-           R71a 改成**忠实反映真实几何**：shapeOutline('trough') 的规范形是「矩形 + 右上角一条
-           四分之一弧内凹」（圆心在右上角 (bx,ay)，R=min(h,w-t)，从 180° 扫到 90°）= 滑梯。
-           图标即：左边一整块实体 + 左上平台 → 四分之一弧向右下扫到右边中点 → 右下竖壁 →
-           底边。与全凹槽的**左右对称宽碗**形态在轮廓上完全不同的拓扑（非对称、只有一个圆角、
-           实体块在左），16px 下也一眼可辨。 -->
+      <!-- 半凹槽：图标按真实几何画（矩形右上角挖去四分之一圆弧，即滑梯形），与左右对称的全凹槽区分 -->
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5 V4.5 H10 A 10 10 0 0 0 20 14.5 V19.5 Z"/></svg>
     </button>
     <button class="tbtn" data-shape="tub" title="全凹槽">
@@ -146,109 +94,29 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17 A 8.4 8.4 0 0 1 20 17"/></svg>
     </button>
   </div>
-  <!-- R96：器件行（类别按钮「器件」的子面板）。与形状行同构：展开/收回、穿透规则、圆角都复用 .tsub。
-       交互有两种，都落到同一个 placeDevice（见 JS）：
-         · 直接从这上面**拖出去**，松手在画布上就放下一个（丢在面板/菜单上则不生成）；
-         · 只点一下不拖 = 武装「器件」模式，之后每点一次画布放一个（与画笔/预设物体同一套手感，
-           单击只放一次、双击持续放、再点按钮取消 —— 由 toolTap 统一管）。
-       现在只有弹簧一个器件；DEVICES 是一张表，以后加器件只往表里追加一行。 -->
+  <!-- 器件行 #dsub（与形状行同构，复用 .tsub）。从这里拖到画布即放下一个；只点不拖则进入器件模式，之后每点一次画布放一个（由 toolTap 统一处理）。新增器件只需在 DEVICES 表里加一行。 -->
   <div class="tsub dsub" id="dsub">
-    <!-- R97（用户：「直接用弹簧当做图标，不要再在按钮上写一个弹簧，鼠标悬浮时出现弹簧字样即可」）：
-         chip 里**只留图标**，名称走 title 的原生悬浮提示 —— 与上面「预设物体」行（每颗只有
-         一个 svg + title）从此**完全同构**：同一个 .tbtn 盒子（46×38）、同一个 16px 线稿尺寸。
-         去掉 <span class="dvtxt"> 之后 .dsub 只剩「拖出手感」这一条自己的规则（cursor:grab）。
-
-         ★图标形态（R97c，用户：「这个弹簧的图标怎么像个心电图？」）：
-         旧 path 是 `M3 12h2.5l2.1-5.4 3.1 10.8 3.1-10.8 2.1 5.4H21` —— 它的走法是
-         **平线 → 尖峰 → 平线 → 尖峰 → 平线**，而这正是**心电图**的定义特征（等电位基线 +
-         孤立 QRS 尖峰）。所以不管画得多准，读出来都是 ECG。
-         改法：**去掉全部平段**，改成等周期、等幅、贯穿整宽的锯齿
-         `M3 12l3-5.6 3 11.2 3-11.2 3 11.2 3-11.2 3 5.6`（3 峰、振幅 ±5.6、段长 3）。
-         段长 3 × 16/24 = 2.0px 渲染，线宽 2.2 × 16/24 ≈ 1.5px ⇒ 相邻笔画不并拢；
-         再密（4 峰以上，见 `_r97b_icon_candidates.html` 的「弹2」）在 16px 下就开始糊。
-         两端的半段（起点/终点落在中线上）是**有意保留**的：它让图形有「起止」，不像被裁断。
-
-         ★R97d（用户：「弹簧图标选择弹2」）：落到 **弹2 = 等周期 4 峰**
-         `M3 12l2.25-5 2.25 10 2.25-10 2.25 10 2.25-10 2.25 10 2.25-10 2.25 5`
-         （横向周期 4.5 网格单位 ⇒ 16px 下 3.0px；相邻笔画间距 3.0px > 线宽 1.47px）。
-         用户是在候选页的 3× 放大图里选的；选它是因为「更接近真实线圈」（`drawSpring` 是 11 周期），
-         3 峰那版在大图里确实偏「波形」。段数/振幅/周期一字未改（改的就是候选页里那一行 path）。 -->
+    <!-- 器件 chip 只放图标，名称走 title 悬浮提示。弹簧图标用等周期锯齿、不留平段（有平段会读成心电图）。 -->
     <button class="tbtn" data-device="spring" title="弹簧 —— 拖到画布上放下（也可以先点它，再点画布）">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2.25-5 2.25 10 2.25-10 2.25 10 2.25-10 2.25 10 2.25-10 2.25 5"/></svg>
     </button>
-    <!-- R98-2（用户：「再增加一个器件，叫做轻质杆……悬浮旋转按钮和弹簧一样，两端有长度手柄可以拖动调长短」）：
-         轻质杆 chip。★R101⑤（用户：「杆的图标修改一下，两端改成两个圆的端点，而不是现在的横线」）：
-         形态从「一条线 + 两端竖帽」`|———|` 改成「一条线 + **两端小圆**」`o———o`，
-         即 `M7.6 12h8.8` 加两个 `<circle cx=4.6/19.4 cy=12 r=3>`。
-         ★R103-4（用户）：两端圆圈换成**更小的实心圆**（r 3→2.2，`fill="currentColor" stroke="none"`
-         —— 按 §38.2，实心块必须走 currentColor 才能在选中态正确反白，stroke 线稿不变）。
-         为什么这样更好（§33.2「像某种东西」翻译成几何语法）：
-           · 竖帽在 16px 下与一条竖着的「弹簧全反射」/「I 形」同形，读者要停顿一下才认；
-             小圆是端点的**通用符号**，与画布上杆两端真冒出来的那两个**圆手柄**字面同形 ——
-             「图标所见 = 拖到画布后拿到的把手」，语义直接闭环（这才是 R98-3 端帽想干的事）。
-           · 线只画在两圆**内切**之间（7.6→16.4，圆半径 3）⇒ 不穿过圆内部，读作「环-杆-环」。
-           · 与传送带 chip（两圆 + 两条平行线 + 一个方块）不撞：这里只有一个圆对、一条线。
-         ★为什么是这个形状（§33.2「像某种东西」翻译成几何语法）：
-           · 与**弹簧**（锯齿折线）、**圆弧**（一条曲线）、**矩形**（闭合框）在拓扑上都不撞 ——
-             它是「一条直线段 + 两端各一根短竖线」，全场唯一的「直 + 两端帽」组合。
-           · 端帽不只是装饰：它**预告了 R98-3 的两端长度手柄**（就是拖杆两端那两个点），
-             用户看到 chip 上的端帽，再看到杆两端冒出的手柄，语义是连得上的。
-           · 16px 下：杆长 14 单位=9.3px、端帽高 10 单位=6.7px、线宽 1.47px ⇒ 三笔分得开。 -->
+    <!-- 轻质杆：线段 + 两端实心小圆（对应杆两端的长度手柄）；实心部分用 currentColor，选中态才能正确反白 -->
     <button class="tbtn" data-device="rod" title="轻质杆 —— 拖到画布上放下（也可以先点它，再点画布）">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.6 12h8.8"/><circle cx="4.6" cy="12" r="2.2" fill="currentColor" stroke="none"/><circle cx="19.4" cy="12" r="2.2" fill="currentColor" stroke="none"/></svg>
     </button>
-    <!-- R99 传送带 chip：图标 = **两个滚轮 + 上下两条带面**（正投影的传送带侧视图）。
-         ★R101⑥（用户：「传送带的图标你改成现在的基础上，上面放一个正方形」）：在现基础上，
-         上带面（y=9.5）**放一个正方形** `<rect x=9 y=4 width=6 height=5.5>` ——
-         底边恰好压在 y=9.5 上（4+5.5=9.5），读出来就是「带子上驮着个箱子」。
-         为什么是方形而不是别的（§33.2）：方形是**被搬运物**的最通用符号，且与「带」
-         （两条平行线）在拓扑上正交 —— 加了它，「这是一台在动的机器」才变成
-         「这是一台在**搬东西**的机器」，正是这个器件的用途本身。
-         16px 下：方块 4×3.67px、与上带面共边（有意重合，就是「压着」），线宽 1.47px ⇒ 分得开。
-         几何语法（§33.2：「像某种东西」要翻译成几何）：
-           · 滚轮 = 两个**等大**的圆（r=2.5，圆心 (6,12)/(18,12)）—— 与「圆」器件同族，
-             但这里是**两个**、被一根横带串起来，读出来就是「滚筒」而不是「轮子」；
-           · 带面 = 上下两条**水平切线**（y=9.5 / 14.5，正好是两圆的外公切线）⇒ 一条绷紧的环带；
-           · 与杆（`|———|`：一条线+两端竖帽）拓扑上不撞：这里是**两条**平行线 + 圆头。
-         16px 下：两圆外径 5 单位=3.3px、中心距 12 单位=8px、线宽 1.47px ⇒ 分得开。
-         外观（糊不糊）交给 1× 截图 + NEAREST 放大看，不伪造机器判据（§30.2）。 -->
+    <!-- 传送带：两个滚轮 + 上下带面 + 带上驮着的方块 -->
     <button class="tbtn" data-device="belt" title="传送带 —— 拖到画布上放下（也可以先点它，再点画布）">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5h12M6 14.5h12"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="12" r="2.5"/><rect x="9" y="4" width="6" height="5.5"/></svg>
     </button>
-    <!-- ★R104-1（用户：「首先是那个铰链的图标你怎么还没改？」）：旧图 = 圆环 + 一横一纵两条正交臂。
-         用户否掉它的理由很直接：正交双臂读起来像「十字 / 准星」，不像合页，也和「销钉穿两块耳板」
-         的实物对不上。**改为合页（门铰链）的通用零件符号**：两片耳板 + 一根穿心的销轴 + 销轴
-         中段的一个小箍（= 合页的轴节 / knuckle）。这是「两个构件绕一根轴相对转动」最短的实物形，
-         也是机械制图里 door-hinge 的通行画法。
-         为什么三件套还画得下 16px（viewBox 24，缩放 0.667，线宽 1.8 → 1.2px）：
-         两片板各宽 6.4（→4.3px），板沿与销轴之间各留 3.0（→2.0px）的空隙，销轴是**一条线**不是粗块，
-         小箍 r=2.4（→直径 3.2px）落在销轴中段 —— 三者在 16px 下仍分得开，不会糊成一团。
-         与同排邻居逐个对过（§33.3「要在邻居上下文里挑」）：弹簧 = 竖直锯齿折线，杆 = 横线 + 两端小圆，
-         传送带 = 两条平行线 + 两个大圆 + 上方方块，轻绳 = 竖直波浪单线；
-         本图是唯一的**两个竖长矩形 + 一条贯穿竖线 + 中段小圆**，与四者都不撞。
-         外观（16px 下糊不糊）交给 1× 截图 + NEAREST 放大 + 人眼，不伪造机器判据（§30.2）。 -->
+    <!-- 光滑铰链：合页符号（两片耳板 + 穿心销轴 + 轴节小圆） -->
     <button class="tbtn" data-device="hinge" title="光滑铰链 —— 拖到画布上放下（也可以先点它，再点画布）">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2v17.6"/><path d="M2.8 6.2h6.4v11.6H2.8z"/><path d="M14.8 6.2h6.4v11.6h-6.4z"/><circle cx="12" cy="12" r="2.4"/></svg>
     </button>
-    <!-- R101⑦ 轻绳 chip。几何语法：绳 = **下垂的曲线**。
-         与同排邻居对过：弹簧 = 等周期锯齿（直上直下），杆 = 直线 + 两端实心圆，
-         传送带 = 两条平行线 + 圆 + 方块，铰链 = 圆环 + 正交双臂。
-         本图是全场唯一的**弯曲单线**，且下垂（tension 松弛）本身就是绳的语义内核。
-         R103-1（用户）：R102 的盘绳类候选全部否决 —— 改成**从上到下波浪形的弯曲**（竖直方向
-         的波浪单线，顶部到底部）。画法：`M12 3` 起、四个半波各下移 4.5 单位到 y=21，
-         用 `q-3 2.25 0 4.5` + 三次 `t`（控制点自动镜像）得到左右交替的平滑正弦波，
-         摆幅 ±3 单位；与弹簧「直上直下的锯齿」、铰链「环+正交臂」都拉开差异。 -->
+    <!-- 轻绳：竖直方向的波浪单线 -->
     <button class="tbtn" data-device="rope" title="轻绳 —— 拖到画布上放下（也可以先点它，再点画布）">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3q-3 2.25 0 4.5t0 4.5t0 4.5t0 4.5"/></svg>
     </button>
-    <!-- R108 地面/墙面 chip。几何语法：**上边一条横线 + 下方一排短斜杠**（工程制图的「地面」符号）。
-         与同排邻居逐个对过（§33.3）：弹簧 = 竖直锯齿折线，杉 = 横线 + 两端小圆，
-         传送带 = 两条平行线 + 两个大圆 + 上方方块，铰链 = 圆环 + 正交双臂，轻绳 = 竖直波浪单线；
-         本图是全场唯一的**「一条边线 + 下方一排同向斜线」**，与五者都不撞。
-         ★与画布里的外观同构（画布也是「上边实线 + 下方斜杠」）⇒ chip 与落体语义连得上。
-         R130c（用户：「底下的斜线太长了，短点，可以多搞几条密集一些」）：斜杠从 3 根长斜线
-         （dy=10、dx=5、间距 6）改成 6 根短斜杠（dy=5、dx=2.5、间距 3.4）——经典地面符号的
-         「密排短刻度」画法，斜杠只挂在横线正下方。 -->
+    <!-- 地面/墙面：横线 + 下方一排短斜杠，与画布中的外观一致 -->
     <button class="tbtn" data-device="ground" title="地面/墙面 —— 拖到画布上放下（也可以先点它，再点画布）">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9.5h20"/><path d="M3 9.5l2.5 5"/><path d="M6.4 9.5l2.5 5"/><path d="M9.8 9.5l2.5 5"/><path d="M13.2 9.5l2.5 5"/><path d="M16.6 9.5l2.5 5"/><path d="M20 9.5l2.5 5"/></svg>
     </button>
@@ -259,7 +127,7 @@
   <div class="fmhead"><span class="fmtitle">公式示例</span><button class="fmclose" id="fmclose">✕</button></div>
   <div class="fmgrid" id="fmgrid"></div>
 </div>
-<!-- R74-D：设置面板（左上角工具下拉 → 设置）。高中/大学物理模式切换，默认大学 = 现状。 -->
+<!-- 设置面板：物理模式（大学 / 高中，默认大学）、交互模式、Bug 记录 -->
 <div class="fmask" id="smask"></div>
 <div class="smenu" id="smenu">
   <div class="fmhead"><span class="fmtitle">设置</span><button class="fmclose" id="sclose">✕</button></div>
@@ -269,12 +137,7 @@
         <button class="sbtn" data-mode="uni">大学</button>
         <button class="sbtn" data-mode="high">高中</button>
       </div>
-      <!-- ★★R132-8（用户 2026-10-01：「在物理模式那个控制的右边加一个问号的按钮，
-           鼠标悬浮显示那些解释性文字，手机版是点击显示」）：
-           原来两段小字（高中说明 + Bug 记录说明）钉在面板里，占掉半屏、手机上尤其挤。
-           改成**问号按钮 + 气泡**：桌面 hover 显示、触屏 click 显示（`uiTouch()` 分流）。
-           ★文案**一字不改**地搬进 `#qpop`，只是换个载体 —— 用户要删的是「一直占着面板
-           的小字」，不是解释本身（他要的是「悬浮才出现」）。 -->
+      <!-- 说明文字放在问号气泡 #qpop 里：桌面悬浮显示，触屏点击显示（由 uiTouch() 分流） -->
       <button class="qbtn" id="qphys" title="高中模式说明">?</button>
     </div>
     <div class="srow"><span class="slab">交互模式</span>
@@ -292,22 +155,13 @@
     <span class="slab">Bug 记录</span>
     <button class="rbtn" id="recbtn">开始记录</button>
   </div>
-  <!-- ★★R132-8：Bug 记录下面那段小字已删（用户：「把设置里面的bug记录下面的小字都给删了」）。
-       但 `#recnote` **元素保留** —— 它是「记录中……/已导出 xxx 帧」的**状态回显**载体
-       （recUI/recStart/recDump 都在写它），删掉元素会让记录模式失去进度反馈。
-       平时为空 ⇒ 由 CSS `:empty{display:none}` 收成 0 高度，视觉上等于不存在。 -->
+  <!-- #recnote 是记录状态的回显载体（recUI / recStart / recDump 都会写它），必须保留；为空时由 CSS :empty 隐藏 -->
   <div class="snote" id="recnote"></div>
 </div>
-<!-- ★★R132-8：问号气泡**必须挂在 `<body>` 上，不能放进 `#smenu`**。
-     实测（_tmp_r311 首轮）：`#smenu` 带 `transform:translate(-50%,-50%) scale(1)`，
-     而 CSS 规范规定**带 transform 的祖先会成为 `position:fixed` 后代的包含块**
-     ⇒ 气泡的 `left/top` 变成相对**面板**而不是视口，按 rect 算出来的坐标全部错位
-     （实测气泡跑到屏幕外，判据「气泡不出屏」红）。
-     挂到 body 上 = 包含块回到视口，定位语义才与 `getBoundingClientRect()` 一致。 -->
+<!-- 问号气泡必须挂在 body 下，不能放进 #smenu：#smenu 带 transform，会成为 position:fixed 后代的包含块，按 getBoundingClientRect() 算出的坐标就会错位 -->
 <div class="qpop" id="qpop"></div>
 <div class="recbadge" id="recbadge">● 记录中</div>
-<!-- ★★R132-10n：Bug 提交框（点「停止记录」后弹出；不再直接下载文件）。
-     挂在 body 下（与 #smenu 同级），不复用 #smenu —— 避免与设置面板的开关逻辑纠缠。 -->
+<!-- Bug 提交框（点「停止记录」后弹出）。挂在 body 下、与 #smenu 同级，不复用 #smenu，避免与设置面板的开关逻辑纠缠 -->
 <div class="bmask" id="bugmask"></div>
 <div class="bbox" id="bugbox">
   <div class="fmhead"><span class="fmtitle">提交 Bug 记录</span><button class="fmclose" id="bugclose">✕</button></div>

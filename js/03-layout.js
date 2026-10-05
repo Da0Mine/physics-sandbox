@@ -1,7 +1,7 @@
 /* 公式排版、面板停靠、字母合并 / 拆分（原 index.html 第 5488–6699 行） */
 function layoutField(B){
   if(B.kind==='S'){
-    // R57 弹簧：没有字母、不排公式 —— 几何完全由两端点决定（refreshSpringGeom 负责）
+    // 弹簧：没有字母、不排公式，几何完全由两端点决定（refreshSpringGeom 负责）
     B.fg=null;B.glyphs=[];B.sc=1;B.frac=false;B.subBar=null;
     refreshSpringGeom(B);
     return;
@@ -16,11 +16,8 @@ function layoutField(B){
   B.fg.body=B;B.fg.inBody=true;B.fg.sx=0;B.fg.sy=0;
   B.hw=(B.fg.m.w/2)+8;B.hh=(B.fg.m.bot-B.fg.m.top)/2+4;B.sc=1;B.frac=false;B.subBar=null;
 }
-// R60c（用户 #5）：「进圆轨道」的规格是**完整的 mv²/r**，不是「只要有 v² / r」。
-// 旧判据 `hasV && hasR && vCount>=2` 只看了 mem（v,v,r），**完全没看质量字母** —— 于是把 m
-// 拆掉之后剩下的裸 **v²/r**（那只是个加速度，不是向心力）照样进圆轨道（用户原话：「反复拆分
-// 合并，出现了 v²/r 就开始圆周运动」，只复现过一次是因为要正好凑成 v,v,r 且旁边还有第二个）。
-// 补上质量判据：必须有 m 或 M 当质量字母。
+// 进圆轨道必须是完整的 mv²/r：除了 mem 里的 v,v,r，还必须有 m 或 M 作质量字母。
+// 裸的 v²/r 只是加速度不是向心力，不能进圆轨道。
 function isMVR(B){
   return !!(B&&!B.kind&&B.hasV&&B.hasR&&B.vCount>=2&&B.massG&&isMass(B.massG.type));
 }
@@ -207,8 +204,8 @@ function layoutBracket(B){
   layoutRun(B,items);
 }
 function layoutFrac(B, vG, rG){
-  // R60c：同 layoutBody —— 裸体（promoteFreeLetter 提升的非质量字母）的 massG 是 null，
-  // 直接拿它当分子基准会在 hRun 里读 null.m 崩掉。取一个安全基准，且不和 vG 重复。
+  // 同 layoutBody：裸体（promoteFreeLetter 提升的非质量字母）的 massG 是 null，
+  // 直接当分子基准会在 hRun 里读 null.m 崩掉；取一个安全基准，且不和 vG 重复。
   var base=B.massG||vG||rG||(B.mem&&B.mem[0])||(B.glyphs&&B.glyphs[0])||null;
   var num=[];
   if(base)num.push({g:base,s:1,dy:0});
@@ -223,11 +220,9 @@ function layoutFrac(B, vG, rG){
   if(B.hasHalf){var rr2=hRun([{g:B.st.h2,s:1,dy:0}]);rows.push(rr2);}
   rows.forEach(function(r){r.top=1e9;r.bot=-1e9;r.parts.forEach(function(p){r.top=Math.min(r.top,p.dy+p.g.m.top*p.s);r.bot=Math.max(r.bot,p.dy+p.g.m.bot*p.s);});});
   var dGap=7, subGap=3;
-  // R58：分母顶必须定在「线下方 dGap」，不能写成 nBot+dGap —— nBot 是分子**平移前**的
-  // 底度量（约 +17），而分子随后被 numShift=-dGap-nBot 搬走了、底已经落到 -dGap。用旧的
-  // nBot 当基准，分母就会被推到「线下方 dGap+nBot ≈ 24px」，而分子离线只有 dGap=7px
-  // （实测 gap_num=7 / gap_den=24.5 —— 用户说的「2 和 r 离上面变远了」就是这个）。
-  // 参照物是 3165 行那种正确写法：dShift = barGap - dTop。
+  // 分母顶必须定在「线下方 dGap」，不能写成 nBot+dGap：nBot 是分子平移前的底度量（约 +17），
+  // 分子随后被 numShift=-dGap-nBot 搬走、底已落到 -dGap；用旧 nBot 会把分母推到线下约 24px，
+  // 而分子离线只有 7px。正确写法是 dShift = barGap - dTop。
   var denTop=dGap;
   var dTop,dBot,subBarY=null;
   if(rows.length===1){
@@ -314,11 +309,11 @@ function layoutGrav(B){
     var dTop=1e9,dBot=-1e9;
     dR.parts.forEach(function(p){dTop=Math.min(dTop,p.dy+p.g.m.top*p.s);dBot=Math.max(dBot,p.dy+p.g.m.bot*p.s);});
     var dGap=7;
-    // R58：同上（layoutFrac 那个 nBot+dGap 的连襟 bug）——分母顶 = 线下 dGap，与分子对称
+    // 同上：分母顶 = 线下 dGap，与分子对称（不要写成 nBot+dGap）
     var denTop=dGap;
-    // R58：锚定的是「整个分母块」的顶（含上标 ²），不是 denMain 的顶。
-    // 只用 denMain 时 r 贴到线下 7px，而 ² 又比 r 高出 ~18px，结果 ² 横跨分式线被劈成两半。
-    // 分子那边对称的口径是「整块分子的底离线 dGap」，所以分母也得按整块来量。
+    // 锚定的是整个分母块的顶（含上标 ²），不是 denMain 的顶：
+    // 只用 denMain 时 r 贴到线下 7px，而 ² 比 r 高约 18px，会横跨分式线被劈成两半。
+    // 分子那边是「整块分子的底离线 dGap」，分母也按整块来量。
     var shR=denTop-dTop;
     dR.parts.forEach(function(p){p.g.sx=p.cx-dR.w/2;p.g.sy=shR+p.dy;});
     var numShift=-dGap-nBot;
@@ -326,8 +321,8 @@ function layoutGrav(B){
     var denW=dR.w;
     var fracW=Math.max(numR.w,denW)+14;
     B.st.bar.w=fracW;B.st.bar.h=2;B.st.bar.sx=0;B.st.bar.sy=0;
-    // R58：分母刚被 shR 平移过，它的底是 dBot+shR；漏掉 shR 会让 wholeBot 偏小、
-    // shiftY 算错，整条分式在 body 里上下偏心（layoutFrac 那边 dBot 已经含平移量）。
+    // 分母刚被 shR 平移过，底是 dBot+shR；漏掉 shR 会让 wholeBot 偏小、shiftY 算错，
+    // 整条分式在 body 里上下偏心（layoutFrac 那边 dBot 已含平移量）。
     var wholeTop=nTop+numShift, wholeBot=dBot+shR;
     var shiftY=-(wholeTop+wholeBot)/2;
     numR.parts.forEach(function(p){p.g.sy+=shiftY;});
@@ -367,11 +362,9 @@ function layoutGrav(B){
 function layoutBody(B){
   B.mem.sort(function(x,y){return wLet(x.type)-wLet(y.type);});
   ensureSt(B);
-  // R60c：promoteFreeLetter 把自由字母原地提升成体时，非质量字母（v/r/g/a/μ…）**不会**被赋值
-  // massG（只有 isMass 的字母才当质量）。之后往这个裸体里合字母 -> refresh -> layoutBody，
-  // 排版基准 `B.massG` 是 null，`hRun` 读 `null.m.w` 直接抛
-  // "Cannot read properties of null (reading 'm')"，整个排版中断（体留在原地、字母不跟着排）。
-  // 修法：取一个安全基准 —— 有 massG 用它，否则退回 mem[0] / glyphs[0]。
+  // promoteFreeLetter 提升的非质量字母（v/r/g/a/μ…）不会被赋值 massG，之后往这个裸体合字母时
+  // 排版基准 B.massG 是 null，hRun 读 null.m.w 会抛错、整个排版中断。
+  // 所以取安全基准：有 massG 用它，否则退回 mem[0] / glyphs[0]。
   var base=B.massG||(B.mem&&B.mem[0])||(B.glyphs&&B.glyphs[0])||null;
   if(!base){B.hw=26;B.hh=26;B.frac=false;B.subBar=null;return;}
   if(B.hasGrav){layoutGrav(B);return;}
@@ -464,7 +457,7 @@ function anchorBox(B){
       B.glyphs[j].sx=(B.glyphs[j].sx||0)-ucx;
       B.glyphs[j].sy=(B.glyphs[j].sy||0)-ucy;
     }
-    if(B.st&&B.st.bar&&B.glyphs.indexOf(B.st.bar)<0){   // R56: 若线已在 glyphs 里，上面的循环已经平移过它——再减一次就是「分数线扎进分子」的回归
+    if(B.st&&B.st.bar&&B.glyphs.indexOf(B.st.bar)<0){   // 若线已在 glyphs 里，上面的循环已经平移过它，再减一次会让分数线扎进分子
       B.st.bar.sx=(B.st.bar.sx||0)-ucx;B.st.bar.sy=(B.st.bar.sy||0)-ucy;}
     if(B.subBar)B.subBar.y-=ucy;
   }
@@ -507,9 +500,8 @@ function refresh(B){
         if(B.st.bar)B.glyphs.push(B.st.bar);
       }
     }else{
-      // R60c：裸体（promoteFreeLetter 提升的非质量字母）massG 是 null —— 写成
-      // `B.glyphs=[B.massG]` 会塞进一个 null，下面一行 `B.glyphs[i].body=B` 立刻崩
-      // （"Cannot set properties of null"），之后每帧 syncGlyphs 读 `null.dead` 连环炸。
+      // 裸体（promoteFreeLetter 提升的非质量字母）massG 是 null：不能写成 B.glyphs=[B.massG]，
+      // 否则塞进 null，下一行 B.glyphs[i].body=B 立刻崩，之后每帧 syncGlyphs 读 null.dead 连环报错。
       B.glyphs=[];
       if(B.massG)B.glyphs.push(B.massG);
       var vG=null,rG=null;
@@ -558,9 +550,8 @@ function refresh(B){
   // 2GM/c² complete -> the whole formula COLLAPSES into a black hole (event horizon grows
   // outward, the letters get sucked in and vanish, the hole stays and devours everything).
   if(B.isSchwarzschild&&!B.bh){
-    /* ★★R131-57（用户：「把之前那些黑洞融合代码都删了，增加一条规则：**不能同时召唤两个黑洞**」）：
-     *  出生处门控——场上已有黑洞 ⇒ 这个公式**不坍缩**成第二个黑洞（保持普通公式体）。
-     *  这样从根上避免"两个黑洞"的场景，配合下面的"停用合并"，黑洞逻辑回到最简单可靠。 */
+    /* 不能同时召唤两个黑洞：出生处门控，场上已有黑洞时这个公式不坍缩（保持普通公式体）。
+     * 从根上避免两个黑洞的场景，黑洞合并逻辑因此停用。 */
     var _hasBH=false;
     for(var _bi2=0;_bi2<bodies.length;_bi2++){
       var _B2=bodies[_bi2];
@@ -618,30 +609,19 @@ function dockedTwins(ch,me){
   }
   return false;
 }
-/* ★★R132-9m（用户：「已复现 q 无法正常赋予物体电荷数值问题」，录屏
- *  `rec_2026-10-02-08-45-29.json`：拖出 q → 右键 q → 参数 → 改数值 → 关闭 → 再赋予）
- *
- *  冲突现场（两条需求在同一行代码上打架，必须先看清再改）：
- *   · `_diag_r322_vparam.py` 的 **W1** 契约（用户上一轮「改一个字符 v 的值，怎么后面拖出来
- *     所有的 v 里面数值都变了？」）：**面板(dock)单例的数值不许被写回** ⇒ 它锁的断言是
- *     `vO.vGive` 改前改后必须**相等**（并不要求"克隆不带值"）。
- *   · 而用户在**面板**上给 q 调好电荷之后，从面板新拖出来的 q 必须带着这个值 ——
- *     否则就是用户这次报的「无法正常赋予电荷数值」（`_diag_r345` Q2 实测：面板写 7，
- *     新克隆 `qCharge=undefined` ⇒ 落到物体上变成默认 **1**）。
- *
- *  ⇒ 两全的解法：**默认值表与 dock 单例分开**。
- *     · 面板上改参数 ⇒ 记进 `CHAR_DEF[字符]`（**不碰** dock 单例 ⇒ W1 契约原样成立）；
- *     · 世界里那个字符改参数 ⇒ 只写它自己（R132-9d 契约不变）；
- *     · 从面板拖出克隆时 ⇒ 先用 `CHAR_DEF` 补齐缺省字段。
- *     这样「改面板 = 定这一批克隆的默认」与「改实例 = 只影响它」同时成立。 */
+/* 字符参数的默认值表，与面板（dock）单例分开：
+ *  · 面板上改参数 ⇒ 记进 CHAR_DEF[字符]，不碰 dock 单例（dock 单例的数值不许被写回，否则后续拖出的同名字符全被改）；
+ *  · 世界里的字符改参数 ⇒ 只写它自己；
+ *  · 从面板拖出克隆时 ⇒ 先用 CHAR_DEF 补齐缺省字段（否则面板上调好的 q 电荷，新拖出的 q 仍是默认 1）。
+ * 于是「改面板 = 定后续克隆的默认」与「改实例 = 只影响它」同时成立。 */
 var CHAR_DEF={};
 function charDefWrite(letter,key,val){
   if(!letter||!letter.ch)return;
   if(!CHAR_DEF[letter.ch])CHAR_DEF[letter.ch]={};
   CHAR_DEF[letter.ch][key]=val;
 }
-/* 给新造的克隆补齐 `CHAR_DEF` 里的默认值。**只补缺省字段**（不覆盖克隆自己已经带上的值，
-   也不覆盖「世界里那个字符」的实例值）—— 与 gdDown 克隆分支的拷贝清单同一套字段名。 */
+/* 给新造的克隆补齐 CHAR_DEF 里的默认值。只补缺省字段（不覆盖克隆自己已带的值，
+ 也不覆盖世界里那个字符的实例值），字段名与 gdDown 克隆分支的拷贝清单一致。 */
 function charDefFill(d){
   if(!d||!d.ch)return;
   var cd=CHAR_DEF[d.ch];if(!cd)return;
@@ -676,21 +656,13 @@ var DOCK_ORDER={'m':0,'M':1,'g':2,'a':3,'v':4,'r':5,'½':6,'μ':7,'c':8,'G':9,'t
 function dockSlotEl(e){
   var i=DOCK_ORDER[e.textContent];
   if(i==null)return;
-  /* ★★R132-9m（用户：「双击垃圾桶清屏时，右上角的符号面板会出现一瞬间的错位，就好像刚清屏一瞬间
-   *  又回到了之前符号和下拉按钮重叠的位置，然后又被强行拉回来」）：
-   *  **槽位规则必须与 `fixPanelSlot` 完全一致**，否则清屏会闪一下。
-   *  旧版这里是「每行 4 个」（`i%4+1` / `⌊i/4⌋+1`），而 `fixPanelSlot` 是「**第 1 行只放 3 个**
-   *  （第 4 格留给 `#panelToggle` 那个下拉把手）」。清屏时 `dockLetter → sortPanel` 先按旧的
-   *  「每行 4 个」把第 4 个字符（a）放进第 1 行第 4 格 —— **正好压在把手下面**，随后
-   *  `clearAll` 里那句 `setTimeout(fixPanelSlot,0)` 再把它拉到第 2 行 ⇒ 用户看到的就是
-   *  「先重叠、再被强行拉回」的一帧闪烁。
-   *  ⇒ 两处共用这一个 `dockSlotEl` 作为**唯一**的「序号 → 格」真源。 */
+  /* 序号 → 格的唯一真源，fixPanelSlot 与 sortPanel 共用：第 1 行只放 3 个（第 4 格留给 #panelToggle 下拉把手），
+   * 之后每行 4 个。两处规则不一致时，清屏会先把字符放到把手下面、再被 fixPanelSlot 拉回，闪一帧。 */
   var row,col;
   if(i<3){row=1;col=i+1;}                       // 第 1 行 3 个，第 4 格留给把手
   else{var k=i-3;row=2+Math.floor(k/4);col=k%4+1;}
-  /* ★先清掉 `gridColumn/gridRow` **简写**（它会把 start/end 一起写上，end 会残留成
-   *  例如 `3 / auto`，与下面单独设 start 打架）——旧版 `fixPanelSlot` 用简写、本函数用长写，
-   *  两套混用时 end 值会互相污染。统一：先清简写，只留长写。 */
+  /* 先清掉 gridColumn/gridRow 简写：简写会连带写 end（残留成如 3 / auto），与下面单独设的 start 打架。
+   * 统一只用长写。 */
   e.style.gridColumn='';e.style.gridRow='';
   e.style.gridRowStart=String(row);
   e.style.gridColumnStart=String(col);
@@ -721,24 +693,15 @@ function pickFromDock(d){
   d.wx=pointer.x;d.wy=pointer.y;d.vx=0;d.vy=0;
   placeLetter(d);
 }
-/* ★★R131-34：字符 v / q 拖到物体上 ⇒ **赋予**该物体属性（不并入 mem）：
+/* 字符 v / q 拖到物体上 ⇒ 赋予该物体属性（不并入 mem）：
  *   v = 赋初速度（大小 B.vGive、方向 B.vAng，默认水平向右）；q = 赋电荷量（B.charge）。
- *   t 静止（TIME_SCALE=0）时赋的速度**不会立刻生效**——时间恢复后才动（用户规格）。
- *   赋予后字符播放一段丝滑的「注入」消失动画（dockLetter 回面板 + burst 粒子）。 */
-/* ★★R132-9zl（用户 2026-10-03：「我**缩小范围**，只有矩形，圆形，三角形这几个能赋予电荷 q」）。
- *   电荷会在电磁场里对物体施力，而**手绘笔画**没有稳定的"质心/惯量"语义、且形状可以任意
- *   折返 ⇒ 施力后表现不可预期。⇒ 把「可被赋予电荷」的 W 体**收窄到三个预设形状**：
- *   `rect`（矩形，含画笔随手画出的四段矩形以外的中性 W 体）/ `circle`（圆形）/ `tri`（直角三角形）。
- *   ★其它形状（ring 圆轨、trough 半凹槽、tub 滑梯、arc 圆弧、手绘折线）**不再接受电荷**：
- *     q 落上去会走原来的兜底（`spawnField('q')` 生成场源体），不会被并进物体。 */
-/* ★★R132-9zq（用户 2026-10-03 更正上一版的理解）。
- *   用户原话：「我的意思是**形状里面矩形和圆形和三角形画出来的器件**，
- *   **而不是要你自己再去判定**」。
- *   ⇒ 白名单只看**工具标识**（预设物体工具的 `wshape`），**不做任何几何推断**：
- *      `rect`（矩形器件）/ `circle`（圆形器件）/ `tri`（直角三角形器件）三个**器件**可赋电荷；
- *      其余一律不可 —— 包括 **画笔随手画的方框**（`wshape` 为空/poly，哪怕看着像矩形）、
- *      圆轨 `ring`、半凹槽 `trough`、滑梯 `tub`、圆弧 `arc`。
- *   ★上一版我按凸包点数/半径变异系数去"判形状" —— 那是自作主张，已整段撤掉。 */
+ *   时间静止（TIME_SCALE=0）时赋的速度不立刻生效，时间恢复后才动。
+ *   赋予后字符播放「注入」消失动画（dockLetter 回面板 + burst 粒子）。 */
+/* 可被赋予电荷的 W 体白名单：只看预设物体工具的 wshape，不做任何几何推断。
+ *   rect（矩形器件）/ circle（圆形器件）/ tri（直角三角形器件）可赋电荷；
+ *   其余一律不可：画笔随手画的方框（wshape 为空/poly，哪怕看着像矩形）、圆轨 ring、半凹槽 trough、滑梯 tub、圆弧 arc。
+ *   原因：手绘笔画没有稳定的质心/惯量语义、形状可任意折返，在电磁场里受力后表现不可预期。
+ *   不在白名单时 q 走兜底 spawnField('q') 生成场源体，不并进物体。 */
 var Q_GIVE_SHAPES={rect:1,circle:1,tri:1};
 function qGiveable(B){
   if(!B)return false;
@@ -753,14 +716,10 @@ function giveFromLetter(B,d){
     var an=(d.vAng!=null)?d.vAng:0;                 // 0° = 水平向右
     var rr=an*Math.PI/180;
     var vx=Math.cos(rr)*sp, vy=Math.sin(rr)*sp;
-    /* ★★R132-9m（用户：「字符 v 赋予物体速度好像是直接赋予速度啊，但是我要的是**相加**，
-     *  也就是假如是 6，那第二次赋予就是再加 6，而不是直接改变为 6」）：
-     *  旧版 `setVelocity(B.mb,{x:vx/60,y:vy/60})` 是**覆盖** —— 第二次赋 6 仍然是 6。
-     *  改成**叠加**（与 `a` 的「矢量累加」同口径，见下面 a 分支的 R131-50 注释）：
-     *    · 动态体：读回当前 Matter 速度，加上本次增量再写回；并把 `B.vx/vy` 同步成真实值。
-     *    · 固定体（B.fixed / isStatic）：Matter 不会推动它，速度由 `B.vx/vy` 驱动
-     *      （stepPhysics 的 fixed 分支），所以这里累加 `B.vx/vy`。
-     *  ⚠ 单位：`B.vx/vy` 是 px/s，Matter 速度是 px/帧 ⇒ 差一个 /60（与全场口径一致）。 */
+    /* v 的赋予是叠加而非覆盖（第二次赋 6 是再加 6），与 a 的矢量累加同口径：
+     *  · 动态体：读回当前 Matter 速度，加上增量再写回，并把 B.vx/vy 同步成真实值；
+     *  · 固定体（B.fixed / isStatic）：Matter 不推动它，速度由 B.vx/vy 驱动（stepPhysics 的 fixed 分支），累加 B.vx/vy。
+     * 单位：B.vx/vy 是 px/s，Matter 速度是 px/帧，差一个 /60。 */
     var _stat=!!B.fixed||(B.mb&&B.mb.isStatic);
     if(B.mb&&!_stat){
       var _cv=Matter.Body.getVelocity(B.mb)||{x:0,y:0};
@@ -775,9 +734,7 @@ function giveFromLetter(B,d){
     return 'v';
   }
   if(t==='a'){
-    /* ★★R131-50（用户：「赋予多个给同一个物体要叠加；不同角度赋予后，物体里显示叠加后的
-     *  矢量相加后的加速度大小和角度」）：**矢量累加**（不再覆盖）——于是多次赋 a 就是矢量
-     *  合成，面板显示的是合成结果。 */
+    /* 矢量累加（不覆盖）：多次赋 a 做矢量合成，面板显示合成后的大小和角度。 */
     var aa=(d.aGive!=null)?d.aGive:1300, an2=(d.aAng!=null)?d.aAng:0, rr2=an2*Math.PI/180;
     B.accGive=aa;B.accAng=an2;
     B.accX=(B.accX||0)+Math.cos(rr2)*aa;
@@ -795,17 +752,13 @@ function giveFromLetter(B,d){
   }
   return null;
 }
-/* ★★R132-9（用户 2026-10-01：「符号拼接还要增加一个 GM/r²，拼出这个后，整体变成 g」）：
- *  **引力场强**公式 GM/r² —— 与引力井 GMm/r² 只差一个小写 m，但语义完全不同：
- *    · GMm/r²（well）= 两个物体之间的**力** ⇒ 引力井（拉周围的东西）；
- *    · GM/r²（field）= 场源 M 在该处产生的**场强** ⇒ 就是 g（重力加速度 9.8 m/s²）。
- *  ⇒ 拼全的那一刻，整个多字符表达式**化成一个 g 字符**（G/M/r/r 被它吸收），
- *    落在原处、带着原来的速度继续飞 —— 之后把 m 拖上去就得到 `mg`（预设菜单里的重力）。
- *  ★判据用「逐字母清点」而不是 `gravModeOf`：`gravModeOf` 的 'well' 要求同时有 M 和 m，
- *    'plain' 把"有 G 的其它形状"全算进去；这里要的恰恰是**二者之间那个空档**
- *    （有 G、有 M、有 r²、**没有 m**、没有 c、没有别的字母）。
- *  ★必须允许 `massG` 就是 M（用户从 M 起手：M → G → r → r），也要允许 M 在 mem 里
- *    （用户从 m 起手再补 M 会走成 GMm/r²=well，那是另一条路，这里自然不触发）。 */
+/* 引力场强公式 GM/r²：与引力井 GMm/r² 只差一个小写 m，语义不同：
+ *  · GMm/r²（well）= 两物体之间的力 ⇒ 引力井；
+ *  · GM/r²（field）= 场源 M 在该处的场强 ⇒ 即 g。
+ * 拼全时整个表达式化成一个 g 字符（吸收 G/M/r/r），落在原处、保持原速度；再把 m 拖上去即得 mg。
+ * 判据用逐字母清点而不是 gravModeOf：'well' 要求同时有 M 和 m，'plain' 把有 G 的其它形状全算进去，
+ * 这里要的是二者之间的空档（有 G、M、r²，没有 m、c、其它字母）。
+ * massG 可以就是 M（M → G → r → r 起手），M 也可以在 mem 里。 */
 function gravFieldShape(B){
   if(!B||B.dead||B.kind||!B.hasGrav)return false;
   if(B.bh||B.isSchwarzschild||B.isWell)return false;
@@ -833,30 +786,22 @@ function gravFieldToG(B){
   var msvx=vx,msvy=vy;
   killBody(B);                    // 吸收掉 G / M / r / r（killBody 只清 B.glyphs 里的，不碰新字形）
   freeLetter(g,x,y,msvx,msvy,false);
-  /* ★R132-9b（用户 2026-10-01：「合成字符 g 下面不需要出现那个弹窗」）：
-   *  这里原来会弹一条 `flashHint('GM/r² = g（场强）—— 把它拖到 m 上得到 mg')`。
-   *  用户明确不要这条文字提示 —— 变形本身（G/M/r/r 收成一个 g + 光环 + 粒子）已经说清了，
-   *  再挂一行解释性小字只是噪声。**不要再自作主张往这里加提示文案。** */
+  /* 这里不加文字提示：变形本身（G/M/r/r 收成 g + 光环 + 粒子）已说明一切。 */
   ringGo(x,y);
   burstParticles(x,y,22,1.0);
   return true;
 }
 function attach(B,d){
-  /* ★★R132 BOSS 召唤：**光速 v** 落到 ½mv² 公式体上 ⇒ 转 bossPlace（前两次排斥、第三次融合）。
-   *  必须抢在下面所有分支之前 —— ½mv² 是「由字符组成的表达式」，会走到 mem 并入分支，
-   *  一进去公式就毁了。判据用 bossIsEk()（精确判型），不是"有 v 就拦"。 */
+  /* BOSS 召唤：光速 v 落到 ½mv² 公式体上 ⇒ 转 bossTryPlace（前两次排斥、第三次融合）。
+   * 必须抢在下面所有分支之前：½mv² 是由字符组成的表达式，会走到 mem 并入分支，一进去公式就毁了。
+   * 判据用 bossIsEk() 精确判型，不是「有 v 就拦」。 */
   if(d&&d.ch==='v'&&d.vLight&&typeof bossTryPlace==='function'&&bossTryPlace(B,d))return;
-  /* ★★R132-9（用户：「当用户试图将参数调成 c 的 v 赋予给物体融合时，这时 v 不融合，
-   *  且被弹开，并在放置处弹出一个 error 的错误提示」）：**光速 v 的其它落点一律拒绝**。
-   *  排在 bossTryPlace 之后 ⇒ ½mv² 那条召唤通道先接，接不住的（普通物体 / 别的公式）
-   *  在这里被拒：不并入 mem、不赋予速度、把 v 弹开、落点冒一行 error。
-   *  ★普通 v（vLight=false）不受影响 —— 判定条件里带 vLight，不是"见到 v 就拦"。 */
+  /* 光速 v 的其它落点一律拒绝：不并入 mem、不赋予速度，把 v 弹开并在落点显示 error。
+   * 排在 bossTryPlace 之后，½mv² 的召唤通道先接。普通 v（vLight=false）不受影响。 */
   if(d&&d.ch==='v'&&d.vLight){if(vLightReject(B,d))return;}
-  /* ★R131-34：v / q 是「赋予型」字符——不并入物体，赋予完就回面板（播消失动画）。 */
-  /* ★★R131-50b（自测发现：a 落到字母 m 上也被"赋予"了、组合不了）：真因=下面
-   *  giveFromLetter **在 attach 最开头抢先执行**，组合分支永远走不到。
-   *  修：**目标是"由字符组成的表达式"⇒ 跳过赋予、直接走正常并入（组合）**；
-   *  只有目标是纯形状物体时才赋予。 */
+  /* v / q 是赋予型字符：不并入物体，赋予完就回面板（播消失动画）。 */
+  /* 目标是由字符组成的表达式 ⇒ 跳过赋予、直接走正常并入（组合）；只有纯形状物体才赋予。
+   * 若无条件先执行 giveFromLetter，组合分支永远走不到（如 a 落到 m 上）。 */
   var _isFormulaTarget=!!(B&&(B.massG||(B.glyphs&&B.glyphs.length)||(B.mem&&B.mem.length)));
   if(!_isFormulaTarget){
     var _gave=giveFromLetter(B,d);
@@ -866,10 +811,8 @@ function attach(B,d){
       dockLetter(d);
       return;
     }
-    /* ★★R132-9zm：q 落在**不在白名单**的形状上时**必须在这里中止** ——
-       原来 `giveFromLetter` 返回 false 会一路 fall through 到下面的 `B.mem.push(d)`
-       ⇒ **q 被并进物体的 mem**（正是用户报的「那个符号 E 被融合进去了」那个现象）。
-       ⇒ 非白名单形状一律**不 merge**，交回上层走「场源体」兜底。 */
+    /* q 落在不在白名单的形状上必须在这里中止：giveFromLetter 返回 false 后若继续往下走，
+     * 会执行 B.mem.push(d) 把 q 并进物体。交回上层走场源体兜底。 */
     if((d.type||d.ch)==='q'&&!qGiveable(B))return;
   }
   if(B.mem.indexOf(d)>=0)return;
@@ -885,10 +828,8 @@ function attach(B,d){
   if(B.y+hh>groundY){B.y=groundY-hh;B.vy=-Math.abs(B.vy)*0.5;}
   if(pv)keepMass(B,pv);
   ringGo(B.x,B.y);
-  /* ★★R132-9：拼接完成的**最后一件事** —— 若这次并入刚好把形状补成 GM/r²，
-   *  整个表达式化成一个 g 字符（用户：「拼出这个后，整体变成 g」）。
-   *  ★必须在 keepMass / ringGo **之后**：那两步要读 B.massG / B.x/y，
-   *    而 gravFieldToG 会把 B 整个删掉（顺序颠倒会读到已死的体）。 */
+  /* 拼接完成的最后一步：若这次并入刚好补成 GM/r²，整个表达式化成一个 g 字符。
+   * 必须在 keepMass / ringGo 之后：它们要读 B.massG / B.x/y，而 gravFieldToG 会删除 B。 */
   if(gravFieldShape(B)){gravFieldToG(B);return;}
 }
 function keepMass(B,pv){
@@ -933,11 +874,9 @@ function splitOne(B,d){
   }
 }
 function canMerge(B,d){
-  /* ★★R131-42（用户：「G 和 m 连接后，为什么还能连接字符 c 组成 Gmc？这个不应该能组合」）：
-   *  **已成表达式（mem ≥ 2）之后，禁止再并入"常量/符号类"字母**（c/G/t/q/k/x 等）——
-   *  它们只能作为表达式的**起点**（如 mc²、GMm），不能追加到一个已经成形的表达式里。 */
-  /* ★R131-43（用户：「我说的是 **小写 m** 不能加 c——GM 应该能继续融成 GM/c² 那种」）：
-   *  只有当表达式中含**小写 m** 时才拒绝追加 c；大写 M 的组合（GM…）允许。 */
+  /* 已成表达式（mem ≥ 2）之后，禁止再并入常量/符号类字母（c/G/t/q/k/x 等）：
+   * 它们只能作为表达式的起点（如 mc²、GMm），不能追加到已成形的表达式里（如 Gm + c）。 */
+  /* c 只在表达式含小写 m 时拒绝追加；大写 M 的组合（GM…）允许，以便继续拼成 GM/c²。 */
   if(B&&B.mem&&B.mem.length>=2&&d&&d.ch==='c'){
     var _hasLittleM=false;
     for(var _mi=0;_mi<B.mem.length;_mi++){
@@ -950,8 +889,8 @@ function canMerge(B,d){
   if(B.bh)return false;       // a black hole devours letters — never merges with them
   var t=d.type;
   if(t==='t')return false;   // 't' only forms combos (gt→v, qt→I, vt→rod), never an inert formula letter
-  // R57（用户 #7）：k / x 同理 —— 它们只参与 k·x -> 弹簧（见 applyKXCombo），绝不进公式。
-  // 少了这一句，k 会被 canMerge 末段当成「任意其它字母」合并进 v 之类的单字母体（"kv"）。
+  // k / x 同理：只参与 k·x → 弹簧（见 applyKXCombo），绝不进公式；
+  // 否则 k 会被 canMerge 末段当成「任意其它字母」并入单字母体（如 kv）。
   if(t==='k'||t==='x')return false;
   if(isMass(t)){
     var hasM=false,hasm=false;
@@ -1012,11 +951,9 @@ function canMerge(B,d){
   if(B.mem.length>=2)return false;
   return true;
 }
-// R60c（用户 #4）：符号拼接必须「交叠或非常靠近」才发生，不能是「以某个锚点为圆心的固定大
-// 半径」。旧值 findMergeTarget / findFreeMassTarget / findFreeLetterTarget = 200px、k·x 与 t
-// 组合 = 150px —— 拆分一个整体后，把其中一个符号拖到旁边 150px 外照样被吸回去融合（用户原话
-// 「拖到很远的地方也融合」）。改成**盒距**：两个字形盒之间还隔多少像素（交叠/接触 = 0），
-// 盒外再容 MERGE_PAD。对宿主是**逐字形**取最小值，这样上标的 ²、分母的 r 也能被正确命中。
+// 符号拼接必须交叠或非常靠近才发生，用盒距而不是以锚点为圆心的固定大半径（旧的 150/200px 会把远处的字母吸回去）。
+// 盒距 = 两个字形盒之间的像素间隔（交叠/接触 = 0），盒外再容 MERGE_PAD。
+// 对宿主逐字形取最小值，上标 ²、分母 r 也能正确命中。
 var MERGE_PAD=14;
 function lw(d){return d.w||30;}          // 字形的渲染宽/高（缺省按 F=48 的常规字母）
 function lh(d){return d.h||48;}
@@ -1026,7 +963,7 @@ function boxGap(ax,ay,aw,ah,bx,by,bw,bh){
 }
 function ptToGlyphGap(x,y,cx,cy,cw,ch){return boxGap(x,y,0,0,cx,cy,cw,ch);}
 function twoLetterGap(a,b){return boxGap(a.wx,a.wy,lw(a),lh(a),b.wx,b.wy,lw(b),lh(b));}
-// 落下的字母 d 到**宿主任一字形**盒的最短距离（没有字形就退回宿主包围盒）
+// 落下的字母 d 到宿主任一字形盒的最短距离（没有字形就退回宿主包围盒）
 function bodyMergeGap(B,d){
   var sc=B.sc||1,i,best=1e9;
   if(B.glyphs&&B.glyphs.length){
@@ -1041,33 +978,19 @@ function bodyMergeGap(B,d){
   }
   return boxGap(d.wx,d.wy,lw(d),lh(d),B.x,B.y,(B.hw||26)*2,(B.hh||26)*2);
 }
-/* ★★R131-36（用户：「字符拖到实心圆/方块上没反应——我只给了边框的抓握，拖到区域内
- *  也应该算」）：**实心命中** = 指针落在物体**区域**内（用 Matter 的点-体判定，含内部），
- *  或距表面 ≤8px。与「墨线命中(nearInk)」互补——边框是抓握提示，区域内部同样算命中。 */
-/* ★★R132-9y（用户 2026-10-03：「那个 q 的赋予问题还是没有解决」）。
- *  病根：`Matter.Query.point` 判的是「点是否在**碰撞多边形**内部」，而一个**空心形状**
- *  （圆环 / 空心多边形）的碰撞多边形就是那圈**墨迹围成的环** ⇒ **环心是空的**；
- *  兜底的 `distToHost` 量的是「到**墨迹**的距离」（环心 ≈ 一个半径，远超 22px 容差）
- *  ⇒ 在环里松手**找不到任何目标** ⇒ q 走 `spawnField('q')` 退化成 `kind='q'` 场源体 ——
- *  正是用户反复报的「变成只有碰撞箱的字符、赋予不了」。
- *  修：命中判定补一层「**闭合形状的实心区**」= `B.pts` 的**凸包**内（含 22px 容差）。
- *  · 只对 `closed`（闭合）形状生效 —— 笔画是开链，没有"内部"概念，仍走原来的墨线判定；
- *  · 凸包而不是原多边形：带洞的形状（环）用 even-odd 会把洞判成外部，而凸包正好等于
- *    用户视觉上的「实心那块」；
- *  · 凸包每次现算（n≤几十、只在松手时调用一次），不做缓存 ⇒ 不会存旧形状。
- *  · 静摩擦/接触完全不受影响：这里只决定「把字母给谁」，不改任何物理量。 */
+/* 实心命中：点是否落在 W 体 B.pts 的凸包内（含 pad 容差）。
+ * 用于 findSolidBodyAt 的补充判定（只决定把字母给谁，不改任何物理量）：
+ *  · Matter.Query.point 只判碰撞多边形内部，空心形状（圆环/空心多边形）的环心是空的；
+ *    distToHost 量的是到墨迹的距离，环心约一个半径，远超容差 ⇒ q 会退化成场源体。
+ *  · 用凸包而不是原多边形：带洞形状用 even-odd 会把洞判成外部，凸包正好等于视觉上的实心区。
+ *  · 凸包每次现算（n 只有几十、只在松手时调用），不缓存，不会存旧形状。 */
 function bodyFillHit(B,x,y,pad){
   if(!B||!B.pts||B.pts.length<3)return false;
   var P=B.pts,_n=P.length,i;
-  /* ★★R132-9zb（用户 2026-10-03 的录屏 `rec_2026-10-03-03-54-59.json`：「这些有的融合了，
-   *   但是有的就融合不了」）：那份录屏里目标是**一个 `s:'poly'` 的手绘开放笔画**，
-   *   体心 (580,563.7)，而 q 的落点 (575,558)/(583,567)/(595,559) 离体心只有 **5~16px**
-   *   —— 用户瞄的就是它。但旧判据只认「离**墨迹** ≤22px」，而**笔画图形的质心常常离任何
-   *   一段线都很远**（V / C / S / 波浪线，质心落在空处）⇒ 找不到目标 ⇒ q 静默变成场源体。
-   *   ⇒ 命中判定**从「闭合形状」放宽到「所有 W 体」**：一律按 `B.pts` 的**凸包** + `pad` 容差。
-   *   护栏：凸包对角线 > `BODY_FILL_MAX` 的**大跨度笔画**不适用（否则一条横贯屏幕的长线
-   *   会把整块空地都算成它的内部）⇒ 那种仍走原来的「离墨迹 ≤22px」。
-   *   ★对**画布上的物体**与**空地**的判定完全不变：这里只决定「把字母给谁」。 */
+  /* 适用于所有 W 体（含开放笔画）：V / C / S / 波浪线这类笔画的质心常落在空处，离任何一段墨迹都远，
+   * 只认「离墨迹 ≤22px」会找不到用户瞄准的目标。
+   * 护栏：凸包对角线 > BODY_FILL_MAX 的大跨度笔画不适用（否则横贯屏幕的长线会把整块空地算成内部），
+   * 仍走离墨迹判定。 */
   var _minx=1e9,_maxx=-1e9,_miny=1e9,_maxy=-1e9;
   for(i=0;i<_n;i++){
     var _p=P[i];
@@ -1116,19 +1039,11 @@ function bodyFillHit(B,x,y,pad){
   }
   return inPoly;
 }
-/* ★★R132-9ze（用户 2026-10-03 的录屏 `rec_2026-10-03-05-57-33.json` 定案）：
- *   「把 q 放到物体上**根本没反应**」。
- *   因果链（`_tmp_r379_fieldq.py` 逐步实测）：
- *     ① 面板 q 拖到**空处** ⇒ 按设计生成 **q 场源体**（`spawnField`）；它的字形
- *        `inBody=true`、位置由宿主 `slot()` 决定（实测 `wx=wy=0`）⇒ **看起来就是个 q 躺在画布上**。
- *        ★而且它**没有 Matter 体** ⇒ 录制器 `if(!mb&&!_isRod)continue;` 把它整类跳过
- *        ⇒ 之前的录屏里**从来看不见它**，这就是我一次次定位不动的直接原因。
- *     ② 用户抓着这个"q"拖到物体上 ⇒ 走的是**抓宿主**而非**抓字符**，松手弹回宿主，
- *        实测 `charge=undef`、**什么也不发生** ⇒ 用户的原话「放进去根本没反应」。
- *     ③ 对照：面板 q 直接拖到物体上 ⇒ `charge=1` 正常。
- *   修：**场源体/临时参数宿主的字形在「被抓起」时先摘成真正的自由字符** ——
- *   从宿主 glyphs 里移除、`inBody=false`、`body=null`；宿主若已无字形则一并清掉。
- *   这样它落点时就能正常走赋予/合并，与从面板拖出的 q 完全同权。 */
+/* 场源体 / 临时参数宿主的字形在被抓起时先摘成真正的自由字符：从宿主 glyphs 移除、inBody=false、body=null，
+ * 宿主若已无字形则一并清掉。这样落点时能正常走赋予/合并，与从面板拖出的字符同权。
+ * 背景：拖到空处的 q 会生成场源体，其字形 inBody=true、位置由 slot() 决定，看起来就是个 q；
+ * 不摘的话再抓它实际是抓宿主，松手弹回宿主，什么也不发生。
+ * 注意：场源体没有 Matter 体，录制器（if(!mb&&!_isRod)continue）会整类跳过它。 */
 function detachFieldGlyph(d){
   if(!d||!d.body)return false;
   var B=d.body;
@@ -1148,33 +1063,20 @@ function findSolidBodyAt(x,y){
   for(var i=0;i<bodies.length;i++){
     var B=bodies[i];
     if(!B||B.dead)continue;
-    /* ★★R131-46（用户：「a 现在放不出来，一放出来就融合到虚空了」）：真因=这个命中函数
-     *  连**地面/墙/固定体**都算"可赋予的物体" ⇒ 把 v/a/q 拖到画布任何地方松手都会命中
-     *  地面/墙 ⇒ 立刻被"赋予"并回面板 ⇒ 看起来就是"融合到虚空、字符消失"。
-     *  修：**只对可动的普通物体生效**（排除 fixed / isStatic / 地面 / 传送带 / 黑洞）。 */
-    /* ★★R132-9n（用户 2026-10-02：「那个 q 还是一样的，**只要调了 q 的参数就会变成普通的
-     *  只有碰撞箱的字符**，而赋予不了那些物体效果属性」）：`_diag_r347` 三分情形实测 ——
-     *    A 可动物体 + 未调参 q  ⇒ 赋予成功（charge=1）
-     *    B 可动物体 + **调过参** q ⇒ 赋予成功（charge=5）   ⇒「调参」本身没问题
-     *    C **固定过的物体** + q   ⇒ **退化成 `kind='q'` 场源体**（体数 1→2、charge=null）
-     *  正是用户描述的「变成只有碰撞箱的字符」。根因就是上面这条把 `fixed/isStatic` 一并排除。
-     *  ★为什么可以安全放开：R131-46 真正要拦的是**画布地面/墙** —— 而它们是 `B.gnd` 器件
-     *    （`makeGround` 里 `B.gnd=1`），以及 `E.world` 上那套**根本不在 `bodies[]` 里**的
-     *    静态框（`ensureMatter` 的 ground/wl/wr/wt）⇒ 本函数遍历 `bodies[]`，天然看不见它们。
-     *    ⇒ 只留 `gnd / belt / bh`（地面器件 / 传送带 / 黑洞）三条排除即可；
-     *      用户**右键固定**过的普通物体照旧可以接受电荷/速度。 */
+    /* 只排除 gnd / belt / bh（地面器件 / 传送带 / 黑洞）：否则在画布任何地方松手都会命中地面，字符被赋予后消失。
+     * 不要排除 fixed / isStatic：右键固定过的普通物体仍要能接受电荷/速度（排除后 q 会退化成场源体）。
+     * 墙和 ensureMatter 的 ground/wl/wr/wt 静态框不在 bodies[] 里，本函数天然看不见。 */
     if(B.gnd||B.belt||B.bh)continue;
     var inside=false;
     try{ if(B.mb&&MW&&MW.engine&&typeof Matter!=='undefined'&&Matter.Query&&Matter.Query.point)
            inside=Matter.Query.point([B.mb],{x:x,y:y}).length>0; }catch(e){inside=false;}
-    /* ★R132-9y：空心形状（圆环/空心多边形）的碰撞多边形**中心是空的** ⇒ 补一层
-       「闭合形状凸包内（含 22px 容差）」，否则在环里松手会「找不到目标」、q 退化成场源体。 */
+    /* Matter.Query.point 对空心形状环心判否，补一层 W 体凸包内判定（含 22px 容差），否则 q 会退化成场源体。 */
     if(!inside){try{inside=bodyFillHit(B,x,y,22);}catch(e2){inside=false;}}
     var d2=(typeof distToHost==='function')?distToHost(B,x,y):1e9;
     var gap=inside?0:d2;
     if(gap<bd){bd=gap;best=B;}
   }
-  return bd<=22?best:null;   /* ★R131-37：容差 22px（只认墨线太苛刻，实心区域整体算命中） */
+  return bd<=22?best:null;   /* 容差 22px：实心区域整体算命中，不只认墨线 */
 }
 function findMergeTarget(d){
   var best=null,bg=1e9;

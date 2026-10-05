@@ -3,15 +3,8 @@
 html,body{width:100%;height:100%;overflow:hidden}
 body{background:#F4F1EA;font-family:Georgia,'Times New Roman',serif;font-style:italic;color:#26221C;user-select:none;-webkit-user-select:none}
 .ground{position:fixed;left:0;right:0;bottom:20%;height:2px;background:#26221C;opacity:.65;pointer-events:none}
-/* ★★R132-9（用户 2026-10-01：「物体的拖动也应该像拖动符号一样，直接拖动就可以」、
-   「垃圾桶图标触摸版也拖不动」、「画物体时应该是选中方形→按下→滑动→松开」）：
-   **真根因 = `touch-action`**。用 CDP 真实触摸事件量测（_tmp_r314）：
-   每次触摸都是 `pointerdown=1、pointermove=1、pointercancel=1` ——
-   浏览器在 `touch-action:auto` 的元素上要判断「这次手势是不是滚动/缩放」，
-   判成手势后**发 pointercancel 掐断整条 pointer 流**，后续 pointermove/pointerup 一个都收不到。
-   ⇒ 手按住一拖就被掐断：物体不动、垃圾桶不动、形状画不出来（它们都靠 pointermove 驱动）。
-   修：画布显式声明 `touch-action:none` ⇒ 浏览器不再把画布上的拖动当手势。
-   （`.char` 早有这一条，所以**拖字母一直是好的** —— 这正是用户说「应该像拖动符号一样」的原因。） */
+/* 画布必须 touch-action:none：否则触屏上浏览器会把拖动判为滚动/缩放手势并发出 pointercancel，
+   掐断后续 pointermove/pointerup（物体拖不动、形状画不出来）。.char 同理。 */
 .cv{position:fixed;left:0;top:0;pointer-events:auto;z-index:0;touch-action:none}
 .char{position:fixed;left:0;top:0;line-height:1;font-size:48px;will-change:transform;cursor:grab;touch-action:none;z-index:5}
 .char:active{cursor:grabbing}
@@ -21,20 +14,14 @@ body{background:#F4F1EA;font-family:Georgia,'Times New Roman',serif;font-style:i
 .dockin{animation:popin .22s ease-out}
 .panel{position:fixed;top:24px;right:24px;display:grid;grid-template-columns:repeat(4,44px);grid-template-rows:repeat(5,44px);gap:6px;padding:10px;border:1px solid rgba(38,34,28,.2);border-radius:14px;background:rgba(255,255,255,.5);pointer-events:none;z-index:3;transition:opacity .45s ease}
 .panel .sep{width:1px;height:30px;background:rgba(38,34,28,.16);flex:none}
-/* ★★R132-9e：召唤期间把符号面板压淡 —— 表达式按用户要求上移到屏幕中上方后，
-   右端会与右上角面板叠在一起（两者都是深色墨迹，交叠处糊成一团）。
-   面板是「操作态」的 UI，召唤是整屏演出 ⇒ 压到 0.10 最干净，收尾自动复位。 */
+/* 召唤期间把左右面板压淡到 0.10，避免与上移到屏幕中上方的表达式叠在一起；body.bossing 由 bossOn/bossFinish 增删 */
 body.bossing .panel{opacity:.10}
-/* ★R132-9n（用户：「boss 出现时右边面板会变半透明，你**左边面板**也要啊，不然左边挡住了」）：
-   右侧符号面板压淡的同一条规则补到**左侧工具面板**上（同一个 `body.bossing` 开关，
-   `bossOn/bossFinish` 里 add/remove 一次即可，无需第二套状态）。 */
 body.bossing .tools{opacity:.10}
-/* ★R131-30（用户：「右上角按钮展开后挡住字符 a 的选取——那个地方空着，a 换行显示」）：
- *  第 4 格（=把手所在位置）留空，第 4 个字符强制换到第 2 行开头，后续自动顺延。 */
+/* 第 4 格是面板把手的位置，留空：第 4 个字符换到第 2 行开头，后续顺延 */
 .panel>:nth-child(4){grid-column:1;grid-row:2}
 .shadow{position:fixed;left:0;top:0;height:12px;border-radius:50%;background:radial-gradient(ellipse at center,rgba(38,34,28,.45),rgba(38,34,28,0) 70%);pointer-events:none;will-change:transform,opacity;display:none}
-/* ★R131-27b 触屏：符号面板默认下拉收起，点把手展开（电脑版不受影响） */
-/* ★R131-27c：面板把手 —— 视觉与左上角 .ttoggle 完全同款（同一类控件同一张脸） */
+/* 触屏：符号面板默认收起，点把手展开（电脑版不受影响） */
+/* 面板把手：外观与左上角 .ttoggle 一致 */
 #panelToggle{position:fixed;top:22px;right:22px;z-index:46;width:44px;height:44px;border-radius:10px;
   background:rgba(255,255,255,.62);border:1px solid rgba(38,34,28,.22);display:none;
   align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:#26221C;
@@ -42,20 +29,17 @@ body.bossing .tools{opacity:.10}
   transition:background .16s,border-color .16s,transform .16s;}
 #panelToggle:hover{background:rgba(255,255,255,.85)}
 #panelToggle svg{transition:transform .25s ease}
-#panelToggle.open svg{transform:rotate(180deg)}   /* ★R131-29：展开态箭头翻转 */
-/* ★★R132-8（用户 2026-10-01：「左边的下拉框展开后会变色，为什么右边的没有？」）：
- *  左边 `.ttoggle.open` 展开即**反白**（`background:#26221C` + 图标转 `#F4F1EA`），
- *  右边这个把手却只转箭头、底色不变 ⇒ 两个「同款折叠钮」行为不一致。
- *  这里补齐同一套反白规则（含图标描边），使「展开 = 反白」成为**这一族控件的统一语言**。 */
+#panelToggle.open svg{transform:rotate(180deg)}   /* 展开态箭头翻转 */
+/* 展开态反白，与左边 .ttoggle.open 一致 */
 #panelToggle.open{background:#26221C;border-color:#26221C}
 #panelToggle.open svg{stroke:#F4F1EA}
 body.touch-ui #panelToggle{display:flex;}
 body.touch-ui.touch-panel-folded #panel{transform:translateY(-110%);}
 body.touch-ui.touch-panel-folded #panelToggle{transform:translateY(0);}
 body.touch-ui #panel{transition:transform .3s ease,opacity .45s ease;}
-/* ★R131-27 触摸版：面板符号被点选（触屏放置流程的第一步） */
+/* 触屏：面板符号被点选（触屏放置流程的第一步） */
 .char.touch-pick{outline:2px solid #e8a33d;outline-offset:-2px;background:rgba(232,163,61,.22);border-radius:8px;}
-/* ★R131-27 触摸版：点选放置的选中态高亮 */
+/* 触屏：点选放置的选中态高亮 */
 .touch-sel{outline:2px dashed #e8a33d;outline-offset:3px;border-radius:4px;}
 .handle{position:fixed;left:0;top:0;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.35);border:1px solid rgba(38,34,28,.45);box-shadow:0 3px 10px rgba(38,34,28,.10);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .18s;cursor:grab;z-index:6}
 .handle svg{opacity:.85}
@@ -89,17 +73,13 @@ body.touch-ui #panel{transition:transform .3s ease,opacity .45s ease;}
 .prow input[type=range]{width:100%;accent-color:#C9A86A;cursor:pointer;height:18px;display:block}
 .prow input[type=number]{width:100%;box-sizing:border-box;background:rgba(244,241,234,.08);border:1px solid rgba(244,241,234,.18);color:#F4F1EA;border-radius:8px;padding:5px 8px;font-size:13px;font-family:Consolas,Menlo,monospace;outline:none}
 .prow input[type=number]:focus{border-color:#C9A86A}
-/* R79（用户：「把每个物体参数调节框里面鼠标悬浮时出现的上下按键删了」）：那是浏览器给
-   number 输入框画的原生 spinner（Chrome/Edge 在 hover/focus 时浮出，Firefox 常驻）。
-   它不属于我们的 DOM，删元素删不掉，只能靠 appearance 关掉绘制。
-   刻意**保留** type=number 语义（stepUp/stepDown、移动端数字键盘、非数字输入被拦），
-   只隐藏箭头 —— 面板的 min/max/step 与 onchange 逻辑一行都不用改。
-   主参数行（.prow）与逐对表（.ppc）共用这条，避免两处样式漂移。 */
+/* 隐藏 number 输入框的原生上下箭头（由浏览器绘制，只能用 appearance 关掉）。
+   保留 type=number 语义（stepUp/stepDown、移动端数字键盘、拦截非数字输入）。主参数行 .prow 与逐对表 .ppc 共用。 */
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;appearance:none;margin:0}
 input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .prval{font-size:12px;color:#C9A86A;font-family:Consolas,Menlo,monospace;font-style:normal}
-/* R64：参数面板的「接触中」区 —— 只对 W 体显示，逐帧刷新，接触结束的行自动消失（临时显示） */
+/* 参数面板的「接触中」区：只对 W 体显示，逐帧刷新，接触结束的行自动消失 */
 .pcontacts{display:none;margin-top:9px;padding-top:7px;border-top:1px solid rgba(244,241,234,.14);font-size:11px;font-family:Consolas,Menlo,monospace;color:#D8CBB0;max-height:96px;overflow-y:auto}
 .pcontacts.on{display:block}
 .pcontacts .pc-t{opacity:.55;margin-bottom:3px;font-style:italic;font-family:Georgia,serif;letter-spacing:.4px}
@@ -108,13 +88,10 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .presets{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap}
 .presets button{background:rgba(244,241,234,.08);border:1px solid rgba(244,241,234,.16);color:#F4F1EA;border-radius:7px;padding:3px 10px;font-size:12px;font-family:Georgia,serif;font-style:italic;cursor:pointer}
 .presets button:hover{background:rgba(201,168,106,.24);border-color:#C9A86A}
-/* R71⑪：弹性/摩擦改为**下拉框 + 展开的配对表**。每一行 = 场上一个物体（含地面/墙），
-   左右两栏分别是「与该物体的弹性 e」和「与该物体的摩擦 μ」；空 = 跟随默认规则
-   （弹性取双方 max、摩擦取双方 min）。本体那一行就是「本体默认」，与旧版滑块等价。
-   R73-A（用户：「里面有很多输入框…也没有显示物体名称」）：`.prow input[type=number]`
-   （特异性 0,2,1）会压过下面的 `.ppc`（0,1,0）把逐对输入框撑成整行宽，左边的物体名被
-   挤成 0 宽 —— 屏幕上就是「一排没有名字的输入框」。主轴的 flex-basis 优先于 width，
-   显式钉住 52px（见 .ppc）后名字才回得来。 */
+/* 弹性/摩擦的下拉框 + 配对表：每行是场上一个物体（含地面/墙），两栏分别是与它的弹性 e 和摩擦 μ；
+   空 = 默认规则（弹性取双方 max、摩擦取双方 min）。本体那一行就是本体默认值。
+   注意 .prow input[type=number]（特异性 0,2,1）会压过 .ppc（0,1,0），把输入框撑满整行、物体名挤成 0 宽，
+   所以 .ppc 里显式钉住 flex-basis 52px。 */
 .pdd{background:rgba(244,241,234,.06);border:1px solid rgba(244,241,234,.16);color:#F4F1EA;
      border-radius:7px;padding:3px 9px;font-size:12px;font-family:Georgia,serif;font-style:italic;
      cursor:pointer;white-space:nowrap}
@@ -143,23 +120,18 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
    field the moment the resize bar appeared. Keep them cursor-only and prefixed. */
 .cv.cur-ew{cursor:ew-resize}
 .cv.cur-ns{cursor:ns-resize}
-/* ★★R132-9：垃圾桶同样要 `touch-action:none`（同一个 pointercancel 根因，同 `_tmp_r314` 量测：
-   触摸拖垃圾桶时 `pointercancel=1` ⇒ 只跟一小段就停住、松手还可能被当成 tap）。 */
+/* 垃圾桶同样需要 touch-action:none（原因同 .cv） */
 .trash{position:fixed;right:24px;bottom:24px;display:flex;align-items:center;justify-content:center;opacity:.5;pointer-events:auto;touch-action:none;transition:opacity .15s ease,transform .15s ease;z-index:3;cursor:pointer}
 .trash.on{opacity:1;transform:scale(1.15)}
 .trash svg{pointer-events:none}
-/* ================= R47: top-left tool palette ==========================================
-   Dropdown: the square toggle reveals a ROW of three icon buttons under it; the third one
-   (预设物体) reveals a second row of shape options under that.
-   NOTE the canvas-cursor lesson above: the drawing cursor class is `.cv.cur-draw`, prefixed
-   and cursor-only, so it can never drag element geometry (opacity/z-index) onto the canvas. */
+/* ================= 左上角工具栏 ==========================================
+   下拉：方形折叠钮下展开一行图标按钮；「预设物体」「器件」再在下面各展开一行选项。
+   画布的绘制光标类是 .cv.cur-draw（加前缀、只含 cursor），原因见上面画布光标的说明。 */
 .tools{position:fixed;left:22px;top:22px;z-index:14;display:flex;flex-direction:column;align-items:flex-start;gap:8px;
-  /* R60c（用户 #6）：容器本身不吃事件。展开后 .tools 的盒子是 172×120，而看得见的只有 48px
-     的折叠钮和下面那一排按钮 —— 容器里那 124×60 的透明区域、行内的 padding 与按钮间隙，
-     全都盖在画布上却什么都没画（实测 elementFromPoint 在这些点返回 .tools/.trow），
-     于是「视觉没被挡住」的字符点不到。只让**真正的按钮**接收事件，其余一律穿透到画布。 */
+  /* 容器本身不接收事件：展开后 .tools 的盒子远大于可见按钮，透明区域会挡住下面画布上的字符。
+     只让真正的按钮接收事件，其余穿透到画布。 */
   pointer-events:none;
-  /* ★R132-9n：与右侧符号面板同一条淡出节奏（`body.bossing` 压淡时不要硬切） */
+  /* 与右侧符号面板同一淡出节奏（body.bossing 压淡时不硬切） */
   transition:opacity .45s ease}
 .tools>*{pointer-events:none}
 .ttoggle{pointer-events:auto}
@@ -172,42 +144,39 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .ttoggle.open svg{stroke:#F4F1EA;transform:rotate(180deg)}
 .trow{display:none;gap:8px;padding:8px;border:1px solid rgba(38,34,28,.20);border-radius:15px;background:rgba(255,255,255,.56);
   box-shadow:0 8px 22px rgba(38,34,28,.13);backdrop-filter:blur(5px);
-  pointer-events:none}                 /* R60c：面板底板与按钮间隙穿透，只有按钮吃事件 */
-/* R56：圆弧端点手柄（PPT 黄控制点的同类物） */
+  pointer-events:none}                 /* 面板底板与按钮间隙穿透，只有按钮接收事件 */
+/* 圆弧端点手柄 */
 .arknob{position:fixed;left:0;top:0;width:18px;height:18px;border-radius:50%;
   background:#fff;border:2.5px solid #C9A86A;box-shadow:0 2px 8px rgba(38,34,28,.25);
   display:none;pointer-events:auto;cursor:grab;z-index:8;box-sizing:border-box}
 .arknob.on{display:block}
 .arknob:hover{background:#C9A86A}
-/* R98-3：杆的两端长度手柄。几何/命中与 .arknob 同规格（18px 圆点、box-sizing 让 border 不撑大），
-   只把描边换成青绿 #3E7C74 —— 与圆弧的金色端点一眼可分（一个是「转角度」、一个是「改长短」）。 */
+/* 杆两端的长度手柄：规格同 .arknob，描边换成青绿 #3E7C74，与圆弧的角度手柄区分 */
 .rodlen{position:fixed;left:0;top:0;width:18px;height:18px;border-radius:50%;
   background:#fff;border:2.5px solid #3E7C74;box-shadow:0 2px 8px rgba(38,34,28,.25);
   display:none;pointer-events:auto;cursor:ew-resize;z-index:8;box-sizing:border-box}
 .rodlen.on{display:block}
 .rodlen:hover{background:#3E7C74}
 .trow.on{display:flex}
-/* ★R131-32（用户：「左边下拉框出来时也加一个像右边那样的动效」）：展开淡入+下滑。
- *  display 无法过渡 ⇒ 用 keyframes 在 .on 生效瞬间播一次入场动画（与右面板的
- *  transform/opacity 过渡观感一致，且不需要改 JS 结构）。 */
+/* 展开时播放一次淡入 + 下滑入场动画（display 无法过渡，所以用 keyframes） */
 @keyframes toolsIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
 .trow.on{animation:toolsIn .22s ease-out}
 #ttoggle svg{transition:transform .22s ease}
 #ttoggle.open svg{transform:rotate(180deg)}
 .tbtn{width:46px;height:46px;border-radius:12px;border:1px solid rgba(38,34,28,.16);background:rgba(255,255,255,.55);
   display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:background .14s,border-color .14s;
-  position:relative;pointer-events:auto}   /* R60c：容器/面板底板已穿透，只有按钮吃事件 */
+  position:relative;pointer-events:auto}   /* 容器/面板底板已穿透，只有按钮接收事件 */
 .tbtn:hover{background:rgba(201,168,106,.24);border-color:#C9A86A}
 .tbtn.act{background:#26221C;border-color:#26221C}
 .tbtn svg{display:block;transition:stroke .14s}
 .tbtn.act svg{stroke:#F4F1EA}
-/* R57（用户 #1）：连续绘制模式（双击进入）在按钮右下角挂一个 ∞，和「只画一次」区分开 */
+/* 连续绘制模式（双击进入）在按钮右下角挂一个 ∞，与「只画一次」区分 */
 .tbtn.cont::after{content:'∞';position:absolute;right:2px;bottom:0;font-size:11px;line-height:1.1;
   font-family:Georgia,'Times New Roman',serif;color:#C9A86A;pointer-events:none}
 .tbtn.cont.act::after{color:#F4F1EA}
 .tsub{display:none;gap:7px;padding:7px;border:1px solid rgba(38,34,28,.20);border-radius:15px;background:rgba(255,255,255,.56);
   box-shadow:0 8px 22px rgba(38,34,28,.13);backdrop-filter:blur(5px);
-  pointer-events:none}                 /* R60c：面板底板与按钮间隙穿透，只有按钮吃事件 */
+  pointer-events:none}                 /* 面板底板与按钮间隙穿透，只有按钮接收事件 */
 .tsub.on{display:flex}
 .tsub .tbtn{width:auto;min-width:46px;height:38px;padding:0 9px;font-family:Georgia,'Times New Roman',serif;font-style:italic;
   font-size:15px;letter-spacing:1px;color:#26221C;gap:5px}
@@ -215,62 +184,31 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .tsub .tbtn.act{color:#F4F1EA}
 .tsub .tbtn svg{width:16px;height:16px;display:block}
 .tsub .tbtn.act svg{stroke:#F4F1EA}
-/* R96（用户：「再在左上角下拉框增加一个类别按钮，叫做器件，里面是可以拉出各种器件的，首先第一个
-   叫做弹簧」）：器件面板 = 与形状面板（#tsub）**同一套版式**的一行（class 同时挂 .tsub，圆角/厚度/
-   阴影/穿透规则全部复用）。
-   R97（用户：「直接用弹簧当做图标，不要再在按钮上写一个弹簧，鼠标悬浮时出现弹簧字样即可」）：
-   按钮里的中文名去掉了（名字走 title 的原生悬浮提示），所以 .dvtxt 那条只给中文用的字体规则
-   也一并删掉 —— 现在 .dsub 与 #tsub 的按钮盒子**逐条 CSS 相同**，只剩「拖出手感」这一条自己的。 */
+/* 器件面板与形状面板 #tsub 同一套版式（同时挂 .tsub），按钮名称走 title 悬浮提示；这里只多一条拖出手感 */
 .dsub .tbtn{cursor:grab}
 .dsub .tbtn:active{cursor:grabbing}
-/* R100②（用户：「还有器件里面的这些图标也太小了吧，你好歹要占按钮的大半位置吧？」）：
- * 器件 chip 的图标从 16px 放大到 **30px**。实测（_tmp_css_measure.py，两行各自展开时用
- * getBoundingClientRect 量用后值）：按钮盒子 30+2×8+2 = **48×38** ⇒ 图标横向占 62.5%、
- * 竖向占 78.9%，就是「大半个按钮」。只改 #dsub，形状行（#tsub）**一字未动**（仍是
- * 46×38 / padding 9px / svg 16px / stroke 2.2）—— 用户只说了器件。
- * 线宽同步从 2.2 收到 1.8：svg 里的 stroke-width 是 viewBox(24) 单位，渲染线宽 = 2.2×30/24
- * = 2.75px —— 30px 图标配 2.75px 笔画会糊成一团；1.8×30/24 = 2.25px，与 16px 图标下
- * 2.2×16/24 = 1.47px 的相对粗细（笔画/图标 = 9.2%）同档（1.8/24 = 7.5%）。
- * 外观（糊不糊、比例好不好）没有诚实的机器判据（§30.2）⇒ 交给 1× 截图 + NEAREST 放大，
- * 见 _r100_chip_neighbors.html（在真实邻居上下文里排一排对比）。
- * ★旧判据「两行按钮盒子逐条 CSS 相同」被本条**故意打破**，`_probe_r97.py` 的 B3 已按
- *    「差异只许出现在 padding/svg 尺寸这两条、其余共有属性仍逐项相同、且形状行必须未动」
- *    重新定界（见该文件 B3 注释）。 */
+/* 器件 chip 图标放大到 30px（按钮盒子 48×38，约占大半个按钮）；形状行 #tsub 保持 16px 不变。
+ * 线宽相应从 2.2 收到 1.8：stroke-width 是 viewBox(24) 单位，30px 下 2.2 会渲染成 2.75px 而糊成一团，1.8 → 2.25px。 */
 .dsub .tbtn svg{width:30px;height:30px}
 .dsub .tbtn{padding:0 8px}
 .cv.cur-draw{cursor:crosshair}
-/* R69：连续绘制提示条 —— 双击进入连续模式时，屏幕下方弹一条短暂提示，让「一直在画」有感知，
-   避免用户不知道自己已连续模式、一路点击叠出一串重复图形。淡入淡出，2s 后自动消失。 */
+/* 连续绘制提示条：进入连续模式时在屏幕下方短暂提示，淡入淡出，2s 后消失 */
 .fhint{position:fixed;left:50%;bottom:56px;transform:translateX(-50%);z-index:30;
   background:rgba(38,34,28,.88);color:#F4F1EA;padding:8px 16px;border-radius:999px;
   font-size:13px;letter-spacing:.5px;opacity:0;transition:opacity .18s ease;pointer-events:none;
   box-shadow:0 4px 16px rgba(38,34,28,.25);white-space:nowrap;max-width:88vw;overflow:hidden;
   text-overflow:ellipsis}
 .fhint.on{opacity:1}
-/* ★★R132-9（用户 2026-10-01：「在放置处弹出一个 error 的错误提示（上浮显示，上浮消失，
-   就好像一行代码划过一样）」）：做成**一行代码**的样子 —— 等宽字体、红字、左侧一道光标竖条，
-   从放置处**上浮 + 轻微横扫**并淡出。`pointer-events:none` ⇒ 永远不吃掉画布上的手势。 */
-/* ★★R132-9d（用户 2026-10-01：「那个 error 的弹窗不需要有那个框什么的，就一个文字就行了」）：
-   去掉方框/底色/圆角/投影/左侧竖条 —— **只留一行红字**。字体仍是等宽（"一行代码"的感觉），
-   仍从落点上浮 + 横扫 + 淡出，`pointer-events:none` ⇒ 不吃手势。 */
+/* 放置失败的 error 提示：一行等宽红字，从落点上浮、横扫并淡出；pointer-events:none，不吃画布手势 */
 .errtip{position:fixed;z-index:32;pointer-events:none;
   font-family:Consolas,Menlo,'Courier New',monospace;font-style:normal;font-size:12.5px;
   letter-spacing:.2px;line-height:1.35;white-space:nowrap;
   color:#B23A2E;
   opacity:0;transform:translate(-50%,-50%)}
-/* ★R132-9x（用户 2026-10-03：「现在的动画怎么是先上浮，再停顿，然后再上浮消失？
- *   就改成**匀速**的就可以了，不需要那一下的卡顿」）。
- *   旧关键帧的病根：`14%→74%` 那一段配 `cubic-bezier(.22,.61,.36,1)`（缓出）⇒ 位移在
- *   266ms→1406ms 之间几乎停住 ⇒ 视觉上就是「上浮 → 卡一下 → 再消失」。
- *   ⇒ 改成**全程 linear**：transform 只在 0%/100% 给两个端点，中间线性插值 = 严格匀速；
- *     opacity 的两段关键帧只管淡入淡出，**不参与运动**（运动与透明度解耦，改淡入淡出
- *     不会重新引入停顿）。 */
+/* 时间函数用 linear，减速效果由下面的分段关键帧构造 */
 .errtip.go{animation:errtipUp 1.7s linear forwards}
-/* 匀减速 = 位移随时间**等差递减**（速度每段少一截）。总行程 64px（+6 → −58），
-   四段位移 −28 / −20 / −12 / −4（公差 +8）⇒ 起步最快、逐步慢下来、**没有中段停顿**。
-   ★为什么不用一条 `cubic-bezier` 缓动 + 只有首尾两个关键帧：那样中段会被压成近乎静止
-     （旧版 14%→74% 只走了 34px/1140ms，视觉上就是「卡一下」）。分段线性可以把
-     「每段位移」直接写成等差数列，匀减速是**构造出来的**、不靠缓动函数近似。 */
+/* 分段线性实现匀减速：四段位移 −28 / −20 / −12 / −4（等差），起步快、逐步变慢、中段不停顿。
+   不要改成 cubic-bezier 缓动 + 首尾两帧：中段会被压得近乎静止，看起来像卡了一下。 */
 @keyframes errtipUp{
   0%  {opacity:0;transform:translate(-50%,-50%) translate(-8px,6px)}
   16% {opacity:1}
@@ -287,17 +225,10 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
   box-shadow:0 24px 64px rgba(38,34,28,.30);font-family:Georgia,'Times New Roman',serif;font-style:italic;color:#26221C;
   opacity:0;transform:translate(-50%,-50%) scale(.95);transition:opacity .16s ease,transform .16s ease}
 .fmenu.on{display:block;opacity:1;transform:translate(-50%,-50%) scale(1)}
-/* R74-D：设置面板 —— 与公式菜单同款毛玻璃卡，内容换成物理模式分段开关 */
-/* ★★R132-8（用户 2026-10-01：「那个设置面板，没有适应手机的屏幕比，在手机横屏时，
-   没有自动调整，导致上面和下面都被屏幕截断看不见」）：
-   面板是 `top:50%` + `translate(-50%,-50%)` 的**居中弹层**，高度由内容撑开 ⇒ 内容比视口高
-   时上下**同时**溢出，而居中定位让顶部那份**没有滚动条可及**（滚动条在底部，但上半截
-   已经被视口裁掉 —— 用户描述的正是这个）。
-   修：`max-height` 夹到视口内 + `overflow-y:auto` ⇒ 内容再长也只在面板内滚，永不越界。
-   ★上下各留 12px 呼吸位（`- 24px`），否则贴边在手机上像被切掉的。
-   ★这两条**必须写在 `.smenu{}` 规则内部** —— 首版把它们落到规则外，CSS 解析器的错误恢复
-     把紧随其后的 `.smenu.on{}` 整条吃掉了（实测面板再也不显示、问号按钮 0×0）：
-     规则外出现裸声明时，解析器会把它当选择器前缀一路吃到下一个 `{`，恰好吞掉下一条规则。 */
+/* 设置面板：与公式菜单同款毛玻璃卡 */
+/* 居中弹层的高度由内容撑开，内容比视口高（如手机横屏）时会上下同时溢出，顶部还滚不到。
+   所以用 max-height 夹在视口内（上下各留 12px）+ overflow-y:auto。
+   这两条必须写在 .smenu{} 规则内部：规则外的裸声明会被解析器的错误恢复一路吞到下一个 {，把后面的 .smenu.on{} 整条吃掉。 */
 .smenu{position:fixed;left:50%;top:50%;z-index:16;display:none;width:min(400px,88vw);padding:18px 20px 20px;
   border-radius:20px;border:1px solid rgba(38,34,28,.18);background:rgba(252,250,245,.96);
   box-shadow:0 24px 64px rgba(38,34,28,.30);font-family:Georgia,'Times New Roman',serif;font-style:italic;color:#26221C;
@@ -310,17 +241,16 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .sbtn{padding:8px 20px;background:none;border:none;font-family:inherit;font-style:italic;font-size:15px;color:#26221C;cursor:pointer;transition:background .14s,color .14s}
 .sbtn:hover{background:rgba(38,34,28,.08)}
 .sbtn.act{background:#26221C;color:#F4F1EA}
-/* ★R131-27c：设置面板行排版 —— 标签左、按钮组右，一行一项不挤压 */
+/* 设置面板行排版：标签在左、按钮组在右，一行一项 */
 .srow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:14px 0}
 .srow .slab{flex:none}
 .srow .sseg{display:flex;gap:4px;flex:none}
-/* ★R131-27b：交互模式按钮 —— 视觉语言与 .sbtn 完全同款（同一类控件同一张脸） */
+/* 交互模式按钮：外观与 .sbtn 一致 */
 .ubtn{padding:8px 9px;background:none;border:none;font-family:inherit;font-style:italic;
   font-size:13.5px;color:#26221C;cursor:pointer;transition:background .14s,color .14s;white-space:nowrap}
 .ubtn:hover{background:rgba(38,34,28,.08)}
 .ubtn.act{background:#26221C;color:#F4F1EA}
-/* R130 记录模式按钮：不与 .sbtn 同名（设置面板的 click 委托会把任何 .sbtn 当模式按钮读
-   data-mode ⇒ 复用会拿到 null 把 PHYS_MODE 写坏）*/
+/* 记录按钮不要复用 .sbtn 类名：设置面板的 click 委托会把任何 .sbtn 当模式按钮读 data-mode，会把 PHYS_MODE 写成 null */
 .rbtn{padding:8px 16px;background:none;border:1px solid rgba(38,34,28,.35);border-radius:2px;
       font-family:inherit;font-size:14px;color:#26221C;cursor:pointer;transition:background .14s,color .14s}
 .rbtn:hover{background:rgba(38,34,28,.08)}
@@ -329,12 +259,9 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
           background:#B23A2E;color:#fff;font-size:12px;letter-spacing:.4px;pointer-events:none}
 .recbadge.on{display:block}
 .snote{font-size:13px;color:rgba(38,34,28,.55);margin-top:10px;line-height:1.6;letter-spacing:.3px}
-/* ★★R132-8：空的状态行不占位（#recnote 平时为空，只有记录中/已导出时才显字） */
+/* 空的状态行不占位（#recnote 平时为空，记录中/已导出时才有字） */
 .snote:empty{display:none}
-/* ★★R132-10n：Bug 提交框（用户 2026-10-03：「点击结束后不下载文件，而是弹出提交框，
-   编辑文字说明，提交就将 json + 文字说明一起提交到后端」）。视觉语言沿用设置面板
-   （同底色/同圆角/同衬线斜体），但用**独立类名**（`.bmask/.bbox/.bta`）—— 复用 `.smenu`
-   会与关闭设置面板的逻辑耦合（`smask` 的 click 委托、`closeSettings` 里的 qpop 清理）。 */
+/* Bug 提交框：视觉沿用设置面板，但用独立类名（.bmask/.bbox/.bta）；复用 .smenu 会与设置面板的关闭逻辑（smask 点击委托、closeSettings 里的 qpop 清理）耦合 */
 .bmask{position:fixed;inset:0;z-index:19;display:none;background:rgba(38,34,28,.34)}
 .bmask.on{display:block}
 .bbox{position:fixed;left:50%;top:50%;z-index:20;display:none;width:min(430px,90vw);
@@ -351,9 +278,7 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .binfo{font-size:12.5px;color:rgba(38,34,28,.55);margin:9px 0 2px;line-height:1.6}
 .bbtns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
 .rbtn[disabled]{opacity:.5;cursor:default}
-/* ★★R132-8（用户：「在物理模式那个控制的右边加一个问号的按钮，鼠标悬浮显示那些解释性文字，
-   手机版是点击显示」）：问号按钮 —— 与 .sbtn/.ubtn 同一套视觉语言（同色、同字体），
-   但做成**正圆**（它是「信息」不是「选项」，形状上要与旁边的分段按钮区分开）。 */
+/* 问号按钮：与 .sbtn/.ubtn 同一视觉语言，但做成正圆，以区别于旁边的分段按钮 */
 .qbtn{width:26px;height:26px;flex:none;padding:0;border-radius:50%;
   border:1px solid rgba(38,34,28,.34);background:rgba(255,255,255,.55);
   font-family:inherit;font-style:normal;font-size:14px;line-height:1;color:#26221C;
@@ -391,65 +316,34 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .mfrac .mnum{padding:0 4px 1.5px;text-align:center}
 .mfrac .mden{padding:2px 4px 0;text-align:center}
 .mcoef{font-style:normal}
-/* ★★R132 BOSS 召唤：飞行平台（BOSS_ROWS 行 · **跨行传送门**滚动 · 逐行独立上下晃动）
-   ★R132-9：行数 3→2；左右不再是「每行各自循环」，而是**同一条条带**在两行上滚动、
-   行 k 的相位差 k·W ⇒ 「右边出去就立马从下面的左面边界出来」（见 bossBuildPlat ② 段）。 */
+/* BOSS 召唤的飞行平台：BOSS_ROWS 行，同一条条带跨行滚动（行 k 相位差 k·W，右边出去即从下一行左边进来），每行独立上下晃动。见 bossBuildPlat */
 .bossplat{position:fixed;inset:0;z-index:120;pointer-events:none;overflow:hidden}
-/* ★★R132-9f（用户：「左边界是在距离左边屏幕还有一段距离时就截断了，等于是左边界偏右了，
-   还有就是是不是右边界也偏右了，导致一些陷入屏幕之外了」）：
-   根因 —— 行盒原本 `left:0;right:0`（正好一屏宽），而左右晃动是**整行**平移：
-   行右移 dx 时左边缘就露出 dx 的空隙（那里没画东西 ⇒ 看起来「左边界被切短了」），
-   行左移时右边缘又跑到屏外 ⇒ 屏幕右侧那一条被 `.bossplat` 裁掉。
-   ⇒ 行盒两侧各外扩 BOSS_PAD_X(60)（> 最大振幅 26），晃动再也不会露出边缘。
-   ★轨平移要同步补偿 −BOSS_PAD_X，否则整条式子会整体右移 60px（见 bossPlatLayout）。 */
+/* 行盒左右各外扩 BOSS_PAD_X(60)，大于最大晃动振幅 26：整行平移时两侧不会露出空隙或被裁掉。
+   轨道平移要同步补偿 −BOSS_PAD_X（见 bossPlatLayout）。 */
 .bossline{position:absolute;left:-60px;right:-60px;height:100px;overflow:hidden;will-change:transform}
 .bosstrack{position:absolute;left:0;top:0;height:100%;display:flex;align-items:center;white-space:nowrap;will-change:transform}
 .bossterm{display:inline-flex;align-items:center;flex:none;font-size:48px;color:#26221C;
   letter-spacing:.4px;will-change:transform,opacity;
   text-shadow:0 0 14px rgba(201,168,106,.55),0 0 30px rgba(201,168,106,.28)}
-/* ★★R132-9f：这里原先是**绝对**字号 48px —— 它会把 `.bossterm` 上的逐项 inline
- *  font-size **整个吃掉**（实测：项盒 inline fs=45.6px、实际渲染宽度却仍是 48px 的宽度，
- *  预估占位宽 214.7 vs 实际 226 ⇒ 行内各项互相压在一起）。
- *  改成 `1em`（跟随 `.bossterm`）⇒ 逐项缩字号才真的生效；
- *  离屏量测域（#bossmeas）那条 `font-size:48px` 保持不动，量尺仍在基准字号上。 */
+/* 用 1em 跟随 .bossterm：写成绝对字号会吃掉逐项 inline font-size，导致各项互相重叠。
+ * 离屏量测域 #bossmeas 仍固定 48px 作为基准量尺。 */
 .bossterm .mth{font-size:1em}
-/* ★★R132-9：逐字符汇聚的载体（`.bcharg`）—— **只做淡入**，不做 transform。
-   历史（为什么这里曾经写过 `display:inline-block` 却最终没有这条规则）：
-   给每字符加 `display:inline-block` 会改变行内基线（inline-block 以**底边**为基线对齐，
-   而字母/数字/上标的高低本就不同）⇒ 一整行文字会互相错开，比原缺陷更糟。
-   所以逐字符效果只保留透明度（见下方 `.bcharg`），位移/缩放在这里被明确**放弃**。 */
-/* ★★R132-4：**算术骨架（分数线）必须是可被逐个点亮的一等元素**。
-   `\frac` 的分数线原来是 `.mnum` 的 `border-bottom` —— 边框/伪元素**不是文本节点**，
-   `wrapTextNodes` 天生抓不到 ⇒ build 期未点亮的字符旁边挂着一排全亮的 `______`，
-   仍是用户抱怨的「一堆完整的空分数框」。
-   改法：分数线下沉到 `.mfrac > .fracbar`（**独立元素**）。它天然进入 `BOSS.chars`
-   序列，随分子字符点完后一起长出；非 boss 路径（公式菜单等）`opacity` 默认 1
-   ⇒ 与改造前完全同貌，零回归。
-   `align-self:stretch` 让它横向撑满 `.mfrac` 的内容宽（等价于原来的 border 宽度）。 */
+/* 分数线必须是独立元素 .fracbar（而不是 .mnum 的 border-bottom）：wrapTextNodes 抓不到边框，
+   boss 构建期就会出现一排提前全亮的分数线。.fracbar 进入 BOSS.chars 序列，随分子一起点亮；
+   非 boss 场景 opacity 默认 1，外观与 border 版相同。align-self:stretch 让它撑满 .mfrac 宽度。 */
 .mfrac > .fracbar{display:block;align-self:stretch;width:auto;height:1.5px;
   background:#26221C;margin:0;flex:none}
-/* ★★R132-9（用户：「那些数字怎么高低不平的」）：逐字符汇聚 = **纯淡入**。
-   旧写法给每个字符设 `transform: translate(±110px,±14px) scale(1.5)` 再过渡回原位，
-   但 `.bcharg` 是**行内元素** ⇒ transform 对它无效，唯一生效的是分数线 `.fracbar`
-   （`display:block`）⇒ 实测同一条线上分数线 y 的极差高达 24.26px，数字纹丝不动、
-   分数线在跳 = 用户看到的"高低不平"。改成 opacity 过渡后所有字符一视同仁、基准线不动。
-   ★只加 `opacity`，不加 `display`：加 inline-block 会改变行内基线（底线对齐而非基线对齐），
-     反而把整行文字错开（比原缺陷更糟）。 */
-/* ★★R132-9d（用户：「出现动画要再精致一些，字符从四周渐显汇聚到相应位置」）：
-   每个字符用**相对定位的 left/top**做位移。为什么不用 transform（R132-9 踩过）：
-   transform 对**非替换行内元素无效**，而全平台唯一例外是分数线
-   `.fracbar`（`display:block`）⇒ 旧版只有分数线在飞、数字纹丝不动
-   （实测同一行分数线 y 极差 24.26px = 用户说的「数字高低不平」）。
-   **相对定位对行内元素同样有效，且不参与布局** ⇒ 基线、行高、分数线全都不会被打乱。
-   起始偏移写在 `--dx/--dy`（build 期一次写好）⇒ 点亮时只加一个 `.on` 类，
-   **不需要逐个强制重排**（旧版 500+ 次 `void offsetWidth` 就是这么来的）。 */
+/* 逐字符汇聚只用 opacity 和下面的相对定位位移，不要用 transform 或 display:inline-block：
+   .bcharg 是行内元素，transform 对它无效（只有 display:block 的分数线会动）；
+   inline-block 会改成底边对齐，把整行文字错开。 */
+/* 位移用相对定位的 left/top：对行内元素有效且不参与布局，基线、行高、分数线都不受影响。
+   起始偏移在构建期写入 --dx/--dy，点亮时只加 .on 类，不需要逐个强制重排。 */
 .bcharg{position:relative;left:var(--dx,0px);top:var(--dy,0px);opacity:0;
   transition:opacity .40s ease-out,left .62s cubic-bezier(.16,.84,.30,1),top .62s cubic-bezier(.16,.84,.30,1)}
 .bcharg.on{left:0;top:0;opacity:1}
 .bossterm.bosshead{color:#3E7C74}
 .bossmeas{position:fixed;left:-9999px;top:-9999px;visibility:hidden;white-space:nowrap}
-/* ★★R132-3：离屏量测必须与平台**同字号**（17px 时代两边都是 19 无所谓，48 就不行了）
-   —— 量出来偏小 ⇒ 每行塞进过多项 ⇒ 上屏就溢出。 */
+/* 离屏量测必须与平台同字号，否则量出来偏小、每行塞进过多项，上屏后溢出 */
 .bossmeas .bossterm,.bossmeas .bossterm .mth{font-size:48px}
 .mth sub{font-size:.6em;font-style:italic;vertical-align:sub;line-height:0;position:relative;bottom:-.1em}
 /* 闪黑 / 黑屏遮罩 */
