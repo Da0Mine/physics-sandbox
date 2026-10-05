@@ -772,7 +772,7 @@ function attach(B,d){
   /* BOSS 召唤：光速 v 落到 ½mv² 公式体上 ⇒ 转 bossTryPlace（前两次排斥、第三次融合）。
    * 必须抢在下面所有分支之前：½mv² 是由字符组成的表达式，会走到 mem 并入分支，一进去公式就毁了。
    * 判据用 bossIsEk() 精确判型，不是「有 v 就拦」。 */
-  if(d&&d.ch==='v'&&d.vLight&&typeof bossTryPlace==='function'&&bossTryPlace(B,d))return;
+  if(d&&d.ch==='v'&&d.vLight&&bossTryPlace(B,d))return;
   /* 光速 v 的其它落点一律拒绝：不并入 mem、不赋予速度，把 v 弹开并在落点显示 error。
    * 排在 bossTryPlace 之后，½mv² 的召唤通道先接。普通 v（vLight=false）不受影响。 */
   if(d&&d.ch==='v'&&d.vLight){if(vLightReject(B,d))return;}
@@ -1049,7 +1049,7 @@ function findSolidBodyAt(x,y){
            inside=Matter.Query.point([B.mb],{x:x,y:y}).length>0; }catch(e){inside=false;}
     /* Matter.Query.point 对空心形状环心判否，补一层 W 体凸包内判定（含 22px 容差），否则 q 会退化成场源体。 */
     if(!inside){try{inside=bodyFillHit(B,x,y,22);}catch(e2){inside=false;}}
-    var d2=(typeof distToHost==='function')?distToHost(B,x,y):1e9;
+    var d2=distToHost(B,x,y);
     var gap=inside?0:d2;
     if(gap<bd){bd=gap;best=B;}
   }

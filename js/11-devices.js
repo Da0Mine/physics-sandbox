@@ -179,7 +179,7 @@ function ropeVerletStep(B,dt){
               var hB3=null;
               for(var k3=0;k3<bodies.length;k3++)if(bodies[k3].mb===b3){hB3=bodies[k3];break;}
               if(!hB3)continue;
-              var qq=(typeof hostClosestPoint==='function')?hostClosestPoint(hB3,nd3.x,nd3.y):null;
+              var qq=hostClosestPoint(hB3,nd3.x,nd3.y);
               if(qq){
                 var ox3=qq.x-b3.position.x,oy3=qq.y-b3.position.y,ol3=Math.hypot(ox3,oy3)||1;
                 nd3.x=qq.x+ox3/ol3;nd3.y=qq.y+oy3/ol3;nd3.px=nd3.x;nd3.py=nd3.y;
@@ -236,8 +236,8 @@ function ropeVerletStep(B,dt){
           /* 最近表面点用本帧起始位置（px/py = 积分前位置）选面，而不是切进体内后的当前位置：
            * 后者会把相邻节点推到障碍的不同侧面（一个贴顶、一个贴底），段直接横穿物体。
            * 用起始位置 ⇒ 绳从哪侧来就贴哪侧，实现绕行。 */
-          var q=(typeof hostClosestPoint==='function')?hostClosestPoint(hB,nd.px,nd.py):null;
-          if(!q)q=(typeof hostClosestPoint==='function')?hostClosestPoint(hB,nd.x,nd.y):null;
+          var q=hostClosestPoint(hB,nd.px,nd.py);
+          if(!q)q=hostClosestPoint(hB,nd.x,nd.y);
           if(q){
             var oxq=q.x-hitMb.position.x,oyq=q.y-hitMb.position.y,ol=Math.hypot(oxq,oyq)||1;
             nd.x=q.x+oxq/ol;nd.y=q.y+oyq/ol;    // 推出表面 1px（防 Query 边界抖动）
@@ -288,8 +288,8 @@ function conVel(h,px,py,nx,ny){
 function conSide(h,nx,ny,px,py){
   if(!h||!h.mb||h.dead)return null;
   if(h.kind==='S')return null;
-  if(typeof grab!=='undefined'&&grab&&grab.kind==='body'&&grab.obj===h)return null;
-  if(typeof rodLenFrozen==='function'&&rodLenFrozen(h))return null;
+  if(grab&&grab.kind==='body'&&grab.obj===h)return null;
+  if(rodLenFrozen(h))return null;
   var mb=h.mb,im=(mb.inverseMass!=null)?mb.inverseMass:0;
   if(!(im>0))return null;                        // isStatic / 被 setStatic 过：inverseMass = 0
   var ii=(mb.inverseInertia!=null)?mb.inverseInertia:0;
@@ -328,8 +328,8 @@ function conProj(h0,px0,py0,h1,px1,py1,nx,ny,onlySep){
 function conMov(h,allowGrab){
   if(!h||!h.mb||h.dead)return 0;
   if(h.kind==='S')return 0;
-  if(!allowGrab&&typeof grab!=='undefined'&&grab&&grab.kind==='body'&&grab.obj===h)return 0;
-  if(typeof rodLenFrozen==='function'&&rodLenFrozen(h))return 0;
+  if(!allowGrab&&grab&&grab.kind==='body'&&grab.obj===h)return 0;
+  if(rodLenFrozen(h))return 0;
   var im=(h.mb.inverseMass!=null)?h.mb.inverseMass:0;
   return im>0?im:0;
 }
@@ -441,7 +441,7 @@ function hostIsAnvil(h){
    * 由 rodDragPinChain 临时打标。 */
   if(h._dragPin)return true;
   if(h.mb.isStatic||h.fixed)return true;
-  if(typeof rodLenFrozen==='function'&&rodLenFrozen(h))return true;
+  if(rodLenFrozen(h))return true;
   return false;
 }
 // 「还能被约束搬动」= W 体（位置驱动体，见 stepMatter 里 W 的分工）且不是铁砧。
@@ -1009,9 +1009,9 @@ function placeDevice(id,cx,cy){
     B=makeSpring(cx-half,cy,cx+half,cy);
   }else if(d.id==='rod'){
     // 轻质杆走同一个 makeRod（与 vt 拼接逐字段相同），长度以 DEVICES 表为准。
-    // 改长度只走 setRodLen；MW 未就绪时它只写 B.len/B.hw+refresh，镜像板留给 stepMatter 懒建。
+    // 改长度只走 setRodLen（只写 B.len/B.hw + refresh）。
     B=makeRod(cx,cy,0,0);
-    if(B.len!==d.len)setRodLen(B,d.len,false);
+    if(B.len!==d.len)setRodLen(B,d.len);
   }else if(d.id==='belt'){
     // 传送带走 makeBelt。落点 = 质心（矩形以 cx,cy 为中心）。
     B=makeBelt(cx,cy);
@@ -1029,9 +1029,9 @@ function placeDevice(id,cx,cy){
   if(B){
     // 杆放下时立刻尝试连到附近物体；必须放在这个唯一创建入口里，面板拖出（endDeviceOut）与
     //   器件模式点画布（toolTap）两条入口才同时生效。springTryAnchorByHost 里的 rodTryAnchor 只处理
-    //   「把物体拖到杆上」，反方向「把杆拖到物体上」需要这里扫杆自己的两个端点，否则永远连不上，
-    //   物体只被杆的镜像板推着走。弹簧/绳/铰链的落点锚定在 pointerup 的 'S' 分支（springTryAnchor）。
-    if(d.id==='rod'&&typeof rodTryAnchor==='function')rodTryAnchor(B);
+    //   「把物体拖到杆上」，反方向「把杆拖到物体上」需要这里扫杆自己的两个端点，否则永远连不上。
+    //   弹簧/绳/铰链的落点锚定在 pointerup 的 'S' 分支（springTryAnchor）。
+    if(d.id==='rod')rodTryAnchor(B);
     B.pop=1;B.orbPulse=1;ringGo(B.x,B.y);
   }   // 与 spawnWhole / copyBody 一致的落体动画
   return B;
@@ -1089,7 +1089,7 @@ function devSnapEnds(B){
   if(!B||B.dead)return null;
   if(B.kind==='S'&&!B.hinge&&B.e0&&B.e1)
     return {ends:[{x:B.e0.x,y:B.e0.y},{x:B.e1.x,y:B.e1.y}],anc:B.anc,skip:B,owner:B};
-  if(B.kind==='T'&&typeof rodEndWorld==='function')
+  if(B.kind==='T')
     return {ends:[rodEndWorld(B,0),rodEndWorld(B,1)],anc:B.anc,skip:B,owner:B};
   return null;
 }
@@ -1139,7 +1139,7 @@ function snapPickCandidate(ex,ey,skip,B){
   return null;
 }
 function midMagnetDelta(ex,ey,skip,owner){
-  var _ow=(owner!==undefined)?owner:((typeof grab!=='undefined'&&grab)?grab.obj:null);
+  var _ow=(owner!==undefined)?owner:(grab?grab.obj:null);
   var c=snapPickCandidate(ex,ey,skip,_ow);
   if(!c)return null;
   var dx=c.q.x-ex,dy=c.q.y-ey,d=Math.hypot(dx,dy);
@@ -1175,7 +1175,7 @@ function midMagnetPullRig(B){
 /* 对从面板拖出、还没放下的虚影做磁吸（同款判定、同款拉法）。
  * 虚影位置在 TOOL.devDrag.x/y —— 搬它，落点（placeDevice 用的坐标）自然吸到目标，与松手后的锚点一致。 */
 function midMagnetPullGhost(){
-  if(typeof TOOL==='undefined'||!TOOL||!TOOL.devDrag||!TOOL.devDrag.moved||!TOOL.devDrag.id)
+  if(!TOOL||!TOOL.devDrag||!TOOL.devDrag.moved||!TOOL.devDrag.id)
     return false;
   var d=deviceById(TOOL.devDrag.id);
   var ends=devEndsLocal(TOOL.devDrag.id,TOOL.devDrag.x,TOOL.devDrag.y,d?d.len:110);
@@ -1192,11 +1192,11 @@ function midMagnetPullGhost(){
 }
 function drawDeviceSnapHints(){
   var pairs=[];
-  if(typeof TOOL!=='undefined'&&TOOL&&TOOL.devDrag&&TOOL.devDrag.moved&&TOOL.devDrag.id){
+  if(TOOL&&TOOL.devDrag&&TOOL.devDrag.moved&&TOOL.devDrag.id){
     var d=deviceById(TOOL.devDrag.id);
     var ends=devEndsLocal(TOOL.devDrag.id,TOOL.devDrag.x,TOOL.devDrag.y,d?d.len:110);
     if(ends)pairs.push({ends:ends,anc:null});
-  }else if(typeof grab!=='undefined'&&grab&&grab.kind==='body'&&grab.obj){
+  }else if(grab&&grab.kind==='body'&&grab.obj){
     // 用 devSnapEnds（与磁吸/落锚同一份判定）：绳的两端 e0/e1 与弹簧同构，同样参与提示。
     var pe=devSnapEnds(grab.obj);
     if(pe)pairs.push(pe);
@@ -1207,7 +1207,7 @@ function drawDeviceSnapHints(){
       if(P.anc&&P.anc[j])continue;              // 这一端已经拴住了 ⇒ 不再提示
       var e=P.ends[j];if(!e)continue;
       /* 红点也走同一个统一候选（红点 = 将要吸附的位置，二者不分叉） */
-      var c=snapPickCandidate(e.x,e.y,P.skip,(P&&P.owner)?P.owner:((typeof grab!=='undefined'&&grab)?grab.obj:null));
+      var c=snapPickCandidate(e.x,e.y,P.skip,(P&&P.owner)?P.owner:(grab?grab.obj:null));
       if(c)drawSnapMarker(c.q.x,c.q.y);
     }
   }

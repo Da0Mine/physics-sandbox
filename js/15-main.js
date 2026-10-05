@@ -32,8 +32,8 @@ function frame(now){
     stepShake(dt);
     stepBoss(dt);      // BOSS 召唤（必须在 stepParticles 之后：它要往 particles 里补 seek 粒子）
   }
-  if(typeof drawChargeMark==='function')drawChargeMark();
-  if(typeof drawPendingHint==='function')drawPendingHint();
+  drawChargeMark();
+  drawPendingHint();
   /* —— 以下始终执行（交互与渲染，时间静止时用户仍可拖动/合并/召唤/画图）—— */
   refreshHover();
   updateParamContacts();

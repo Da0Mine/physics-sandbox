@@ -5,14 +5,14 @@ function openMenu(x,y,B,d){
   menuLetter=d||null;
   // "参数" button only shows when right-clicked LETTER has an adjustable param
   // (a bare body right-click, e.g. a T-rod, uses paramDef(body) instead)
-  var adj=(d)?paramDefForLetter(B,d).length>0:paramDef(B).length>0;
+  var adj=d?paramDefForLetter(B,d).length>0:paramDef(B).length>0;
   var pb=menu.querySelector('[data-act="param"]');
   if(pb)pb.classList.toggle('hide',!adj);
   // "固定/解锁" button shows for BOUNDARIES (drawn lines & preset shapes) — nothing else
   var fb=menu.querySelector('[data-act="fix"]');
   if(fb)fb.classList.toggle('hide',!(B.kind==='W'));
   var fx=menu.querySelector('[data-act="fix"] .fix-lab');
-  if(fx)fx.textContent=(B.fixed)?'取消固定':'固定';
+  if(fx)fx.textContent=B.fixed?'取消固定':'固定';
   // 「固定方向」只对弹簧显示（kind==='S' 且不是绳/铰链）：锁定那一刻的弹簧朝向成为导轨，之后只能沿它伸缩。
   // 绳的几何完全由两锚点决定、铰链长度恒 0，都没有「方向」；dirLock 会冻结宿主自转并把锚点拽回导轨，
   // 对它们是纯破坏（铰链会被拽成有向的杆）。下面 menu click 分派里有同一条守卫，两处须同步，
@@ -28,7 +28,7 @@ function openMenu(x,y,B,d){
     if(rl)rl.textContent=B._rodAngleLock?'解除角度固定':'固定角度';
   }
   var dl=menu.querySelector('[data-act="dirlock"] .dl-lab');
-  if(dl)dl.textContent=(B.dirLock)?'取消固定方向':'固定方向';
+  if(dl)dl.textContent=B.dirLock?'取消固定方向':'固定方向';
   // 先显示、再量实际渲染尺寸、按视口收：菜单条目数会变，按固定条目数估的偏移会让菜单被屏幕截断。
   menu.classList.add('on');
   var mr=menu.getBoundingClientRect();
@@ -141,18 +141,18 @@ DD.addEventListener('pointerup',function(e){window.__ptrDown=false;},true);
  * touch-action:none 已防止画布/垃圾桶被掐断，这里是兜底。 */
 DD.addEventListener('pointercancel',function(e){
   window.__ptrDown=false;
-  if(typeof TOOL!=='undefined'&&TOOL){
+  if(TOOL){
     if(TOOL.drag){TOOL.drag=null;}          // 取消的形状框：丢弃（松手才落体，取消不落）
     if(TOOL.stroke){TOOL.stroke=null;}      // 取消的笔画：同上
     if(TOOL.devDrag){try{endDeviceOut();}catch(_e){}}
   }
-  if(typeof trashDrag!=='undefined'&&trashDrag&&trashDrag.active){
+  if(trashDrag&&trashDrag.active){
     trashDrag.active=false;
     var _tr=DD.getElementById('trash');
     if(_tr){_tr.style.left='';_tr.style.top='';
             _tr.style.right='24px';_tr.style.bottom='24px';_tr.classList.remove('on');}
   }
-  if(typeof grab!=='undefined'&&grab){grab.kind=null;grab.obj=null;}
+  if(grab){grab.kind=null;grab.obj=null;}
 },true);
 DD.addEventListener('pointerdown',function(e){if(!e.target.closest('#menu'))closeMenu();});
 var grab={kind:null,obj:null,gx:0,gy:0,lx:0,ly:0,t:0,svx:0,svy:0,start:0};
@@ -163,7 +163,7 @@ var TOUCH_LETTER=null;   // 触屏下面板中被点选的符号（等第二次�
  * pointerdown，只挂在 cv 上的话长按无反应。两条入口共用计时器 TOUCH_LP，
  * 因此 pointermove / pointerup 里的 clearTimeout(TOUCH_LP) 对两者都有效。 */
 function touchLongPressStart(cand){
-  if(typeof TOUCH_LP!=='undefined'&&TOUCH_LP)clearTimeout(TOUCH_LP);
+  if(TOUCH_LP)clearTimeout(TOUCH_LP);
   TOUCH_LP=setTimeout(function(){touchLongPressFire(cand);},450);
 }
 function touchLongPressFire(cand){
@@ -182,7 +182,7 @@ function touchLongPressFire(cand){
     if(Math.hypot((_L.wx||0)-pointer.x,(_L.wy||0)-pointer.y)<26){_fl=_L;break;}
   }
   if(_fl){
-    var _fb=_fl.body||(typeof promoteFreeLetter==='function'?promoteFreeLetter(_fl):null);
+    var _fb=_fl.body||promoteFreeLetter(_fl);
     if(_fb){openMenu(pointer.x,pointer.y,_fb,_fl);if(grab){grab.kind=null;grab.obj=null;}return;}
   }
   var _mb=hoverB||((cand&&!cand.ch&&!cand.dead)?cand:null)||null;
@@ -326,11 +326,11 @@ rodh.forEach(function(kn,i){
   kn.addEventListener('pointerdown',function(e){
     if(!rodHov||rodHov.dead)return;
     /* 端点已锚定 ⇒ 该端的长度手柄不响应（长度由约束决定），也避免干扰双击解除。 */
-    if(typeof rodEndLenDragAllowed==='function'&&!rodEndLenDragAllowed(rodHov,i))return;
+    if(!rodEndLenDragAllowed(rodHov,i))return;
     /* 若这是双击的第二下（500ms 内、同一根杆）⇒ 不启动长度拖拽：rodlen 的 grab 会 stopPropagation 吃掉第二下，双击解除失败。 */
     if(dblState&&dblState.body===rodHov&&dblState.t&&(performance.now()-dblState.t)<520){
       /* 手柄会吃掉第二下点击（主画布收不到）⇒ 在这里直接执行解除（该端锚定则断开），不依赖冒泡。 */
-      if(typeof springDisconnectAtPoint==='function'&&springDisconnectAtPoint(pointer.x,pointer.y)){
+      if(springDisconnectAtPoint(pointer.x,pointer.y)){
         dblState.t=0;dblState.body=null;
       }
       return;
@@ -597,7 +597,6 @@ DD.addEventListener('pointermove',function(e){
     grab.lx=pointer.x;grab.ly=pointer.y;
   }else if(grab.kind==='rodlen'){
     // 拖杆端长度手柄：固定端用按下时锁存的 (fx,fy)，拖拽端 = 指针。
-    // force=false：只在长度漂移超过 ROD_MIRROR_TOL 时才重建镜像板（逐像素重建会每帧造一个体）。
     var Rb2=grab.obj;
     if(Rb2&&!Rb2.dead){
       // 宿主分派：带子走 setBeltEnds（pts 实时改 + 容差重建 W 体），杆走 rodPlaceEnds。
@@ -606,7 +605,7 @@ DD.addEventListener('pointermove',function(e){
       if(Rb2.belt)setBeltEnds(Rb2,grab.fx,grab.fy,pointer.x,pointer.y,false);
       else if(Rb2.gnd)groundDragEnds(Rb2,grab,pointer.x,pointer.y,false);   // 地面器件
       
-      else rodDragEnds(Rb2,grab,pointer.x,pointer.y,false);
+      else rodDragEnds(Rb2,grab,pointer.x,pointer.y);
       Rb2.vx=0;Rb2.vy=0;Rb2.om=0;         // 位姿归指针，速度必须跟着清（否则一松手就飞）
     }
     grab.lx=pointer.x;grab.ly=pointer.y;
@@ -686,7 +685,7 @@ DD.addEventListener('pointerup',function(e){
     if(!(grab&&grab.kind)||_moved<8){
       if(TOUCH_SEL&&!TOUCH_SEL.dead){touchMoveSelTo(pointer.x,pointer.y);}
       else{
-        var _tgt=hoverB||(typeof hit!=='undefined'?hit:null);
+        var _tgt=hoverB||null;
         if(!_tgt){
           for(var _ti=0;_ti<bodies.length;_ti++){
             var _B3=bodies[_ti];
@@ -733,7 +732,7 @@ DD.addEventListener('pointerup',function(e){
     /* 只有 q 走赋予（attach 给电荷）。E/B 是场：attach 对它们走并入 mem（它们在公式里是合法的
      * 质量字母），会把场融进物体、场源体消失。E/B/I 一律落回就地摆位成场源体。 */
     if(B.kind==='q'&&B.glyphs&&B.glyphs.length){
-      var _tg=typeof findSolidBodyAt==='function'?findSolidBodyAt(pointer.x,pointer.y):null;
+      var _tg=findSolidBodyAt(pointer.x,pointer.y);
       if(_tg&&_tg!==B){
         var _gl=B.glyphs[0];
         try{
@@ -927,18 +926,18 @@ DD.addEventListener('pointerup',function(e){
     /* 光速 v 落到 ½mv² 上 ⇒ 走 bossPlace（前两次排斥、第三次融合）。必须放在 findSolidBodyAt 之前：
      * ½mv² 是动态体会被它命中并送进 attach()，而 attach 对表达式目标无条件并入 mem（会毁掉公式）。
      * 用 bossIsEk() 精确判型后抢先分流。 */
-    if(L.ch==='v'&&L.vLight&&typeof bossFindEkNear==='function'){
+    if(L.ch==='v'&&L.vLight){
       var _ek=bossFindEkNear(pointer.x,pointer.y);
       if(_ek){bossPlace(_ek,L);grab.kind=null;grab.obj=null;return;}
     }
-    if(L.ch==='q'&&typeof findSolidBodyAt==='function'){
+    if(L.ch==='q'){
       var _qb=findSolidBodyAt(pointer.x,pointer.y);
       /* 命中了但形状不在电荷白名单（圆轨/凹槽/手绘笔画…）⇒ 不赋予，落到下面的场源体分支；绝不并进物体（见 attach）。 */
       if(_qb&&qGiveable(_qb)){attach(_qb,L);grab.kind=null;grab.obj=null;return;}
       /* q 在生成场源体之前先试一次 findMergeTarget，与 v 同序（v 命中失败会依次走 findTComboTarget →
        * findKXCombo → 实心命中 → findMergeTarget → findFreeMassTarget）；否则 q 被 spawnField('q') 分支
        * 直接 return 截断，同一落点 v 融得进去 q 融不进去。真的没有目标时 q 仍变成场源体。 */
-      var _qm=(typeof findMergeTarget==='function')?findMergeTarget(L):null;
+      var _qm=findMergeTarget(L);
       if(_qm){attach(_qm,L);grab.kind=null;grab.obj=null;return;}
     }
     if(L.ch==='B'||L.ch==='q'||L.ch==='I'||L.ch==='E'){
@@ -955,7 +954,7 @@ DD.addEventListener('pointerup',function(e){
     if(sc){applyKXCombo(L,sc);grab.kind=null;grab.obj=null;return;}
     /* 赋予型字符（v/q）拖到实心物体上就生效：纯形状（无质量字母的方块/圆）在 canMerge 规则下不接收参数字母，
      * 但「赋予」不需要并入物体 ⇒ 单独按实心区域命中判定。 */
-    if((L.ch==='v'||L.ch==='q'||L.ch==='a')&&typeof findSolidBodyAt==='function'){
+    if(L.ch==='v'||L.ch==='q'||L.ch==='a'){
       var _sb=findSolidBodyAt(pointer.x,pointer.y);
       if(_sb){attach(_sb,L);grab.kind=null;grab.obj=null;return;}
     }
@@ -1063,7 +1062,7 @@ DD.addEventListener('pointerup',function(e){
     if(Rb4&&!Rb4.dead){
       if(Rb4.belt)setBeltEnds(Rb4,grab.fx,grab.fy,pointer.x,pointer.y,true);
       else if(Rb4.gnd)groundDragEnds(Rb4,grab,pointer.x,pointer.y,true);   // 地面器件
-      else rodDragEnds(Rb4,grab,pointer.x,pointer.y,true);      // 同 pointermove：杆按索引摆
+      else rodDragEnds(Rb4,grab,pointer.x,pointer.y);      // 同 pointermove：杆按索引摆
       Rb4.vx=0;Rb4.vy=0;Rb4.om=0;
       if(Rb4.mb&&Matter.Sleeping)Matter.Sleeping.set(Rb4.mb,false);
     }

@@ -22,7 +22,7 @@
   }
   function startShrapnel(){
     var slots=measure(),i,cx=W/2,cy=BOSS.y||BOSS.y1||(H*0.25);
-    var gy=(typeof groundY!=="undefined"?groundY:600);
+    var gy=groundY;
     for(i=0;i<slots.length;i++){
       var ce=BOSS.chars[i];
       if(ce.classList.contains("on")||!slots[i]){FRAGS.push({ce:ce,hasFrag:false});continue;}
@@ -79,7 +79,7 @@
     if(BOSS.__fragT>=T){document.body.classList.remove("boss-notrans");buildAsmQueue();ph2="assemble";BOSS.ph="assemble";BOSS.t=0;}
   }
   function buildAsmQueue(){
-    var gy=(typeof groundY!=="undefined"?groundY:600);
+    var gy=groundY;
     for(var i=0;i<BOSS.chars.length;i++){
       var ce=BOSS.chars[i];
       if(ce.classList.contains("on"))continue;
@@ -128,10 +128,10 @@
       for(var m=0;m<SHOCKS.length;m++)if(SHOCKS[m].el&&SHOCKS[m].el.parentNode)SHOCKS[m].el.parentNode.removeChild(SHOCKS[m].el);
       FRAGS=[];asmActive=[];asmQ=[];SHOCKS=[];started=false;document.body.classList.remove("boss-notrans");}
     BOSS.platT+=dt;
-    if(typeof bossPlatLayout==="function")bossPlatLayout();
+    bossPlatLayout();
   }
   function myStep(){
-    if(typeof BOSS==="undefined"||!BOSS){
+    if(!BOSS){
       for(var i=0;i<FRAGS.length;i++)if(FRAGS[i].el&&FRAGS[i].el.parentNode)FRAGS[i].el.parentNode.removeChild(FRAGS[i].el);
       for(var j=asmActive.length-1;j>=0;j--)if(asmActive[j].el.parentNode)asmActive[j].el.parentNode.removeChild(asmActive[j].el);
       for(var m=0;m<SHOCKS.length;m++)if(SHOCKS[m].el&&SHOCKS[m].el.parentNode)SHOCKS[m].el.parentNode.removeChild(SHOCKS[m].el);

@@ -262,8 +262,7 @@ function applyParam(B,spec,val){
   /* 按数值途径写入 vsize 时退出光速态（不重渲染，免得正在编辑的输入框失焦）。
    * 光速态原本只由 bossFinish/bossAbort 复位，不在这里退出的话面板会被锁在「c = 光速」改不回数字。
    * 输入 c 走 keydown 里的 bossLightOn，不受这里影响。 */
-  if(key==='vsize'&&typeof bossLightState==='function'&&bossLightState()
-     &&typeof bossLightReset==='function')bossLightReset(true);
+  if(key==='vsize'&&bossLightState())bossLightReset(true);
   /* 赋予型参数的写入：Δt 写全局 TIME_SCALE；v 的大小/方向写字符字段；
    * q 的电荷写字符 qCharge；物体的电荷写 B.charge（并同步 Matter 体的电荷渲染）。 */
   if(key==='tscale'){
@@ -332,7 +331,7 @@ function applyParam(B,spec,val){
   }else if(key==='rodlen'){
     // 杆长无物理上限，只保留 L>0。
     // 必须走 setRodLen（force=true 无条件重建）：只写 B.len+refresh 时镜像碰撞板不会跟着重建。
-    if(B.kind==='T')setRodLen(B,val,true);
+    if(B.kind==='T')setRodLen(B,val);
     else B.len=clamp(val,1,1e7);
   }else if(key==='rodmass'){
     // 杆的质量：手写通道的冲量份额、绕质心转动惯量 I=mL²/12 都取自它；无物理上限，>0 即可。
@@ -608,7 +607,7 @@ var paramBody=null,paramLetter=null,paramRows=[];
 var pairOpenField=null;
 function openParams(B,d){
   if(!B)return;
-  var ids=(d)?paramDefForLetter(B,d):paramDef(B);
+  var ids=d?paramDefForLetter(B,d):paramDef(B);
   if(!ids.length)return;
   closeMenu();
   paramBody=B;
@@ -652,7 +651,7 @@ function renderParamPanel(){
   if(paramLetter)sub.push(paramLetter.ch+' → '+specIdForLetter(paramLetter,paramBody));
   else sub.push(paramBody.mem.length?paramBody.mem.map(function(g){return g.type;}).join(' '):(paramBody.kind||''));
   pvalEl.textContent=sub.join(' ');
-  var ids=(paramLetter)?paramDefForLetter(paramBody,paramLetter):paramDef(paramBody);
+  var ids=paramLetter?paramDefForLetter(paramBody,paramLetter):paramDef(paramBody);
   prows.innerHTML='';
   paramRows=[];
   for(var i=0;i<ids.length;i++){
@@ -802,7 +801,7 @@ function renderParamPanel(){
         var v=+nu2.value;
         /* 光速态下输入框是空的（placeholder='c'）。此时不要按「空 ⇒ 回默认值」处理，
          * 否则会把光速打回默认并清掉光速态；直接跳过，想改回数字就输入一个数。 */
-        if((isNaN(v)||nu2.value==='')&&typeof bossLightState==='function'&&bossLightState())return;
+        if((isNaN(v)||nu2.value==='')&&bossLightState())return;
         if(isNaN(v)||v==='')v=paramDefVal(B2,spec2)/k2;
         // number input has UNLIMITED range — no clamp here. The slider is clamped by
         // its own min/max (it will just rest at an endpoint for out-of-range values).
@@ -820,7 +819,7 @@ function renderParamPanel(){
         var v=+nu2.value;
         /* 光速态下输入框是空的（placeholder='c'）。此时不要按「空 ⇒ 回默认值」处理，
          * 否则会把光速打回默认并清掉光速态；直接跳过，想改回数字就输入一个数。 */
-        if((isNaN(v)||nu2.value==='')&&typeof bossLightState==='function'&&bossLightState())return;
+        if((isNaN(v)||nu2.value==='')&&bossLightState())return;
         if(isNaN(v)||v==='')v=paramDefVal(B2,spec2)/k2;
         applyParam(B2,spec2,v*k2);
         sl2.value=v;
@@ -1098,13 +1097,13 @@ function updateParamContacts(){
   function muOf(O){                       // 对方的本体 μ（未接触时按规则推算用）
     if(O===MW.ground||O===MW.wl||O===MW.wr||O===MW.wt)return 0.6;
     if(O.kind==='W')return wEffMu(O);
-    if(O.kind==='T')return 0.4;          // 杆镜像板的材质摩擦
+    if(O.kind==='T')return 0.4;          // 杆的材质摩擦口径
     return null;                         // 公式体/场源：手写通道，无单一 μ 口径
   }
   function restOf(O){                     // 对方的本体 e（未接触时按规则推算用，地面/墙恒 0）
     if(O===MW.ground||O===MW.wl||O===MW.wr||O===MW.wt)return 0;
     if(O.kind==='W')return wEffE(O);
-    if(O.kind==='T')return 0;            // 杆镜像板无弹性
+    if(O.kind==='T')return 0;            // 杆无弹性
     return null;
   }
   var rows='',n=0;
@@ -1168,14 +1167,12 @@ function wakeSleepNear(x,y,rad){
 }
 
 function clearAll(){
-  /* 清屏必须把黑洞特效状态一并复位（粒子/光环/合并态/终局态），否则粒子残留。 */
+  /* 清屏必须把黑洞特效状态一并复位（粒子/终局态），否则粒子残留。 */
   try{
-    if(typeof particles!=='undefined'&&particles&&particles.length)particles.length=0;
-    if(typeof rings!=='undefined'&&rings&&rings.length)rings.length=0;
-    if(typeof sparks!=='undefined'&&sparks&&sparks.length)sparks.length=0;
-    if(typeof BH_FINALE!=='undefined')BH_FINALE=null;
+    if(particles&&particles.length)particles.length=0;
+    BH_FINALE=null;
     /* 清屏会重新 dockLetter，布局回到默认 ⇒ 必须重跑 fixPanelSlot 重新施加面板排布。 */
-    if(typeof fixPanelSlot==='function')setTimeout(fixPanelSlot,0);
+    setTimeout(fixPanelSlot,0);
   }catch(e){}
   /* 清空必须连约束一起清：clearAll 不走 killBody，那里的约束清理跑不到，
    铰链的真 Constraint 会残留并累积。体都没了，直接清空世界的 constraints 列表。 */
@@ -1240,16 +1237,16 @@ function clearAll(){
   sortPanel();
   /* 清屏时一并收掉 boss。bossFinish 本身调用 clearAll()，所以要容忍 BOSS 已被置 null
    * （bossAbort 开头 if(!BOSS)return）；手动清屏时必须撤掉平台/遮罩/冻结的原型体。 */
-  try{ if(typeof bossAbort==='function')bossAbort(); }catch(e){}
+  try{ bossAbort(); }catch(e){}
 }
 trash.addEventListener('dblclick',function(e){e.preventDefault();clearAll();});
 /* 原生 dblclick 通道（捕获阶段）：双击锚定端/锚定点 ⇒ 断开该端锚定。
  * 不依赖 pointerdown 的 dblState 路径（手柄与其它分支会把它吃掉）。 */
 DD.addEventListener('dblclick',function(e){
   var x=e.clientX,y=e.clientY;
-  if(typeof springDisconnectAtPoint==='function'&&springDisconnectAtPoint(x,y)){
+  if(springDisconnectAtPoint(x,y)){
     if(grab){grab.kind=null;grab.obj=null;}
-    if(typeof dblState!=='undefined'&&dblState){dblState.t=0;dblState.body=null;}
+    if(dblState){dblState.t=0;dblState.body=null;}
     e.preventDefault();e.stopPropagation();
   }
 },true);
@@ -1315,7 +1312,7 @@ function killLetter(d){
 }
 function killBody(B){
   /* 铰链被删除时必须摘掉它的真 Constraint，否则会继续把两个宿主隐形地钉在一起。 */
-  if(B&&B._hcon&&typeof hingeConstraintDrop==='function')hingeConstraintDrop(B);
+  if(B&&B._hcon)hingeConstraintDrop(B);
   /* 删体 ⇒ 世界里任何引用它的约束都要摘掉。放在删除源头而非 hingeSolve / springSyncEnds：
    宿主被删后 hingeSolve 第一行就返回，springSyncEnds 也可能跑不到，约束会残留并隐形地钉住另一个体。 */
   if(B&&B.mb&&MW&&typeof Matter!=='undefined'&&Matter.Composite&&Matter.Composite.allConstraints){
@@ -1340,9 +1337,9 @@ function killBody(B){
   // dissolve any binary-star / orbit link involving B (release partner tangentially)
   if(B.go){
     var gD=B.go, txd=-Math.sin(gD.ang), tyd=Math.cos(gD.ang);
-    var P2=(gD.bin)?gD.by:null;
+    var P2=gD.bin?gD.by:null;
     if(P2&&bodies.indexOf(P2)>=0){
-      P2.vx=txd*gD.w*(gD.rad*((gD.bin)?gD.rP:1));P2.vy=tyd*gD.w*(gD.rad*((gD.bin)?gD.rP:1));
+      P2.vx=txd*gD.w*(gD.rad*(gD.bin?gD.rP:1));P2.vy=tyd*gD.w*(gD.rad*(gD.bin?gD.rP:1));
       P2.goB=null;
     }
     B.go=null;

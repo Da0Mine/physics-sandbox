@@ -52,9 +52,9 @@ function stepPhysics(dt){
      * B/E 场源在函数开头已 continue。 */
     var damp=(B.kind==='q')?Math.pow(0.94,dt*60):Math.pow(0.9992,dt*60);
     B.vx*=damp;B.vy*=damp;
-    // 杆的位置积分只归 rodIntegrate（240Hz 子步，与镜像板同一节拍），这里不搬杆的位置。
+    // 杆的位置积分只归 rodIntegrate（240Hz 子步），这里不搬杆的位置。
     // 两处都积分会让杆速度约为正常的两倍，且与锚点约束永久对拉（锚端残差峰值 = v/60）。
-    // 重力与阻尼仍在本函数（rodIntegrate 不含重力）。杆与左右墙/地面的细致接触在 rodResolve 里。
+    // 重力与阻尼仍在本函数（rodIntegrate 不含重力）。
     if(B.kind!=='T'){B.x+=B.vx*dt;B.y+=B.vy*dt;}
     walls(B);
   }
@@ -167,10 +167,7 @@ function walls(B){
   if(B.kind){
     if(B.kind!=='T')return;
     // t-rod: a solid plank — rest on the ground, bounce off the screen edges, keep rotation
-    // 地面这一边：半高必须用杆的墨迹半厚 ROD_HH(=2)，与 rebuildRodMirror 建板（高 2·ROD_HH）和 rodResolve 的
-    // 接触判据同源；用 B.hh(=4) 会把杆撑在离地 2px 处，rodResolve 永不触发（每帧落 0.7px 再被拍回）。
-    // 这里也不反弹：杆的支撑在 rodResolve 里是 e=0，两边口径不一致会一个托住一个弹起。
-    // 这一支只是深穿透安全网，正常贴地在 rodResolve 里逐子步解。
+    // 杆没有 Matter 体，地面/屏幕边缘对杆的支撑只在这里：半高用 ROD_HH（不是 B.hh=4，否则杆悬在离地 2px 处），且不反弹。
     var lenh=B.len/2,c=Math.abs(Math.cos(B.th)),s=Math.abs(Math.sin(B.th));
     var ex=lenh*c+ROD_HH*s,ey=lenh*s+ROD_HH*c;
     if(B.y-ey<-8){B.y=-8+ey;B.vy=Math.abs(B.vy)*0.5;if(Math.abs(B.vy)<60)B.vy=0;}
@@ -421,8 +418,7 @@ function collideBodies(){
         // 不影响 vn 判定。切向由法向转 90° 得到，法向取反时 vt 与 t 同时反号，牵引量不变 ⇒ 无需翻转。
         if(AW)beltTract(A,B,nx,ny,ov);else beltTract(B,A,nx,ny,ov);
       }else if(AT||BT||AS||BS){
-        /* 杆—杆（T↔T）不做任何接触：杆没有碰撞箱，只对物体起约束作用（rebuildRodMirror 与 rodResolve 同此约定，
-         * Matter 侧杆也已无 mb）。
+        /* 杆—杆（T↔T）不做任何接触：杆没有碰撞箱（也没有 Matter 体），只对物体起约束作用。
          * 若在这条 SAT 通道里把两根杆当 2px 半厚的实心板互推：多杆链中两根杆锚在同一物体上、拖动时在其附近必然交叉，
          * rodDragPinChain 每子步把锚点残差拉到 0，帧末这里又把两杆各推开 ~7px，拉锯成恒定 7~10px 的「杆与物体分离」
          * （峰值随当帧交叉深度波动）。

@@ -477,7 +477,7 @@ function buildMatterBody(B){
     // 半凹槽/全凹槽：轮廓含内凹弧线，fromVertices 的凸包会填平凹面，所以和开链笔画一样沿轮廓每小段一个定向矩形 part 组成复合体。
     // 条带就是墨迹本身（只有线是边界），弧面由离散段近似（段间角度小，滚动平滑）。
     // 空心圆 ring 同理：凸包会把空腔填成实心圆盘。B.pts 是中线圆（shapeOutline 给），bndSegs 每段厚 2·BND_INK ⇒ 一整圈墨线，空腔敞开；
-    // rodResolve / 摩擦配对 / 睡眠等既有机制照旧生效。
+    // 摩擦配对 / 睡眠等既有机制照旧生效。
     var sg5=bndSegs(B),parts5=[];
     for(var qi5=0;qi5<sg5.length;qi5++){var s5=sg5[qi5];
       parts5.push(Matter.Bodies.rectangle(s5.x,s5.y,s5.hw*2+PEN_HW*2,s5.hh*2,
@@ -698,8 +698,8 @@ function circleRestitutionFix(ev){
     if(BA&&BA.kind==='W'&&BA.wshape==='circle')Bc=BA;
     else if(BB&&BB.kind==='W'&&BB.wshape==='circle')Bc=BB;
     if(!Bc||Bc.dead)continue;
-    if(typeof grab!=='undefined'&&grab&&grab.kind==='body'&&(grab.obj===BA||grab.obj===BB))continue;
-    var e=(typeof wEffE==='function')?wEffE(Bc):0;
+    if(grab&&grab.kind==='body'&&(grab.obj===BA||grab.obj===BB))continue;
+    var e=wEffE(Bc);
     if(!(e>0)||e>=0.98)continue;                    // 高中 0 / EL(e≈1) 走各自的既有通道
     var vax=mA.position.x-mA.positionPrev.x,vay=mA.position.y-mA.positionPrev.y,
         vbx=mB.position.x-mB.positionPrev.x,vby=mB.position.y-mB.positionPrev.y;
@@ -726,7 +726,7 @@ function circleRestitutionFix(ev){
 // 为什么需要（大学，R=72.325px，λ'=0.5 实测）：球以 500px/s 纯滚动撞右墙，反弹把 vx 翻成 −260（e=0.52），
 //   墙接触点在腰部、力矩≈0，ω 几乎不变 ⇒ 触地点滑移 −757px/s，动摩擦 12 帧把平动啃到 −8px/s（解析 (2vx+ωR)/3），
 //   反弹后只走 53px，表现为「先很快、一小段后骤降」。纯滚动语义下反弹是整体运动状态的反转，ω 必须跟着 v 走。
-// 逐子步执行（与 rodResolve / elasticContactFix 同级）：碰撞注入的速度突变必须在下一子步前归位，否则被求解器当滑移啃掉。
+// 逐子步执行（与 elasticContactFix 同级）：碰撞注入的速度突变必须在下一子步前归位，否则被求解器当滑移啃掉。
 //   ① 高中：ω 归零；② 倒着滚 ⇒ ω 跟随 v，平动不改；④ 滚动阻力 a=μ_r·g 沿切向反对滚动，ω 同步。
 // ⚠ 单位：impAt 的实参是「每子步位移」口径（写进 positionPrev/anglePrev），mb.velocity / angularVelocity 是「每 1/60s」口径；
 //   下次 Body.update 用 (position−positionPrev)×correction 重算速度，correction = _baseDelta/子步delta = 4，
@@ -743,7 +743,7 @@ function circleRollBodies(){
     var B=bodies[i];
     if(!B||B.dead||B.kind!=='W'||!B.mb||B.wshape!=='circle'||!B.rad)continue;
     if(B.mb.isStatic||B.fixed||B.mb.isSleeping)continue;
-    if(typeof grab!=='undefined'&&grab&&grab.kind==='body'&&grab.obj===B)continue;
+    if(grab&&grab.kind==='body'&&grab.obj===B)continue;
     (out||(out=[])).push(B);
   }
   return out;
@@ -797,7 +797,7 @@ function circleRollStep(list,dt){
     // 墙接触点在腰部、切向竖直 ⇒ 无滑移目标 ω≈0，会把自旋整条归零、抹掉「倒着滚」特征，反弹后仍被摩擦啃掉 39%。竖直墙 |n_y|≈0，被排除。
     if(best<ROLL_SUP_NY||!PO)continue;
     // 本体的有效 μ（读数与物理同源）
-    var mu=(typeof wEffMu==='function')?wEffMu(B):0.08;
+    var mu=wEffMu(B);
     // 摩擦存在性闸门：pair.friction = min(A,B)，任一方为 0 就没有摩擦维持纯滚动。没有摩擦却强行不打滑 = 凭空注入转动能
     // （实测自旋峰值 0.13→0.66、12s 高度下沉 +3%→+12%）。μ_pair=0 时让位给「滑」，这正是光滑面的物理语义。
     var muP=Math.min(mu,(PO&&typeof PO.friction==='number')?PO.friction:mu);

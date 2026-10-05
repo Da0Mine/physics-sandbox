@@ -69,7 +69,7 @@ function met(ch,size){
   // contact would stop 1px early on each side. Fall back to ±w/2 when the ink metric is
   // missing or clearly bogus.
   var w2=q.width/2,aL=q.actualBoundingBoxLeft,aR=q.actualBoundingBoxRight;
-  var il=(aL==null)?(-w2):(-aL-w2), ir=(aR==null)?(w2):(aR-w2);
+  var il=(aL==null)?(-w2):(-aL-w2), ir=(aR==null)?w2:(aR-w2);
   if(!(il<ir)||il<-w2-8||ir>w2+8||ir-il<=0){il=-w2;ir=w2;}
   MT[key]={top:bl-ia-size/2,bot:bl+id-size/2,w:q.width,il:il,ir:ir};
   return MT[key];
@@ -272,68 +272,23 @@ function makeRod(x,y,vx,vy){
 // 杆的质量：默认 1 kg（= 杆长 170px 的自然质量），面板 rodmass 可改。
 // 手写通道的冲量份额与转动惯量 I=mL²/12 都用它。
 function rodMassOf(B){return (B&&B.rmass!=null)?B.rmass:((B&&B.len)?B.len/170:1);}
-/* 杆的唯一改长度入口。
- * 改 B.len 只影响画面（render 与 rod-vs-字母 SAT 本就跟着变），碰撞镜像板 B.mb 却停在建板时的宽度
- * （stepMatter 只建一次，之后只 setPosition/setAngle）⇒ 看得见摸不着。
- * Matter 薄板不能改长，只能「漂移超容差就重建」（同 springMirror）：
- *  · force=true（参数面板 / 手柄松手）：无条件清 mb，按新 len 重建；
- *  · force=false（手柄拖动中）：只在 |len−_mlen|>ROD_MIRROR_TOL 时重建，避免每动一像素造一个体。
- * 清 mb 后当帧立刻按当前姿态补建，否则这一帧杆对 W 失去支撑会闪一下穿透。
- * B._mlen 与建板处共用，两边任一改动都会让另一边的 stale 判定成立。 */
-var ROD_MIRROR_TOL=6;   // 比弹簧的 10 略紧：杆不像弹簧那样高频「呼吸」，但手柄是逐像素拖的
-/* 杆的碰撞半厚（= 碰撞镜像板半高 = rodResolve 的接触口径）的唯一真源。
- * 屏幕上画的线是 BND_INK=2.325 半厚，差 0.325px 肉眼不可见；不要改成 BND_INK，镜像板与接触线全按 2 标定。
- * 杆的地面接触口径必须与 rodResolve 一致，且支撑用 e=0（不反弹）：
- *  · 若 walls() 用 B.hh(=4) 当半高，夹子把杆撑到 groundY−4，而 rodResolve 接触线在 groundY−2，
- *    杆永远悬在 2px 缝里每帧自由落再被拍回 ⇒ 30Hz 锯齿抖动（y 峰峰 0.717）；
- *  · 夹子若带 0.5 恢复系数（|vy|≥60 反弹）⇒ 12Hz 弹跳（y 峰峰 3.73px）。
- * 统一半厚 2 且不反弹后 y 峰峰为 0。夹子只作深穿透安全网，不承担托住杆的职责。 */
+/* 杆的接触半厚（walls() 的地面/边缘夹子用它）。屏幕上画的线是 BND_INK=2.325 半厚，差 0.325px 肉眼不可见。
+ * 夹子不反弹（e=0）：带 0.5 恢复系数时杆会在地面上 12Hz 弹跳（y 峰峰 3.73px）。 */
 var ROD_HH=2;
-// 已锚定的一端把镜像板缩进 ROD_MIRROR_INSET，碰撞盒在锚定端不外延：锚定端点钉在宿主表面上，
-// 全长板的端帽会插进宿主约 2px，Matter 每帧把宿主往外推，装配体持续爬移。
-// 不能照抄弹簧的碰撞组（SPR_CGROUP）方案：杆板是承重面，一刀切负组会让搁在杆上的弹簧宿主穿板。
-// 锚定签名记在 _manc，锚定状态一变（吸附/双击解除）下一帧自动重建。
-var ROD_MIRROR_INSET=5;
-// 杆的 Matter 镜像板唯一重建函数（懒建 / setRodLen / 长度手柄都走这里）。
-// 建板参数：isStatic、friction 0.4、restitution 0、slop 0.02、半厚 ROD_HH；建后 setAngle 到当前姿态并记账 _mlen。
-// 镜像板的「姿态 + 宽度 + 反查引用」是一个契约，只能有一份实现。
-function rebuildRodMirror(B){
-  /* 杆没有碰撞箱，只对物体起约束作用：这里只移除（可能残留的）镜像板，杆的 B.mb 恒为空。
-   * 静态承重板会引入多余的接触自由度：托住锚定宿主导致悬空停摆、插进物体导致排斥/爬移、与拖拽拉锯。
-   *  · 约束由 rodSyncAnchors 的 PBD（位置 + 速度）完成，无碰撞、无支撑、无杠杆撬动，物品不能搁在杆上；
-   *  · 宿主角度锁死（rodSyncLocks，见 springSyncLocks 旁）。 */
-  if(!MW)return;
-  removeMatterBody(B);
-}
-function setRodLen(B,len,force){
+function setRodLen(B,len){
   if(!B||B.kind!=='T')return;
   B.len=clamp(len,1,1e7);
   B._rodL=B.len;   // 目标长度的唯一真源（防棘轮）：只有有意改长度的入口写它
   B.hw=B.len/2+2;
   refresh(B);                                   // layoutField 的 T 分支重排 hw/hh
-  if(!MW)return;
-  // stale 判定含锚定签名：双击解除/新吸附会改变板端缩进，必须重建
-  var stale=(B._mlen==null)||(Math.abs(B._mlen-B.len)>ROD_MIRROR_TOL)||
-            (B._manc!==((B.anc[0]?1:0)|(B.anc[1]?2:0)));
-  if(force||stale){rebuildRodMirror(B);}         // 重建即按新 len 造板 + setAngle 到当前姿态
-  else{                                          // 漂移在容差内：只跟随姿态，不造体
-    Matter.Body.setPosition(B.mb,{x:B.x,y:B.y});
-    Matter.Body.setAngle(B.mb,B.th||0);
-  }
 }
 // 长度手柄专用：从两个端点摆一根杆（远端固定、拖拽端跟指针）。
 // 与 setRodLen（质心不动、两端对称伸缩，供参数面板用）不同：这里中心与角度都随拖拽端移动。
-// 镜像板跟随策略同 setRodLen：force/超容差才重建，否则只 setPosition/setAngle。
-function setRodEnds(B,x0,y0,x1,y1,force){
+function setRodEnds(B,x0,y0,x1,y1){
   var dx=x1-x0,dy=y1-y0,d=Math.hypot(dx,dy)||1;
   d=clamp(d,1,1e7);
   B.x=(x0+x1)/2;B.y=(y0+y1)/2;B.th=Math.atan2(dy,dx);
   B.len=d;B.hw=d/2+2;refresh(B);
-  if(!MW||!B.mb)return;                          // 镜像板懒建交给 stepMatter（rebuildRodMirror 兜姿态）
-  var stale=(B._mlen==null)||(Math.abs(B._mlen-B.len)>ROD_MIRROR_TOL)||
-            (B._manc!==((B.anc[0]?1:0)|(B.anc[1]?2:0)));   // 锚定签名
-  if(force||stale)rebuildRodMirror(B);
-  else{Matter.Body.setPosition(B.mb,{x:B.x,y:B.y});Matter.Body.setAngle(B.mb,B.th);}
 }
 // 杆端点 i 的世界坐标（长度手柄定位 + 拖拽时取远端）
 function rodEndWorld(B,i){
@@ -346,13 +301,13 @@ function rodEndWorld(B,i){
  * 有 per-end 状态 anc[i] 后，反着用会把锚点记到另一头（rodSyncAnchors 每帧对拉，最后塌成 len=1）。
  * ⇒ 凡按编号摆杆两端的地方一律走 rodPlaceEnds；setRodEnds 保持原语义，表达「哪一端被拖」的角色
  *   （slot0 = 钉死端、slot1 = 被拖端）。setBeltEnds 的长度 clamp 靠这个角色，带子无 per-end 状态，不要改它。 */
-function rodPlaceEnds(B,e0x,e0y,e1x,e1y,force){
+function rodPlaceEnds(B,e0x,e0y,e1x,e1y){
   // 入参按索引：index0=(e0x,e0y)、index1=(e1x,e1y)；内部换成槽位序
-  return setRodEnds(B,e1x,e1y,e0x,e0y,force);
+  return setRodEnds(B,e1x,e1y,e0x,e0y);
 }
 // 长度手柄被拖时的两端（按索引）：被拖的是 grab.end，另一端钉在按下那刻锁存的 (fx,fy)。
-function rodDragEnds(B,g,px,py,force){
-  var r=rodPlaceEnds(B, g.end?g.fx:px, g.end?g.fy:py, g.end?px:g.fx, g.end?py:g.fy, force);
+function rodDragEnds(B,g,px,py){
+  var r=rodPlaceEnds(B, g.end?g.fx:px, g.end?g.fy:py, g.end?px:g.fx, g.end?py:g.fy);
   B._rodL=B.len;                    // 拖长度手柄 = 有意改长度
   return r;
 }

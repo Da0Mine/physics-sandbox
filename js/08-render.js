@@ -246,8 +246,8 @@ function rodSnapPreviewScan(){
         for(var _ae=0;_ae<2;_ae++){ if(R.anc[_ae]&&R.anc[_ae].B===h){_anchoredHere=true;break;} }
         if(_anchoredHere)continue;
         /* 吸附点优先级：质心（仅轻质杆）> 角 > 边中点（独立铰链不吸中点）> 表面点。 */
-        var qc0=(typeof hostCornerSnapPoint==='function')?hostCornerSnapPoint(h,p.x,p.y):null;
-        var qm0=_isHingeRod?null:((typeof hostMidSnapPoint==='function')?hostMidSnapPoint(h,p.x,p.y):null);
+        var qc0=hostCornerSnapPoint(h,p.x,p.y);
+        var qm0=_isHingeRod?null:hostMidSnapPoint(h,p.x,p.y);
         var _snapPt=null;
         /* 质心判定与 springAnchorOffset 的质心吸附同口径（dc ≤ 0.7×半径 ⇒ 锚质心），红点画在物体质心。 */
         var _crad=(h.wshape==='circle'&&h.rad)?h.rad:Math.min(h.hw||30,h.hh||24);
@@ -281,7 +281,7 @@ function drawChargeMark(){
   for(var i=0;i<bodies.length;i++){
     var B=bodies[i];
     if(!B||B.dead||!B.charge)continue;
-    var pos=(B.mb)?B.mb.position:{x:B.x||0,y:B.y||0};
+    var pos=B.mb?B.mb.position:{x:B.x||0,y:B.y||0};
     var sgn=(B.charge>0)?'+':'-';
     cvx.save();
     cvx.strokeStyle=(B.charge>0)?'rgba(198,72,58,.95)':'rgba(58,96,182,.95)';
@@ -297,7 +297,7 @@ function drawPendingHint(){
   if(!(grab&&grab.kind==='letter'&&grab.obj))return;
   var t=grab.obj.type||grab.obj.ch;
   if(t!=='v'&&t!=='q')return;
-  var B=(typeof findSolidBodyAt==='function')?findSolidBodyAt(pointer.x,pointer.y):null;
+  var B=findSolidBodyAt(pointer.x,pointer.y);
   if(!B||B.dead)return;
   var rad=Math.max(B.hw||26,B.hh||26,B.rad||0)+10;
   cvx.save();
@@ -658,7 +658,7 @@ function stepGravity(dt){
      · M 取井的 massCap（大写 M 参数）/ mass，默认 3；除以 3 即「相对默认值」。
      · G_PULL2 按 r=150px 处与旧公式 1/(r+80) 加速度相等标定 ⇒ 中距离手感一致，
      远距离因 1/r² 衰减会比旧公式弱。 */
-    var wm=(best.isWell)?(best.massCap!=null?best.massCap:3):(best.mass!=null?best.mass:3);
+    var wm=best.isWell?(best.massCap!=null?best.massCap:3):(best.mass!=null?best.mass:3);
     var _rg=Math.max(bd,24);
     var a=G_PULL2*(wm/3)*_rg/Math.pow(_rg*_rg+80*80,1.5);
     B.vx+=ax*a*dt; B.vy+=ay*a*dt;

@@ -176,7 +176,7 @@ function bossLightOn(nu,val){
    * （由接入点⑥ gdDown 传递），不用每次重新输入 c。bossLightReset 在 boss 收尾时复原。 */
   /* 只有改的是面板里那个 v（L.state==='dock'）才回写单例，与 vsize/vang/qcharge 同口径；
    * 不分来源地回写会让改世界里某个 v 也污染单例，之后每个克隆都是光速 v。 */
-  if(typeof vO!=='undefined'&&vO&&L.state==='dock'){vO.vLight=true;vO.vGive=C_LIGHT*PX_PER_M;}
+  if(vO&&L.state==='dock'){vO.vLight=true;vO.vGive=C_LIGHT*PX_PER_M;}
   if(nu){nu.value='';nu.placeholder='c';}
   if(val)val.textContent='c ≈ '+C_LIGHT+' m/s';
   /* 滑块顶到最右（max 临时放宽到光速），让「数值变成光速」在两种控件上都看得见 */
@@ -196,16 +196,16 @@ function bossLightReset(skipRender){
   var any=false;
   if(paramLetter&&paramLetter.vLight){paramLetter.vLight=false;paramLetter.vGive=null;any=true;}
   if(paramBody&&paramBody.vLight){paramBody.vLight=false;paramBody.vGive=null;any=true;}
-  if(typeof vO!=='undefined'&&vO&&vO.vLight){vO.vLight=false;vO.vGive=null;any=true;}
+  if(vO&&vO.vLight){vO.vLight=false;vO.vGive=null;any=true;}
   /* skipRender=true 供 applyParam 用：用户正在输入框里改数值，此时重渲染面板会重建输入框，
    * 焦点与刚敲的字符一起丢。 */
-  if(any&&!skipRender&&typeof renderParamPanel==='function'&&paramBody)renderParamPanel();
+  if(any&&!skipRender&&paramBody)renderParamPanel();
 }
 /* 当前参数面板是否处于「v = 光速」态（vsize 行渲染用） */
 function bossLightState(){
   if(paramBody&&paramBody.vLight)return true;
   if(paramLetter&&paramLetter.vLight)return true;
-  if(typeof vO!=='undefined'&&vO&&vO.vLight)return true;
+  if(vO&&vO.vLight)return true;
   return false;
 }
 /* ---- ② 放置：前两次排斥、第三次融合 ---------------------------------------------------- */
@@ -248,7 +248,7 @@ function bossStartRise(Ek,d){
     if(f.inBody)continue;
     if(f.body)continue;
     if(f.state&&f.state!=='free')continue;
-    burstParticles(f.wx!=null?f.wx:(Ek.x),f.wy!=null?f.wy:(Ek.y),10,0.75);
+    burstParticles(f.wx!=null?f.wx:Ek.x,f.wy!=null?f.wy:Ek.y,10,0.75);
     killLetter(f);
     absorbed++;
   }
@@ -754,7 +754,7 @@ function bossFinish(){
   if(DD&&DD.body)DD.body.classList.remove('bossing');   // 复位面板透明度
   bossSetMask(0);
   TIME_SCALE=1;
-  if(typeof setToolMode==='function')setToolMode(null);
+  setToolMode(null);
   try{clearAll();}catch(e){}
 }
 /* 清掉 boss 保留的 Ek（字形 + 分数线 + bodies 记录），返回被清的件数 */
@@ -805,7 +805,7 @@ function bossAbort(){
  * 抛错时返回 false = 这次不归 boss，按原语义继续赋予速度。 */
 function bossTryPlace(B,d){
   if(!d||d.ch!=='v'||!d.vLight)return false;
-  if(typeof bossIsEk!=='function'||!bossIsEk(B))return false;
+  if(!bossIsEk(B))return false;
   bossPlace(B,d);
   return true;
 }

@@ -1,104 +1,17 @@
-/* 杆刚体、stepMatter、边界与形状（原 index.html 第 13840–15067 行） */
-/* ============================ 杆是真刚体（冲量 ⇄ 力矩） ============================
- * 注：杆的 Matter 镜像板已删除（见 rebuildRodMirror），B.mb 为 null 时本节依赖镜像板的冲击反馈与支撑解算不生效。
- * 两条通道缺一不可：
- * ① 冲量通道：W-vs-杆 在 collideBodies 里被跳过（归 Matter 世界）；杆的镜像是 isStatic 的位置驱动薄板，
- *    求解器把 W 体弹开却不把反作用力还给杆。做法：在 240Hz 子步前后各量一次 W 体的求解器速度，
- *    其动量变化的反作用施加在杆的接触点上，按刚体冲量（Δω = r×J / I）换算成杆的 vx/vy/om（rodImpactFeedback）。
- * ② 角度积分：stepMatter 的子步循环里按 1/240 积分杆的 x/y/th（rodIntegrate），再同步镜像板。
- *    同步必须逐子步做：杆端速度可达 2500px/s，一帧 41px，没有 CCD 的求解器会让 48px 的方块直接穿过去。
- * 三条护栏（缺一条就退化）：
- *  · 只认冲击不认静置压力（WROD_VN_MIN）
- *  · 接触点速度增量封顶 = K×入射速度（WROD_TIP_K）：否则 2000:1 的质量比会把 ω 算到 1e4 rad/s 量级，等于瞬移
- *  · 耗散（ROD_VKEEP）：杆不受重力也没有支撑约束，不耗散就一次撞击永远转下去 */
-var WROD_VN_MIN=25;      // px/s：接触点法向入射速度低于此 = 静置压力，不反馈
-var WROD_TIP_K=2.0;      // 接触点速度增量上限 = K × 入射速度（弹性对撞的极限）
-var WROD_VMAX=4000;      // px/s：杆的线速度硬上限（数值安全网）
-var WROD_WMAX=25;        // rad/s：杆的角速度硬上限（上游已限 |ω|<30）
 var ROD_VKEEP=0.25;      // 每秒保留比例（指数耗散）：0.25 ⇒ 1s 后剩 25%。
                          // 实测标定：0.12（1s 剩 12%）太快，杠杆刚被砸起来就泄掉；0.5 以上杆像陀螺转个不停。
                          // 0.25 时轻块上升最多（257px），且仍能被当场按停。
 var ROD_SUB_DT=1/240;    // 杆的积分/约束步长（秒）——与 stepMatter 的 240Hz 子步一致
-function rodMirrorOf(mb){return (mb&&mb._rodRef)?mb._rodRef:null;}
-// 子步前的「求解器视角」速度：与 snapVelocities 同一口径（position − positionPrev），
-// 因为 Matter 的 solveVelocity 全程只读写 positionPrev/anglePrev，velocity 字段是步末同步出来的。
-function snapRodWPrev(pre){
-  for(var i=0;i<bodies.length;i++){
-    var B=bodies[i];
-    if(B.kind!=='W'||!B.mb||B.dead||B.mb.isStatic)continue;
-    var b=B.mb,e=pre[b.id];
-    if(!e)e=pre[b.id]=[0,0,0];
-    e[0]=b.position.x-b.positionPrev.x;
-    e[1]=b.position.y-b.positionPrev.y;
-    e[2]=b.angle-b.anglePrev;
-  }
-}
-// 子步后：把每一对「杆镜像板 ↔ W 体」的动量变化折算成杆的冲量。
-function rodImpactFeedback(pre){
-  var list=MW.engine.pairs.list,i;
-  for(i=0;i<list.length;i++){
-    var pr=list[i];
-    if(!pr.isActive||pr.isSensor)continue;
-    var col=pr.collision;
-    if(!col)continue;
-    var A=col.parentA,Bb=col.parentB;
-    var rod=rodMirrorOf(A)||rodMirrorOf(Bb);
-    if(!rod||rod.dead)continue;
-    // 拖长度手柄时不吃冲击反馈：冻结期间 rodResolve 被跳过，`_hinge` 是上次的残值；冲量又加在 rod.vx/vy 上，会攒到松手时让整根杆飞出去。
-    if(rodLenFrozen(rod))continue;
-    // ---- 护栏④：只有铰接在静态支点上的杆才吃冲击动量（「搁板」与「杠杆」的分界）----
-    // 悬空的杆按动量守恒会被落下的笔画敲沉（实测杆 y 500→578.6、th 0→0.49），杆一沉，笔画就穿过
-    // 4px 厚的镜像板（Matter 没有 CCD）落到地面，「画出来的搁板」就失效了。悬空的杆背后没有东西接住反作用力；
-    // 杆首先是用户画的地形，其次才是杠杆。铰接（支点托在杆中段，见 ROD_PIVOT_BAND）才是杠杆的成立条件。
-    // 必须与 rodResolve 支撑循环对动态对方的筛选一起存在：否则压上来的笔画自己会被当成中段支点，悬空被判成铰接。
-    if(!rod._hinge)continue;
-    var D=rodMirrorOf(A)?Bb:A;                 // D = 撞在杆上的那个 W 体
-    var p=pre[D.id];
-    if(!p||D.isStatic)continue;
-    var cts=pr.contacts||pr.activeContacts;
-    var ct=cts&&cts.length?cts[0]:null;
-    if(!ct)continue;
-    var v=ct.vertex;
-    // ---- 护栏①：静置压力不反馈 ----
-    // 压着的重物每子步都会交给杆「支持力×Δt」的动量；杆没有重力也没有支撑约束，反馈了就会永远往下沉。
-    // 判据用接触点法向入射速度：静置接触恒为 0（重力那份已被求解器抵平），真砸下来的才有量级。
-    var rDx=v.x-D.position.x,rDy=v.y-D.position.y;
-    var vpx=p[0]-rDy*p[2],vpy=p[1]+rDx*p[2];    // D 的接触点速度（含 ω×r，约定见 springHostVel）
-    var vn=Math.abs(col.normal.x*vpx+col.normal.y*vpy)*60;   // px/s
-    if(vn<WROD_VN_MIN)continue;
-    var dvx=(D.position.x-D.positionPrev.x-p[0])*60,dvy=(D.position.y-D.positionPrev.y-p[1])*60;
-    if(!dvx&&!dvy)continue;
-    var mD=D.mass||1;                            // Matter 质量 = 自然质量 × wmass 乘数（见 applyParam）
-    var Jx=-mD*dvx,Jy=-mD*dvy;                   // 杆受到的冲量 = −(W 体的动量变化)
-    var mR=rodMassOf(rod);if(!(mR>1e-9))mR=1;
-    var LT=rod.len||170,I=(mR*LT*LT)/12;if(!(I>1e-9))I=16000;
-    var rRx=v.x-rod.x,rRy=v.y-rod.y;
-    var dvRx=Jx/mR,dvRy=Jy/mR,dwR=(rRx*Jy-rRy*Jx)/I;
-    // ---- 护栏②：接触点速度增量封顶 = K×入射速度 ----
-    // 2000kg 砸在 1.88kg 的杆上按质量比算 Δω≈1.5e4 rad/s，等于瞬移。封顶取弹性对撞极限 2v
-    // （极重撞击方 + 无约束轻杆的接触点速度上限），且随 vn 自标定：轻碰给得少，重砸给得多，不会变成开关。
-    var tipx=dvRx-dwR*rRy,tipy=dvRy+dwR*rRx;
-    var tip=Math.hypot(tipx,tipy),cap=WROD_TIP_K*vn;
-    if(tip>cap&&tip>1e-9){var f=cap/tip;dvRx*=f;dvRy*=f;dwR*=f;}
-    rod.vx=(rod.vx||0)+dvRx;rod.vy=(rod.vy||0)+dvRy;rod.om=(rod.om||0)+dwR;
-    if(rod.vx>WROD_VMAX)rod.vx=WROD_VMAX;else if(rod.vx<-WROD_VMAX)rod.vx=-WROD_VMAX;
-    if(rod.vy>WROD_VMAX)rod.vy=WROD_VMAX;else if(rod.vy<-WROD_VMAX)rod.vy=-WROD_VMAX;
-    if(rod.om>WROD_WMAX)rod.om=WROD_WMAX;else if(rod.om<-WROD_WMAX)rod.om=-WROD_WMAX;
-  }
-}
 // 杆的运动学积分（阶段①）：vx/vy/om → x/y/th + 耗散，dt 恒为子步 1/240 秒。
-// 只表达「杆想去哪」，约束全在 rodResolve；两者必须分开，因为镜像板写入 Matter 有两种口径：
-//   · 意图运动 → setPosition(...,true)：求解器看到的板速度 = 杆的真实运动（碰撞靠它把物块推起来）
-//   · 穿透修正 → setPosition(...,false)：只挪位置，positionPrev 不动
-// 不要把修正混进带速度的那次调用：等于每子步凭空给板 depth/dt 的速度，物体会被抛出屏幕（实测 y 冲到 −3e4）。
+// 锚点约束在 rodSyncAnchors 里；杆没有 Matter 体，位姿只在 B.x/B.y/B.th。
 /* 已锚定端不响应「拖端点改长度」：否则会干扰双击解除吸附。 */
 function rodEndLenDragAllowed(B,i){
   if(!B||B.kind!=='T'||!B.anc)return true;
   return !B.anc[i];           // 该端已锚定 ⇒ 不允许拖端点改长度
 }
 function rodIntegrate(B,dt){
-  /* 不要在这里用 `!B.mb` 早退：杆镜像板已删除，B.mb 恒为 null，早退会连带跳过 rodSyncAnchors 的约束链
-   * （PBD/回位/重建），松手后杆端回不到锚点（实测残差 237px）。杆位姿积分只用 x/y/th，与 mb 无关。 */
+  /* 不要在这里用 `!B.mb` 早退：杆的 B.mb 恒为 null，早退会连带跳过 rodSyncAnchors 的约束链
+   * （PBD/回位/重建），松手后杆端回不到锚点（实测残差 237px）。 */
   if(B.dead)return false;
   if(grab&&grab.kind==='body'&&grab.obj===B)return false;   // 被抓住时姿态归指针，别抢
   if(rodLenFrozen(B))return false;                    // 拖长度手柄时同上
@@ -126,180 +39,11 @@ function rodIntegrate(B,dt){
   rodSyncAnchors(B,dt);
   return true;
 }
-// 杆的约束求解（阶段②）：地面 / 左右墙 / 别的物体的支撑。用接触冲量改速度，穿透用有界的位置推出处理，
-// 返回值表示位置是否被改过。
-// 两种朴素写法都不行：
-//   ① 每子步把杆平移到不再穿透：转动没被表达，杆会沿地面一点点「爬」上去最后悬空；
-//      改用带速度的 setPosition 更糟，每子步注入 depth/dt，物体被抛出屏幕。
-//   ② 只清质心的法向速度：杆还在转，端点越压越深。
-// 正解是在接触点上解刚体接触冲量 j = −(1+e)·vn / (1/m + (r×n)²/I)，平动与转动一起分摊
-// （r×n 就是「撬」，与 collideBodies 里 T 杆那段同一公式）。e=0：支撑不反弹。
-// 穿透不要用偏置速度：那是真实速度，深穿透时每子步给杆注入动能，杆会一路向上飘。
-// 位置推出只改位置不进能量；冲量已掐掉继续压入的速度，推出量会自然收敛到 0。
-var ROD_PUSH_FRAC=0.5;     // 每子步最多推出剩余穿透的多少
-var ROD_PUSH_MAX=1.5;      // px/子步：单次位置推出的硬上限
-// 支点带：接触点落在杆中段（沿轴偏移 < 该比例 × 半长）时，把这条接触当成铰链。
-// 这是「跷跷板」与「滑动的板」的区别：没有它，杆被撬起时绕自己的质心转，端点一边升一边内缩，
-// 压在端点的轻块会滑掉，杆本身也会沿支点漂走。铰接 = 质心被支点拴住 ⇒ 质心速度归零、只保留转动。
-// 接触点在杆轴上时 r×n ≡ 0，所以铰链这一支不影响角速度，直接清掉质心速度即可。
-var ROD_PIVOT_BAND=0.5;
-// 静置接触的间隙容差（px）。杆无重力，被支撑解算推到零穿透后就地停住，不再压在支点上；
-// 而 Matter.Collision.collides 只认穿透 ⇒ 杠杆的铰接会丢失。
-// 因此 rodResolve 支撑循环里：慢速杆与合法支撑物间隙 ≤ 本值时，把镜像板朝对方虚压本值再测一次，
-// 测到就以 pen=0 记接触（贴着不是穿透，不产生位置推出）。快杆不做补测：飞过支点旁 2px 就被铰住是 bug。
-var ROD_REST_GAP=2;
-/* 这个接触点是否落在某个已锚定端点附近？
- * 锚点吸在宿主表面上（hostClosestPoint），锚定端的碰撞镜像必然与宿主重叠几像素，那是铰链本身，不是干涉。
- * 不豁免的话 rodResolve 每子步把杆顶出去（推出量卡在 ROD_PUSH_MAX=1.5px），rodSyncAnchors 又拉回来，
- * 两者永久拉锯，锚点稳定偏 1.5px。 */
-function rodEndAnchoredNear(B,x,y,tol){
-  if(!B||!B.anc)return false;
-  for(var i=0;i<2;i++){
-    if(!B.anc[i])continue;
-    var e=rodEndWorld(B,i);
-    if(Math.hypot(e.x-x,e.y-y)<tol)return true;
-  }
-  return false;
-}
-// h 是否为本杆某个端点的锚定宿主（铰链的销穿在这个宿主上）。
-// 只按接触点到销的距离豁免不够：杆贴着宿主表面垂下时，接触点在宿主下缘、离销很远，照样被顶开
-// （残留恰好 = ROD_PUSH_MAX）。所以锚定宿主整体退出支撑解算：杆与它的重叠是销孔，不是干涉。
-function rodAnchorHostOf(B,h){
-  if(!B||!B.anc||!h)return false;
-  for(var i=0;i<2;i++){var a=B.anc[i];if(a&&a.B===h)return true;}
-  return false;
-}
-function rodResolve(B){
-  if(B.dead||!B.mb)return;
-  // 拖长度手柄时不解算：杆此刻归指针，穿透修正会与 setRodEnds 打架（一个往指针摆、一个往外推 ⇒ 端点抖）。
-  if(rodLenFrozen(B))return;
-  var c=Math.cos(B.th||0),s=Math.sin(B.th||0),hl=Math.max(4,(B.len||170)/2),hh=ROD_HH;
-  var LT=B.len||170;
-  var mR=rodMassOf(B);if(!(mR>1e-9))mR=1;
-  var I=(mR*LT*LT)/12;if(!(I>1e-9))I=16000;
-  var dX=0,dY=0;                          // 本子步累计的位置推出量
-  var pivotLock=false;                    // 本子步是否吃到过铰链接触
-  // n = 把杆推离接触物的单位法向；p = 接触点（世界坐标）。pen = 该方向上的穿透。
-  // 接触点速度含 ω×r：v_p = (vx − ω·r_y, vy + ω·r_x)，与 springHostVel / collideBodies 同约定。
-  function impact(nx,ny,px,py,pen){
-    var rx=px-B.x,ry=py-B.y;
-    var sAlong=rx*c+ry*s;
-    if(Math.abs(sAlong)<ROD_PIVOT_BAND*hl){
-      B.vx=0;B.vy=0;                      // 铰链：质心被支点拴住（见 ROD_PIVOT_BAND 注释）
-      pivotLock=true;
-    }else{
-      var vpx=(B.vx||0)-(B.om||0)*ry, vpy=(B.vy||0)+(B.om||0)*rx;
-      var vn=vpx*nx+vpy*ny;
-      if(vn<0){
-        var rr=rx*ny-ry*nx;
-        var K=1/mR+(rr*rr)/I;
-        if(K>0){
-          var j=-vn/K;                    // e=0：支撑不反弹，只把接触点的压入速度清零
-          B.vx+=j*nx/mR;B.vy+=j*ny/mR;B.om+=(rx*(j*ny)-ry*(j*nx))/I;
-        }
-      }
-    }
-    if(pen>0){
-      // 锚定端的接触只吸收冲量、不搬杆：那一端的位置归 rodSyncAnchors。
-      // 按接触点到已锚定端点的距离判断，地面/墙/任何宿主一视同仁。
-      if(!rodEndAnchoredNear(B,px,py,ROD_SNAP)){
-        var push=pen*ROD_PUSH_FRAC;
-        if(push>ROD_PUSH_MAX)push=ROD_PUSH_MAX;
-        dX+=nx*push;dY+=ny*push;
-      }
-    }
-  }
-  // ---- 地面 / 左右墙：杆的墨迹是一条薄板（半厚 2，与 bndSegs 对杆的口径一致），两端点分别判
-  for(var e=0;e<2;e++){
-    var sx=(e?hl:-hl);
-    var px=B.x+c*sx,py=B.y+s*sx;
-    var ovG=py+hh-groundY;                                  // 墨迹下缘扎进地面多少
-    if(ovG>0)impact(0,-1,px,py+hh,ovG);
-    var ovL=-8-(px-hh);
-    if(ovL>0)impact(1,0,px-hh,py,ovL);
-    var ovR=(px+hh)-(W+8);
-    if(ovR>0)impact(-1,0,px+hh,py,ovR);
-  }
-  // ---- 支撑：杆压在别的物体上时不许沉进去 ----
-  // 杆的 Matter 镜像是 isStatic，支点也是静态体（右键固定的方块）时，两个静态体在 Matter 里不产生碰撞，
-  // 杆会整根沉进支点。这里借 Matter 的接触几何，把杆按接触冲量顶出去；对方按不可推动处理
-  // （与 collideBodies 里 W 体恒为 imm 一致）。
-  // 出口方向必须自己算：一方完全落在另一方内部（4px 板插在 60px 方块里）时，Matter 的 collision.normal
-  // 是最小单向重叠的投影方向，符号随 bodyA/bodyB 的 id 排序翻面，可能把杆朝支点更深处推。
-  // 用「两个候选平移取小」自己定方向（等价 SAT 最小平移矢量）。
-  // 包围盒用 Matter.Bounds.create(vertices) 现算：body.bounds 被 velocity 膨胀过。
-  // 对方的筛选：静态对方一律认；动态 W 体只有位于杆心下方（O2.y > B.y+hh）时才认。
-  //   · 不能排除全部动态体：形状工具画出的支点是动态 W 体，排除后 _hinge 恒 false，冲击通道被护栏④整条掐断
-  //     （实测 500kg 落下：支点未固定时杆转角 0°、对侧 1kg 不动；固定时转角 55.3°、上升 22.9px）。
-  //   · 也不能全认：压在悬空杆上的笔画会被当成支撑物，杆每子步被往下推，最后连同笔画落到地面。
-  //     落体的中心必然在杆心上方，被方向判据排除。
-  for(var k2=0;k2<bodies.length;k2++){
-    var O2=bodies[k2];
-    if(O2===B||O2.dead||O2.kind!=='W'||!O2.mb)continue;
-    // 铰链的宿主不参与支撑解算（销孔 ≠ 干涉，见 rodAnchorHostOf）
-    if(rodAnchorHostOf(B,O2))continue;
-    if(!O2.mb.isStatic&&!(O2.y>B.y+hh))continue;
-    var c2=Matter.Collision.collides(B.mb,O2.mb);
-    // 静置补测：间隙 ≤ ROD_REST_GAP 时 Matter 不给接触，而无重力的杆恰好停在零穿透上（见 ROD_REST_GAP）。
-    // 慢速杆把镜像板朝对方虚压 ROD_REST_GAP 再测；测到就带着虚压走完下面的几何与 impact
-    // （pen 按 0 记，restNudge 在循环体末尾回退）。
-    var restNudge=null;
-    if((!c2||!c2.collided)
-       &&Math.abs(B.vx||0)<40&&Math.abs(B.vy||0)<40&&Math.abs(B.om||0)<0.5){
-      var rdx=O2.x-B.x,rdy=O2.y-B.y,rdl=Math.hypot(rdx,rdy)||1;
-      restNudge={x:rdx/rdl*ROD_REST_GAP,y:rdy/rdl*ROD_REST_GAP};
-      Matter.Body.translate(B.mb,restNudge);
-      var c2r=Matter.Collision.collides(B.mb,O2.mb);
-      if(c2r&&c2r.collided){c2=c2r;}
-      else{Matter.Body.translate(B.mb,{x:-restNudge.x,y:-restNudge.y});restNudge=null;}
-    }
-    if(!c2||!c2.collided)continue;
-    var bb=Matter.Bounds.create(B.mb.vertices),ob2=Matter.Bounds.create(O2.mb.vertices);
-    var nx2,ny2,d2;
-    if(Math.abs(c2.normal.x)>=Math.abs(c2.normal.y)){
-      var mNegX=bb.max.x-ob2.min.x,mPosX=ob2.max.x-bb.min.x;
-      nx2=(mNegX<mPosX)?-1:1;ny2=0;d2=(mNegX<mPosX)?mNegX:mPosX;
-    }else{
-      var mNegY=bb.max.y-ob2.min.y,mPosY=ob2.max.y-bb.min.y;
-      nx2=0;ny2=(mNegY<mPosY)?-1:1;d2=(mNegY<mPosY)?mNegY:mPosY;
-    }
-    if(!(d2>0)&&!restNudge)continue;
-    // 接触点：Matter 的 supports 是这条接触的两个支撑顶点（一个来自杆、一个来自对方），
-    // 取中点即接触位置。只取到 1 个时就用那一个。
-    var sp=c2.supports||[],s0=sp[0],s1=sp[1],cpx,cpy;
-    if(s0&&s1){cpx=(s0.x+s1.x)/2;cpy=(s0.y+s1.y)/2;}
-    else if(s0){cpx=s0.x;cpy=s0.y;}
-    else{cpx=(B.x+O2.x)/2;cpy=(B.y+O2.y)/2;}
-    // 静置补测命中的接触按 pen=0 记：贴着不是穿透（虚压状态下 d2 量到的是虚压本身 ~2px）。
-    impact(nx2,ny2,cpx,cpy,restNudge?0:d2);
-    // 销钉的横向约束：铰链落在哪个支点上，就把质心横向钉在该支点中心线上。
-    // 只作废推出量不够：非铰链端的冲量可带水平分量（方块角撞杆端面时最小平移方向是水平的），
-    // 杆会被整根推离支点。真实杠杆的销是刚性的。
-    if(pivotLock){B.x+=(O2.x-B.x)*0.35;B.vx=0;}
-    // 回退虚压平移：必须放在循环体末尾，上面的 supports/impact 都要用虚压后的几何
-    if(restNudge){Matter.Body.translate(B.mb,{x:-restNudge.x,y:-restNudge.y});restNudge=null;}
-  }
-  // 销钉：本子步吃到过铰链接触 ⇒ 水平方向的位置修正全部作废（铰链只留转动自由度，
-  // 否则冲量的水平分量会把杆推离支点）；竖直方向照常推出，那是不沉进支点的唯一保障。
-  // B._hinge 供 rodImpactFeedback 的护栏④读取。
-  B._hinge=pivotLock;
-  if(pivotLock)dX=0;
-  if(dX||dY){B.x+=dX;B.y+=dY;}
-}
 function stepMatter(dt){
   if(!MW)return;
   var i,B,anyW=false;
   for(i=0;i<bodies.length;i++){
     B=bodies[i];
-    if(B.kind==='T'&&!B.mb&&!B.dead){
-      // 把杆镜像成运动学静态薄板（建板参数与 setRodLen / 长度手柄共用 rebuildRodMirror）
-      rebuildRodMirror(B);
-    }
-    if(B.kind==='T'&&B.mb&&!B.dead){
-      B.mb._rodRef=B;    // 兜住「先建板、后补引用」的旧状态
-      // 锚定签名变了（吸附/双击解除）⇒ 重建板（板端缩进随锚定状态变化）
-      if(B._manc!==((B.anc[0]?1:0)|(B.anc[1]?2:0)))rebuildRodMirror(B);
-    }
     if(B.kind==='W'&&!B.dead&&B.mb)anyW=true;
   }
   // 本帧的杆清单。早退条件要带上 RODS：场上没有 W 体时杆也要能被积分（被字母撞、被黑洞推）。
@@ -309,7 +53,7 @@ function stepMatter(dt){
     if(B.kind==='T'&&!B.dead)RODS.push(B);
   }
   // 本帧的「圆」清单（模式化摩擦：高中=质点不自转 / 大学=纯滚动+滚阻）。
-  var CB=(typeof circleRollBodies==='function')?circleRollBodies():null;
+  var CB=circleRollBodies();
   if(!anyW&&!RODS.length){MW.acc=0;return;}
   // gravity is read EVERY frame, not baked in at engine creation: tests (and anything else)
   // may set GRAV=0 after the engine already exists; a value captured at creation would never update.
@@ -351,13 +95,11 @@ function stepMatter(dt){
     if(pj66){G.x=pj66.x;G.y=pj66.y;}
     /* 被拖体上连着杆时再跑一遍投影（Gauss-Seidel 第二趟）：投影沿锚点连线搬另一端，搬动又改变连线方向与本地偏移，
      * 单趟在快拖时收不干净（残差 13~18px），加一趟即收敛到亚像素。只在确实连着杆时才加，绳/铰链行为不变。 */
-    if(typeof rodSyncAnchors==='function'){
-      var _hasRod=false;
-      for(var _k=0;_k<bodies.length;_k++){var _b2=bodies[_k];
-        if(_b2&&!_b2.dead&&_b2.kind==='T'&&_b2.anc&&
-           ((_b2.anc[0]&&_b2.anc[0].B===G)||(_b2.anc[1]&&_b2.anc[1].B===G))){_hasRod=true;break;}}
-      if(_hasRod){var pj2=conDragConstrain(G);if(pj2){G.x=pj2.x;G.y=pj2.y;}}
-    }
+    var _hasRod=false;
+    for(var _k=0;_k<bodies.length;_k++){var _b2=bodies[_k];
+      if(_b2&&!_b2.dead&&_b2.kind==='T'&&_b2.anc&&
+         ((_b2.anc[0]&&_b2.anc[0].B===G)||(_b2.anc[1]&&_b2.anc[1].B===G))){_hasRod=true;break;}}
+    if(_hasRod){var pj2=conDragConstrain(G);if(pj2){G.x=pj2.x;G.y=pj2.y;}}
     G.om=0;
     Matter.Body.setPosition(G.mb,{x:G.x,y:G.y});
     Matter.Body.setAngle(G.mb,G.th||0);
@@ -369,15 +111,13 @@ function stepMatter(dt){
       wakeSleepNear(G.x,G.y,(G.hw||0)+(G.hh||0)+80);
     /* 拖拽摆放之后立刻把连在被拖体上的杆摆正，否则杆位姿要等下一子步的 rodSyncAnchors 才更新，
      * 拖动期出现一帧滞后。只处理连在被拖体上的杆，不全场扫。 */
-    if(typeof rodSyncAnchors==='function'){
-      for(var _ri=0;_ri<bodies.length;_ri++){
-        var _rb=bodies[_ri];
-        if(!_rb||_rb.dead||_rb.kind!=='T'||!_rb.anc)continue;
-        var _hA=_rb.anc[0]?_rb.anc[0].B:null,_hB=_rb.anc[1]?_rb.anc[1].B:null;
-        if(_hA!==G&&_hB!==G)continue;
-        try{rodSyncAnchors(_rb,0);}catch(e){}
-        if(_rb.mb){Matter.Body.setPosition(_rb.mb,{x:_rb.x,y:_rb.y});Matter.Body.setAngle(_rb.mb,_rb.th||0);}
-      }
+    for(var _ri=0;_ri<bodies.length;_ri++){
+      var _rb=bodies[_ri];
+      if(!_rb||_rb.dead||_rb.kind!=='T'||!_rb.anc)continue;
+      var _hA=_rb.anc[0]?_rb.anc[0].B:null,_hB=_rb.anc[1]?_rb.anc[1].B:null;
+      if(_hA!==G&&_hB!==G)continue;
+      try{rodSyncAnchors(_rb,0);}catch(e){}
+      if(_rb.mb){Matter.Body.setPosition(_rb.mb,{x:_rb.x,y:_rb.y});Matter.Body.setAngle(_rb.mb,_rb.th||0);}
     }
   }
   // 固定的边界正被旋转手柄拖动：角度由指针决定，Matter 只跟着转（静止体 setAngle 合法）
@@ -399,15 +139,12 @@ function stepMatter(dt){
   var n=0;
   // 本帧声明 e≥1 的体（没有则整套守卫不进快照、不进修正）
   var EL=perfectElasticMB(),PRE={};
-  // 有杆时再建一份 W 体的子步前速度快照（与 PRE 同口径，只装 W 体）
-  var PREW=RODS.length?{}:null;
   while(MW.acc>=1/60&&n<4){
     for(var s4=0;s4<4;s4++){
       // 子步前存求解器视角速度 → 子步 → 把 e≥1 接触的接触点法向相对速度还原成入射镜像。
       // 逐子步做：每个子步是一次独立的接触求解，逐子步纠正误差才不累积。μ=0 极值体（EL_Z）同样适用。
       if(EL.length||EL_Z.length)snapVelocities(PRE);
-      // 杆先按 1/240 积分，再把镜像板推到新位姿。setPosition 第三参 true 让 Matter 把位移记成板的速度
-      // （positionPrev 一起走），求解器算接触点相对速度读的就是它；不带速度则只做位置修正，方块被撬起但不飞。
+      // 杆按 1/240 子步积分（杆没有 Matter 体，位姿只在 x/y/th 上）。
       if(RODS.length){
         for(var r4=0;r4<RODS.length;r4++){
           var R4=RODS[r4];
@@ -415,13 +152,7 @@ function stepMatter(dt){
           // dt 单位是秒（vx/vy 是 px/s、om 是 rad/s），不是 Matter 的毫秒。
           // 传 1000/240 会让积分放大 1000 倍、耗散瞬间归零。
           rodIntegrate(R4,ROD_SUB_DT);
-          /* 杆镜像板已删除，R4.mb 为 null 时跳过板的 setPosition/setAngle（否则 TypeError）。 */
-          if(R4.mb){
-            Matter.Body.setPosition(R4.mb,{x:R4.x,y:R4.y},true);
-            Matter.Body.setAngle(R4.mb,R4.th||0,true);
-          }
         }
-        snapRodWPrev(PREW);
       }
       if(CB)circleRollSnap(CB);        // 必须在 Engine.update 之前（量的是接近速度）
       /* a 赋予的持续加速度逐子步施力，且必须紧挨 Engine.update 之前：Matter 每次 update 结束清 force，
@@ -446,13 +177,8 @@ function stepMatter(dt){
       /* 不要对被抓 W 体逐子步重钉：实测会让铰链拖拽的另一端逐帧爆震（位移 5.6→82.3px）。
        * 杆钟摆衰减的病根在 conDragConstrain 的帧级清速度，不在这里。 */
       // 从面板拖出、还没放下的虚影也要吸，否则虚影停在旁边、松手却跳到中点。
-      if(typeof TOOL!=='undefined'&&TOOL&&TOOL.devDrag)midMagnetPullGhost();
+      if(TOOL&&TOOL.devDrag)midMagnetPullGhost();
       // 高中模式没有任何逐子步「写 ω」的通道（不强制纯滚动）。
-      if(RODS.length){
-        // 约束求解只改速度（位置由速度推进 + 穿透偏置速度），镜像板不必再写一次
-        for(var r6=0;r6<RODS.length;r6++)rodResolve(RODS[r6]);
-        rodImpactFeedback(PREW);
-      }
       // 圆的模式化摩擦：逐子步，放在求解之后、e≥1 修正之前。滑移归位要赶在下一子步前，
       // 否则求解器会把它当真实滑移吃掉平动（表现为撞墙后速度骤降）。
       if(CB)circleRollStep(CB,ROD_SUB_DT);

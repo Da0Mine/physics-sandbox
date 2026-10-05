@@ -116,8 +116,8 @@ function spawnText(text,x,y,bvx,bvy){
   Fo.sc=clamp(150/Math.max(w,h),0.55,1);
   Fo.hw=w*Fo.sc/2;Fo.hh=h*Fo.sc/2;
   g.el.style.display='';
-  g.el.style.left=(x)+'px';
-  g.el.style.top=(y)+'px';
+  g.el.style.left=x+'px';
+  g.el.style.top=y+'px';
   g.el.style.transform='translate(-50%,-50%) scale('+Fo.sc+')';
   g.el.style.transformOrigin='center';
   g.el.style.opacity='1';
@@ -460,7 +460,7 @@ function stepBlackHole(dt){
       var ftap=clamp(1-fd/reach,0,1);
       var fpull=(26000*bh.r)/(fd*fd)*(dt*60)*ftap;
       L2.vx+=fux*fpull*2.2;L2.vy+=fuy*fpull*2.2;
-      L2.vx+=(-fuy)*fpull*0.5;L2.vy+=(fux)*fpull*0.5;
+      L2.vx+=(-fuy)*fpull*0.5;L2.vy+=fux*fpull*0.5;
       // progressive disintegration: the letter visibly flicks apart and fades as it falls
       var fnear=clamp(1-(fd-bh.r)/280,0,1);
       if(fnear>0){

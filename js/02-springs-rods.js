@@ -141,11 +141,8 @@ function springDampGain(ks){
 //   取 1：触底段总机械能峰值离散度 < 1%；固体高度的钢弹簧本来也近乎弹性。
 var SPR_STOP_E=1;
 var SPR_CGROUP=-2;
-// 铰链宿主（含作为宿主的杆镜像板）专用负组：销接双方互不碰撞。独立于 SPR_CGROUP。
+// 铰链宿主专用负组：销接双方互不碰撞。独立于 SPR_CGROUP。
 var HINGE_CGROUP=-3;
-/* 杆镜像板 ↔ 杆的锚定宿主专用负组：锚定宿主铰接在杆端，受重力应绕杆端摆动；若被 static 杆板
- *  像地面一样托住就会悬空停摆。非宿主物体仍可搁在杆上（保留承重），靠「只豁免锚定宿主」区分。 */
-var ROD_HOST_CGROUP=-5;
 // 圆形（球）的弹性：落地弹几下并快速收敛，不能永远弹
 var BALL_REST=0.52;      // 碰撞恢复系数（Matter 取双方 max，地面是 0）
 // 出厂默认空气阻尼为 0。非零默认值是一条用户看不见的耗散通道：μ=0 时球仍会被拖停、
@@ -388,7 +385,7 @@ var RING_DBG={tok:0,dedup:0,emit:0,wrap:false,tokWrapPass:0,off:false};
     if(!q||q.d<1e-6)return _collides(bodyA,bodyB,pairs);                           // 守卫③
     // ---- 圆心在多边形内部（深度互穿）也走解析，不退回 SAT ------------------
     // 本项目 Matter 体全是凸的：弧/槽/开链笔画是逐段定向矩形的复合体（每块凸）、闭链形走
-    // fromVertices(inflateHull(...)) 也是凸包、地面/墙/杆镜像板是矩形。凸 part 上圆心在内部有精确解：
+    // fromVertices(inflateHull(...)) 也是凸包、地面/墙/弹簧镜像板是矩形。凸 part 上圆心在内部有精确解：
     // 出去方向 = 最近面的外法线（圆心指向最近点），推出量 = d + R（标准 MTV）。
     // 这是最需要正确法线的时刻，退回 SAT 会在最坏情形把 48 边形请回来（实测力臂 3.47px，大于正常上限 1.46）。
     var inside=inPoly(vs,c.x,c.y);
@@ -581,7 +578,6 @@ function rodSyncAnchors(B,dt){
   /* 杆的连接语义：连接点相对物体表面不动，杆可绕连接点自由旋转。
    *  = 材料点锚定（本地系钉死，随宿主位姿）+ 宿主角度锁死（_rodLK ⇒ 材料点方位恒定）+ 杆自身自由旋转
    *  （PBD 旋转修正）+ 杆-杆销接（杆宿主不打锁）+ 杆无碰撞箱。 */
-  
 
   // 杆自身被拖（左键抓杆身 grab.kind='body' / 长度手柄 'rodlen'）⇒ 位姿归指针，本函数整步让路，
   //   否则下面的姿态更新会和拖杆处理器互相改写（杆被拽回锚点、拖不动）。
@@ -803,14 +799,9 @@ function rodSyncAnchors(B,dt){
     // （轻质杆不可伸长，锚距≠Lr 的缺口如实保留）
     var p0=springAnchoredWorld(B,0),p1=springAnchoredWorld(B,1);
     B.x=(p0.x+p1.x)/2;B.y=(p0.y+p1.y)/2;
-    /* th 连续化（禁止 atan2 的 ±π 跳变）：跳变 ~2π 会让 stepMatter 的 setAngle(R4.mb,R4.th,true)（带速度意图）
-     *   给静态镜像板注入 ~2π/子步的角速度，接触求解器把板当成疯狂自转、把宿主撞飞。 */
+    /* th 连续化（禁止 atan2 的 ±π 跳变）：th 是累积角，跳变 ~2π 会被当成一次真实转动。 */
     B.th=(B.th||0)+shortAng(Math.atan2(p0.y-p1.y,p0.x-p1.x)-(B.th||0));
     B.len=Lr;B.hw=Lr/2+2;
-    var mstale=(B._mlen==null)||(Math.abs(B._mlen-B.len)>ROD_MIRROR_TOL)||
-               (B._manc!==((B.anc[0]?1:0)|(B.anc[1]?2:0)));
-    if(mstale)rebuildRodMirror(B);
-    else if(MW&&B.mb){Matter.Body.setPosition(B.mb,{x:B.x,y:B.y});Matter.Body.setAngle(B.mb,B.th);}
     return true;
   }
   // ---- 单端拴住 = 绕该点的铰链（光滑铰链的最小形态）-----------
@@ -825,7 +816,7 @@ function rodSyncAnchors(B,dt){
   var dx=e.x-w[k].x,dy=e.y-w[k].y,dd=Math.hypot(dx,dy);
   if(!dd||dd<1e-6){dx=Math.cos(B.th||0)*L;dy=Math.sin(B.th||0)*L;dd=L||1;}
   var nx=w[k].x+dx/dd*L,ny=w[k].y+dy/dd*L;      // 自由端投到「以锚点为心、半径 L」的圆上
-  rodPlaceEnds(B, k?nx:w[k].x, k?ny:w[k].y, k?w[k].x:nx, k?w[k].y:ny, false);
+  rodPlaceEnds(B, k?nx:w[k].x, k?ny:w[k].y, k?w[k].x:nx, k?w[k].y:ny);
   // ---- 铰链的速度投影 ------------------------------------------------------
   // 只投影位置不够：重力每子步给 vy 加一点，投影又吃掉位移 ⇒ vy 无界增长，解除锚定时整根杆以累积速度弹射。
   // 绕定点转动的刚体，形心速度必须垂直于 (形心−锚点)：
@@ -937,7 +928,7 @@ function rodDragPinHosts(B,relax){
     var dx=e.x-w.x,dy=e.y-w.y,dd=Math.hypot(dx,dy);
     if(!dd||dd<1e-6){dx=Math.cos(B.th||0)*L;dy=Math.sin(B.th||0)*L;dd=L||1;}
     var nx=w.x+dx/dd*L,ny=w.y+dy/dd*L;
-    rodPlaceEnds(B, i?nx:w.x, i?ny:w.y, i?w.x:nx, i?w.y:ny, false);
+    rodPlaceEnds(B, i?nx:w.x, i?ny:w.y, i?w.x:nx, i?w.y:ny);
     any=true;
   }
   for(var j=0;j<2;j++){
@@ -996,7 +987,7 @@ function rodResyncRodPose(B){
     var dx=e.x-w.x,dy=e.y-w.y,dd=Math.hypot(dx,dy);
     if(!dd||dd<1e-6){dx=Math.cos(B.th||0)*L;dy=Math.sin(B.th||0)*L;dd=L||1;}
     rodPlaceEnds(B,k?w.x+dx/dd*L:w.x,k?w.y+dy/dd*L:w.y,
-                   k?w.x:w.x+dx/dd*L,k?w.y:w.y+dy/dd*L,false);
+                   k?w.x:w.x+dx/dd*L,k?w.y:w.y+dy/dd*L);
   }
   /* 杆当前无 Matter 镜像板（B.mb 恒 null），姿态只在 B.x/B.y/B.th 里；下面的同步仅在镜像板存在时生效。 */
   if(MW&&B.mb){Matter.Body.setPosition(B.mb,{x:B.x,y:B.y});Matter.Body.setAngle(B.mb,B.th);}
@@ -1120,7 +1111,7 @@ function springDragPinRig(B){
   var glx=(grab.glx!=null)?grab.glx:(grab.gx||0);
   var gly=(grab.gly!=null)?grab.gly:(grab.gy||0);
   var wx=B.x+glx*c-gly*s,wy=B.y+glx*s+gly*c;         // 被抓材料点的世界坐标
-  var ep=(typeof dragPtrAxis==='function')?dragPtrAxis():null;   // 与 W/T 同口径
+  var ep=dragPtrAxis();   // 与 W/T 同口径
   var tx=(ep&&ep.x!=null)?ep.x:pointer.x,ty=(ep&&ep.y!=null)?ep.y:pointer.y;
   var dx=tx-wx,dy=ty-wy;
   if(!dx&&!dy)return false;
@@ -1178,7 +1169,7 @@ function rodTryAnchor(B){
     }else{
     /* 杆的吸附优先级：角 > 边中点 > 表面点 */
     var q=hostCornerSnapPoint(hit,e.x,e.y)||hostMidSnapPoint(hit,e.x,e.y)||hostClosestPoint(hit,e.x,e.y),o=rodEndWorld(B,1-i);
-    if(q){rodPlaceEnds(B, i?o.x:q.x, i?o.y:q.y, i?q.x:o.x, i?q.y:o.y, true);
+    if(q){rodPlaceEnds(B, i?o.x:q.x, i?o.y:q.y, i?q.x:o.x, i?q.y:o.y);
       B._rodL=B.len;}                 // 吸附挪了端点 = 有意改长度
     B.anc[i]={B:hit};springAnchorOffset(B,i);
     }
@@ -1212,7 +1203,7 @@ function springSyncEnds(B){
   }
   /* 铰链一旦不再双端都锚上，真 Constraint 就必须摘掉。必须放在这个咽喉里而不是 hingeSolve：宿主被删时 anc[i]
    *   在这里被清成 null，而 hingeSolve 第一行就 return，跑不到摘除点 ⇒ 约束留在世界里把两个体隐形地永久钉住。 */
-  if(B.hinge&&!(B.anc[0]&&B.anc[1])&&typeof hingeConstraintDrop==='function')hingeConstraintDrop(B);
+  if(B.hinge&&!(B.anc[0]&&B.anc[1]))hingeConstraintDrop(B);
   refreshSpringGeom(B);
 }
 // 方向锁的导向力：真实锚点相对导轨的偏移是纯垂直的（投影保留轴向坐标），
@@ -1801,7 +1792,7 @@ function springEndCaps(B){
   for(var h=0;h<_hits.length;h++){
     var H=_hits[h],hb=H.b;
     if(!hb._capG){
-      if(typeof setCGroup==='function')setCGroup(hb.mb,SPR_CGROUP);
+      setCGroup(hb.mb,SPR_CGROUP);
       hb._capG=true;(B._capGL||(B._capGL=[])).push(hb);
     }
     /* ① 保守回复力 f = ks·cmp 沿向外 —— 物体减速到 0 后被原速弹回（能量不丢） */
@@ -1820,7 +1811,7 @@ function springEndCaps(B){
   if(!_hits.length&&B._capGL&&B._capGL.length){
     for(var _gi=0;_gi<B._capGL.length;_gi++){
       var _gb=B._capGL[_gi];
-      if(_gb&&_gb.mb){if(typeof setCGroup==='function')setCGroup(_gb.mb,0);_gb._capG=false;}
+      if(_gb&&_gb.mb){setCGroup(_gb.mb,0);_gb._capG=false;}
     }
     B._capGL.length=0;
   }
@@ -1851,14 +1842,12 @@ function springSyncGroups(){
     B=bodies[i];
     if(B._sprG&&B.mb){setCGroup(B.mb,0);B._sprG=false;}
     if(B._hinG&&B.mb){setCGroup(B.mb,0);B._hinG=false;}   // 铰链组标记也要逐帧重算
-    if(B._rodHG&&B.mb){setCGroup(B.mb,0);B._rodHG=false;} // 杆锚定宿主组标记逐帧重算
   }
   for(i=0;i<bodies.length;i++){
     S=bodies[i];
     if(S.kind!=='S'||S.dead)continue;
     // 铰链没有 Matter 镜像板，把它两端宿主塞进 −2 毫无用处，反而让两个被铰住的普通物体互相穿过（重叠穿模）。
-    // 只有弹簧需要 −2（豁免自家镜像板），铰链跳过；杆参与的铰链由下面的 HINGE_CGROUP 分支按需豁免
-    // 「杆镜像板 ↔ 宿主」。
+    // 只有弹簧需要 −2（豁免自家镜像板），铰链跳过；杆参与的铰链由下面的 HINGE_CGROUP 分支处理。
     if(!S.hinge){
       for(e=0;e<2;e++){
         var a=S.anc[e];
@@ -1866,20 +1855,8 @@ function springSyncGroups(){
         setCGroup(a.B.mb,SPR_CGROUP);a.B._sprG=true;
       }
     }
-    // 杆 ↔ 宿主放进同一个负组互不碰撞：销接处杆自由端的板帽必然压在对方表面约 2px，static 板每帧
-    //   把对方推出去 ⇒ 装配体持续爬移。独立组号 −3，不与弹簧的 −2 混，否则「弹簧宿主搁在铰链宿主上」
-    //   会意外穿透。杆作为宿主时设的是它的镜像板。
-    // 只豁免至少一端是杆的铰链：两个普通物体被铰住时必须保持碰撞（否则绕销转动的块会转进固定块里、完全重叠）。
-    //   有杆那端可豁免：轻质杆无体积，镜像板只是物理代理。
-    /* 杆（T）的锚定宿主与杆镜像板互不碰撞（铰接语义）：宿主受重力绕杆端摆动，不被 static 板托住悬停。
-     * 杆板对非宿主物体仍是承重面（可以搁东西）。 */
-    if(S.kind==='T'&&!S.hinge){
-      for(e=0;e<2;e++){
-        var ra=S.anc[e];
-        if(!ra||!ra.B||ra.B.dead||!ra.B.mb)continue;
-        setCGroup(ra.B.mb,ROD_HOST_CGROUP);ra.B._rodHG=true;
-      }
-    }
+    // 至少一端是杆的铰链：宿主放进独立负组 −3（不与弹簧的 −2 混，否则「弹簧宿主搁在铰链宿主上」会意外穿透）。
+    // 两个普通物体被铰住时必须保持碰撞（否则绕销转动的块会转进固定块里、完全重叠）。
     if(S.hinge){
       var h0=S.anc[0],h1=S.anc[1];
       var rodIn=(h0&&h0.B&&h0.B.kind==='T')||(h1&&h1.B&&h1.B.kind==='T');
@@ -2052,7 +2029,7 @@ function rodHingeTorque(dt){
         var _mo=(_oB.mb.mass||1);
         tau=(-rx)*(_mo*GRAV)*_tw;                  // 杆传力：r = M − C ⇒ τ = −rx·m_对端·g
       }else{
-        tau=(rx)*(m*GRAV)*_tw;                     // 复摆重力力矩：τ = (C−M)×m·g = +rx·m·g
+        tau=rx*(m*GRAV)*_tw;                     // 复摆重力力矩：τ = (C−M)×m·g = +rx·m·g
       }
       /* ---- 锚点/质量自由端的兜底：另一端自由时上面已 continue，不会走到这 ---- */
       /* 不用 mb.torque（Matter 内部口径与 px/s² 不匹配，实测会爆到 1e9 度）。按实测标定直接改角速度：
@@ -2079,7 +2056,7 @@ function rodSyncNoCollide(){
     var R=bodies[i];
     /* 铰链器件在实现上是 S 体 + hinge 标记（不是 T），这里把 T（杆）与 S+hinge 一并纳入。 */
     if((R.kind!=='T'&&!(R.kind==='S'&&R.hinge))||R.dead||!R.anc)continue;
-    var h0=(R.anc[0])?R.anc[0].B:null, h1=(R.anc[1])?R.anc[1].B:null;
+    var h0=R.anc[0]?R.anc[0].B:null, h1=R.anc[1]?R.anc[1].B:null;
     if(!h0||!h1||h0===h1||h0.dead||h1.dead)continue;
     if(h0.kind!=='W'||h1.kind!=='W')continue;        // 只处理物体-物体（墙/地面等静态体本来就不动）
     /* 静态宿主（用户画的地面/墙/挡板，kind 'W' + fixed）不进负组：它们是场景边界。把边界也设成同组，
@@ -2108,7 +2085,7 @@ function rodSyncLocks(){
        * 静止平衡 = 质心在连接点正下方；锁死会让「静止到最低点」的自然行为消失。 */
       /* 杆开启「固定角度」⇒ 宿主锁死自转（姿态跟着杆走，连接点仍不动）。 */
       if(B._rodAngleLock)a.B._rodLK=true;
-      a.B._hinged=(!B._rodAngleLock);   // 固定角度时恢复 ω 重建（随杆同步）
+      a.B._hinged=!B._rodAngleLock;   // 固定角度时恢复 ω 重建（随杆同步）
       /* 铰接角速度阻尼：ROD_HINGE_DAMP<1 时每帧按比例衰减 ω（铰接摩擦），=1 时无阻尼、姿态完全交给物理。
        * 阻尼过强会压死重力力矩驱动的复摆转动。 */
       if(ROD_HINGE_DAMP<1&&a.B.mb&&a.B.mb.angularVelocity){
@@ -2662,7 +2639,7 @@ function springTryAnchorByHost(host){
         if(q){e.x=q.x;e.y=q.y;}
         if(S.kind==='T'){                       // 杆：端点得靠 rodPlaceEnds 真正搬过去（见 rodTryAnchor）
           var o=rodEndWorld(S,1-i),qx=q?q.x:e.x,qy=q?q.y:e.y;
-          rodPlaceEnds(S, i?o.x:qx, i?o.y:qy, i?qx:o.x, i?qy:o.y, true);
+          rodPlaceEnds(S, i?o.x:qx, i?o.y:qy, i?qx:o.x, i?qy:o.y);
         }
         S.anc[i]={B:host};springAnchorOffset(S,i);
         // 铰链两端都锚上的那一刻 = 折角基准（同 springTryAnchor）

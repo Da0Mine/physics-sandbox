@@ -31,7 +31,7 @@ function syncModeUI(){
     us[i].classList.toggle('act',us[i].getAttribute('data-ui')===UI_MODE);
   }
   var tip=smenu.querySelector('#uitip');
-  if(tip)tip.textContent=uiTouch()?('当前：触屏版（长按=右键 · 点选后可再点放置）'):('当前：电脑版');
+  if(tip)tip.textContent=uiTouch()?'当前：触屏版（长按=右键 · 点选后可再点放置）':'当前：电脑版';
 }
 function openSettings(){smenu.classList.add('on');smask.classList.add('on');syncModeUI();}
 /* 关设置时把问号气泡一并收掉：气泡挂在 body 上（不在 .smenu 内），面板关了它会变成孤儿
@@ -55,12 +55,12 @@ function closeSettings(){
 var REC={on:false,t0:0,frames:[],events:[],raf:0,lastMove:0,tickUI:0};
 var REC_MAX=5400;                 // 90s @60fps
 var REC_EVMAX=4000;
-function recNow(){return +(performance.now()).toFixed(1);}
+function recNow(){return +performance.now().toFixed(1);}
 function recSnap(){
-  var f={t:+(recNow()-REC.t0).toFixed(1),mode:(typeof PHYS_MODE!=='undefined'?PHYS_MODE:null),
-         g:(typeof GRAV!=='undefined'?GRAV:null)};
+  var f={t:+(recNow()-REC.t0).toFixed(1),mode:PHYS_MODE,
+         g:GRAV};
   if(MW&&MW.engine)f.pt=+MW.engine.timing.timestamp.toFixed(1);
-  if(typeof TOOL!=='undefined')f.tool=TOOL.mode+(TOOL.shape?('/'+TOOL.shape):'');
+  f.tool=TOOL.mode+(TOOL.shape?('/'+TOOL.shape):'');
   f.bs=[];
   for(var i=0;i<bodies.length;i++){
     var B=bodies[i],mb=B&&B.mb;
@@ -83,8 +83,8 @@ function recSnap(){
       o.w=+((B.om||0)).toFixed(4);o.a=+((B.th||0)).toFixed(4);
       if(B.fixed)o.fx=1;
     }
-    if(typeof wEffMu==='function')o.mu=+wEffMu(B).toFixed(4);
-    if(typeof wEffE==='function')o.e=+wEffE(B).toFixed(4);
+    o.mu=+wEffMu(B).toFixed(4);
+    o.e=+wEffE(B).toFixed(4);
     /* W 体补记本地几何：半宽/半高、点数、降采样后的顶点串（≤24 点）。
      * 有了 pts + a（角度）+ x/y，复现时就能逐位重建当时的图形（例如判断落点是否在图形上）。 */
     if(B.pts&&B.pts.length>=2){
@@ -119,8 +119,8 @@ function recSnap(){
       o.ox=[_a0?+(_a0.ox||0).toFixed(2):null,_a1?+(_a1.ox||0).toFixed(2):null];
       o.oy=[_a0?+(_a0.oy||0).toFixed(2):null,_a1?+(_a1.oy||0).toFixed(2):null];
       try{
-        var _e0=(typeof rodEndWorld==='function')?rodEndWorld(B,0):null;
-        var _e1=(typeof rodEndWorld==='function')?rodEndWorld(B,1):null;
+        var _e0=rodEndWorld(B,0);
+        var _e1=rodEndWorld(B,1);
         if(_e0)o.e0=[+_e0.x.toFixed(1),+_e0.y.toFixed(1)];
         if(_e1)o.e1=[+_e1.x.toFixed(1),+_e1.y.toFixed(1)];
       }catch(e2){}
