@@ -26,10 +26,6 @@ var WFRICT_DEF=0.08;
 /* 「把字母给谁」的凸包命中判定只对跨度不超过此值（px）的图形生效。
  420 ≈ 画布短边量级：合上的圆/方/三角都在内；横贯屏幕的长线条不适用（见 bodyFillHit）。 */
 var BODY_FILL_MAX=420;
-/* W 体 frictionStatic 的两档（唯一真源，applyWFrict 读它）。
- * 静态框一侧默认 0.5，配对取 min；WF_STATIC_DEF=0.5 复刻这个值，保证 μ≤cap 的物体行为不变；
- * μ>cap 才让静摩擦跟随 μ，否则 μ 调到 1 也是死区。 */
-var WF_STATIC_DEF=0.5;
 var WF_STATIC_CAP=0.6;
 /* W 体静摩擦的唯一真源（体级、parts、配对覆盖三处都走它，不要各写各的常数）。
  * 摩擦冲量 = friction × 法向力，而 frictionStatic 决定低速段直接粘住不滑；与 μ 无关的静摩擦地板会把
@@ -162,7 +158,7 @@ var WAIR_GLOBAL=0;       // 全局空气阻力（面板 wair 的唯一真源）
 //   maxSides 只能调小（R≈22 时恒为 24 边）。接触法线是面法线、偏离径向 ⇒ 每个接触带力臂 ⇒ 虚假角冲量，
 //   球被自旋、平动能被抽走（凹槽里表现为越滑越低；实测转动能吸收了 ~85% 的能量损失，与本项目补偿机器无关）。
 //   边数扫描（下沉量）：24 边 +8.41%、48 边 +3.79%、96 边 +2.70%。取 48：拿到 81% 的改善，SAT 代价 ~(N+M)² 只涨 4 倍。
-//   边数也影响质量（面积×密度，24→48 边 +0.9%）。圆 vs 多边形的精确接触见 CIRCLE_ANALYTIC。
+//   边数也影响质量（面积×密度，24→48 边 +0.9%）。圆 vs 多边形的精确接触见下面的解析碰撞通道。
 var CIRCLE_SIDES=48;     // W 体「圆」的碰撞多边形边数（越大越接近真圆、虚假力矩越小、SAT 越贵）
 
 // ============================================================================ 圆环折线段数
@@ -210,11 +206,7 @@ function outlineSides(R){
 //   ③ 退化（d≈0 / 圆心重合 / 顶点数<3 / 拿不到 Matter.Pair/Collision.create）一律退回 SAT。
 //   ④ 复用 pairs.table 里的 collision 对象（与 Matter 缓存口径一致）。自己 new 会让 collision.pair 一直为空
 //      ⇒ Pairs.update 每帧新建 Pair ⇒ pairs.list 抖动、collisionStart 每帧误报。这是本通道最容易踩的坑。
-//   ⑤ CIRCLE_ANALYTIC 开关只为诊断/负对照，便于在同一会话同一夹具里做 A/B。
-var CIRCLE_ANALYTIC=true;
-// 空心圆（环）的解析分支开关，作用同 CIRCLE_ANALYTIC（诊断/负对照用）。
-// 关掉后环仍是环（走「圆 vs 48 根矩形」的多边形路径），只是法线退回面法线。
-var RING_ANALYTIC=true;
+// 空心圆（环）同样走解析分支；不走的话环仍是「圆 vs 48 根矩形」的多边形路径，只是法线退回面法线。
 // 环分支去重（_ringHit / _ringTok）：同一对（环, 圆）每个物理子步只产出一条解析接触。
 // Detector 对复合体逐 part 调 Collision.collides，环有 48 个 part，球贴壁时同时压住 6~8 个 ⇒ 同一子步产出
 //   6~8 条几何完全相同的接触（几何只由环心决定），同一约束被结算多遍。
@@ -278,7 +270,6 @@ var RING_DBG={tok:0,dedup:0,emit:0,wrap:false,tokWrapPass:0,off:false};
   }
 
   Matter.Collision.collides=function(bodyA,bodyB,pairs){
-    if(!CIRCLE_ANALYTIC)return _collides(bodyA,bodyB,pairs);
     var rA=(bodyA&&bodyA._circleR>0)?bodyA._circleR:0;
     var rB=(bodyB&&bodyB._circleR>0)?bodyB._circleR:0;
     if(!rA&&!rB)return _collides(bodyA,bodyB,pairs);      // 无圆：普通 SAT 路径
@@ -288,7 +279,7 @@ var RING_DBG={tok:0,dedup:0,emit:0,wrap:false,tokWrapPass:0,off:false};
     // 这是几何正确性修正，不是「无能量损失」的开关：默认物性（μ=0.08, e=0.52）下仍会衰减；
     // 要无损需 μ=0 + e=1（两条路径都能持续不衰）。
     var rp=(bodyA&&bodyA._ringOut>0)?bodyA:((bodyB&&bodyB._ringOut>0)?bodyB:null);
-    if(rp&&RING_ANALYTIC){
+    if(rp){
       var cbo=rA?bodyA:(rB?bodyB:null);
       if(!cbo)return _collides(bodyA,bodyB,pairs);       // 环 vs 非圆（方块/杆/地面）：交回多边形路径
       var rrr=cbo._circleR, ringIn=rp._ringIn, ringOut=rp._ringOut;
@@ -1962,7 +1953,6 @@ function touchMoveSelTo(x,y){
   if(TOUCH_SEL.mb)Matter.Sleeping.set(TOUCH_SEL.mb,false);
   touchClearSel();
 }
-var ROD_LOCK_HOST=false;   // 杆宿主冻结自转开关（false=可绕连接点摆动）
 var TIME_SCALE=1;          // 世界时间倍率（Δt）：1 正常、0 静止（右键字符 t 调）
 var ROD_HINGE_DAMP=0.985;  // 铰接摩擦（0.985 ⇒ 摆动 2~3 次后停下；1=永不衰减）
 /* 杆铰接重力力矩开关（三态，默认 1）。rodHingeTorque 按另一端类型分流：
@@ -2114,17 +2104,11 @@ function rodSyncLocks(){
       /* 杆宿主不打锁：杆是约束体不是刚体，杆-杆销接时每根杆都要能绕连接点自由转动
        * （锁死第一段会让混沌摆抽搐）。只有 W 体宿主才可能锁角度。 */
       if(a.B.kind==='T')continue;
-      /* 默认不锁宿主角度（ROD_LOCK_HOST=false）：铰接物体按质量分布绕连接点摆动才是正确的复摆物理，
-       * 静止平衡 = 质心在连接点正下方；锁死会让「静止到最低点」的自然行为消失。开关保留便于回退。 */
+      /* 不锁宿主角度：铰接物体按质量分布绕连接点摆动才是正确的复摆物理，
+       * 静止平衡 = 质心在连接点正下方；锁死会让「静止到最低点」的自然行为消失。 */
       /* 杆开启「固定角度」⇒ 宿主锁死自转（姿态跟着杆走，连接点仍不动）。 */
       if(B._rodAngleLock)a.B._rodLK=true;
       a.B._hinged=(!B._rodAngleLock);   // 固定角度时恢复 ω 重建（随杆同步）
-      if(ROD_LOCK_HOST){
-        a.B._rodLK=true;
-        if(a.B.mb.angularVelocity)Matter.Body.setAngularVelocity(a.B.mb,0);
-        if(a.B.om)a.B.om=0;
-        continue;
-      }
       /* 铰接角速度阻尼：ROD_HINGE_DAMP<1 时每帧按比例衰减 ω（铰接摩擦），=1 时无阻尼、姿态完全交给物理。
        * 阻尼过强会压死重力力矩驱动的复摆转动。 */
       if(ROD_HINGE_DAMP<1&&a.B.mb&&a.B.mb.angularVelocity){

@@ -79,7 +79,6 @@ var ROPE_MIN_LEN=20, ROPE_MAX_LEN=2000;
 //   而 sag=min(slack·0.55,90) ⇒ 可见垂深 = slack·0.275。取 50 ⇒ 可见 13.75px（110px 弦的 12.5%）；
 //   取 26 只有 7.15px（6.5%），看不出是绳。纯渲染参数。
 var ROPE_GHOST_SAG=50;
-var CON_MAXSTEP=12;              // 约束每帧位置修正的限幅（px）：初始大偏差平滑收敛而不是瞬移
 // 轻绳/铰链的每帧位置修正步长：拖动端也参与位移分配（conPull 的 allowGrab，见 conMov），
 //   一帧的修正能力必须盖得住指针一帧的位移。stepSprings 每帧只跑一次；实测 CON_MAXSTEP=12 时
 //   30px/帧 的拖速会把 d 顶到 415px，取 48 时 d 全程 ≤ len+1.5。
@@ -1093,23 +1092,6 @@ function devSnapEnds(B){
   if(B.kind==='T'&&typeof rodEndWorld==='function')
     return {ends:[rodEndWorld(B,0),rodEndWorld(B,1)],anc:B.anc,skip:B,owner:B};
   return null;
-}
-/* 边中点候选的唯一判定（标记 / 磁吸 / 其他入口都走这里）：
- *   ① 在 bodies 里找离端点最近的宿主，且距离 ≤ SPR_PAD（端点得贴着它）；
- *   ② 该宿主用 hostMidSnapPoint 给出最近的边中点，且中点距离 ≤ SPR_MID_ZONE。
- * 返回 {q:{x,y}, hit:宿主, d:端点到中点的距离} 或 null。 */
-function midSnapCandidate(ex,ey,skip){
-  var hit=null,bd=SPR_PAD;
-  for(var i=0;i<bodies.length;i++){
-    var h=bodies[i];
-    if(h.dead||h===skip)continue;
-    var dd=distToHost(h,ex,ey);
-    if(dd<bd){bd=dd;hit=h;}
-  }
-  if(!hit)return null;
-  var q=hostMidSnapPoint(hit,ex,ey);
-  if(!q)return null;
-  return {q:q,hit:hit,d:Math.hypot(ex-q.x,ey-q.y)};
 }
 /* 拖动期的边中点磁吸位移。渐进拉法：位移 = 残差 × (1 − d/SPR_MID_ZONE)。
  *   d→0 时系数→1 ⇒ 收敛锁死（无需「吸住」状态，纯位置投影、幂等）；

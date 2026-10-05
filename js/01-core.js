@@ -1,7 +1,7 @@
 /* 全局常量、DOM 引用、工具函数、字形对象、物体 / 杆 / 传送带构造（原 index.html 第 793–1437 行） */
 var ctx2d=document.createElement('canvas').getContext('2d');
-var F=48,GRAV=2600,AACC=1300,RM=150,MT={},RAISE=F*0.3;
-var B_FIELD_RANGE=320,BZ_DIR=1,Q_OMEGA=2.4,A_FORCE=900,Q_FORCE=2.2;
+var F=48,GRAV=2600,AACC=1300,MT={};
+var B_FIELD_RANGE=320,BZ_DIR=1,A_FORCE=900,Q_FORCE=2.2;
 /* 带电 W 体（矩形/圆形/三角形器件）在场里的施力系数。
  * Matter 的 applyForce 在帧级调用只影响 4 个子步中的 1 个，且 body.force 每步末清零，
  * 所以不能照抄 applyGivenAccel 的逐子步口径 /1e6。
@@ -11,7 +11,6 @@ var QFIELD_K=112500;
 var E_FIELD_RANGE=320,E_FIELD_ACC=1500;   // E field: SQUARE range (half-side 160), uniform direction (th), F=qE
 var cv=document.getElementById('cv');
 var panel=document.getElementById('panel');
-var shadow=document.getElementById('shadow');
 var handle=document.getElementById('handle');
 var rszHandle=document.getElementById('fresize');
 var ark=[document.getElementById('ark0'),document.getElementById('ark1')];   // 圆弧端点手柄
@@ -26,12 +25,11 @@ var prows=document.getElementById('prows'),pclose=document.getElementById('pclos
     pcontacts=document.getElementById('pcontacts');
 var trash=document.getElementById('trash');
 var pointer={x:-9999,y:-9999};
-var W=0,H=0,groundY=0,t=0,menuBody=null,menuLetter=null;
-var dragBody=null,dragLetter=null,rotBody=null,rotGrab=0,hoverBody=null,handleBody=null;
+var W=0,H=0,groundY=0,menuBody=null,menuLetter=null;
+var handleBody=null;
 // 旋转手柄驻留：手柄显示过之后即使 hover 丢失也再保留一段时间，让指针来得及挪到手柄上
 var handleKeep=null,handleLinger=0,HANDLE_LINGER=900;   // 驻留时长 ms
-var axisBody=null,axisLast=null;
-var bodies=[],freeG=[],parts=[],ALL=[],slots={},samples=[];
+var bodies=[],freeG=[],ALL=[];
 var OPEN='(',CLOSE=')',PLUS='+',SQ='²',BAR='-',HALF='½',MU='μ',SUB1='₁',SUB2='₂',PRIME='′';
 var SHATTER_SPEED=1100;
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
@@ -76,7 +74,6 @@ function met(ch,size){
   MT[key]={top:bl-ia-size/2,bot:bl+id-size/2,w:q.width,il:il,ir:ir};
   return MT[key];
 }
-function isLet(d){return d.type==='g'||d.type==='a'||d.type==='v'||d.type==='r';}
 function isMass(d){var t=(typeof d==='string')?d:d.type;return t==='m'||t==='M';}
 function GD(ch,sc){
   sc=sc||1;
@@ -301,27 +298,12 @@ var ROD_MIRROR_INSET=5;
 // 建板参数：isStatic、friction 0.4、restitution 0、slop 0.02、半厚 ROD_HH；建后 setAngle 到当前姿态并记账 _mlen。
 // 镜像板的「姿态 + 宽度 + 反查引用」是一个契约，只能有一份实现。
 function rebuildRodMirror(B){
-  /* 杆没有碰撞箱，只对物体起约束作用，因此这里直接移除镜像板并返回（下面的建板代码不再执行）。
+  /* 杆没有碰撞箱，只对物体起约束作用：这里只移除（可能残留的）镜像板，杆的 B.mb 恒为空。
    * 静态承重板会引入多余的接触自由度：托住锚定宿主导致悬空停摆、插进物体导致排斥/爬移、与拖拽拉锯。
    *  · 约束由 rodSyncAnchors 的 PBD（位置 + 速度）完成，无碰撞、无支撑、无杠杆撬动，物品不能搁在杆上；
-   *  · 宿主角度锁死（rodSyncLocks，见 springSyncLocks 旁）；
-   *  · 所有 B.mb 判断自然跳过（rodResolve/rodIntegrate/碰撞组/杠杆拖拽随之失效）。 */
+   *  · 宿主角度锁死（rodSyncLocks，见 springSyncLocks 旁）。 */
   if(!MW)return;
   removeMatterBody(B);
-  return;
-  var in0=(B.anc[0]?ROD_MIRROR_INSET:0),in1=(B.anc[1]?ROD_MIRROR_INSET:0);
-  var ml=Math.max(8,(B.len||170)-in0-in1);
-  var tht=B.th||0,ux=Math.cos(tht),uy=Math.sin(tht);
-  // rodEndWorld(0) 在 +u 侧：in0 收 +u 端、in1 收 −u 端 ⇒ 板中心向 −u·(in0−in1)/2 偏
-  var mx=B.x+ux*(in1-in0)/2,my=B.y+uy*(in1-in0)/2;
-  B.mb=Matter.Bodies.rectangle(mx,my,ml,ROD_HH*2,
-        {isStatic:true,friction:0.4,restitution:0,slop:0.02,
-         collisionFilter:{group:ROD_HOST_CGROUP}});
-  B.mb._rodRef=B;
-  Matter.Body.setAngle(B.mb,tht);
-  Matter.Composite.add(MW.wLayer,B.mb);
-  B._mlen=B.len||170;
-  B._manc=((B.anc[0]?1:0)|(B.anc[1]?2:0));
 }
 function setRodLen(B,len,force){
   if(!B||B.kind!=='T')return;
@@ -420,8 +402,6 @@ function setBeltAngle(B,th,pivot){
 function rodLenFrozen(B){
   return !!(B&&grab&&grab.kind==='rodlen'&&grab.obj===B);
 }
-// 法向接近速度超过这个值才算「撞击」，才启用杆的转动项（静置压着不算，见 collideBodies）
-var ROT_MIN_VN=40;
 function tAnchor(B){
   if(B.kind)return {x:B.x,y:B.y};
   return B.massG?slot(B,B.massG):{x:B.x,y:B.y};

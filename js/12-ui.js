@@ -33,20 +33,6 @@ function syncModeUI(){
   var tip=smenu.querySelector('#uitip');
   if(tip)tip.textContent=uiTouch()?('当前：触屏版（长按=右键 · 点选后可再点放置）'):('当前：电脑版');
 }
-/* 交互模式切换按钮 */
-function bindUIModeBtns(){
-  if(!smenu)return;
-  var us=smenu.querySelectorAll('.ubtn');
-  for(var i=0;i<us.length;i++){
-    (function(b){
-      b.addEventListener('click',function(){
-        setUIMode(b.getAttribute('data-ui')||'auto');
-        touchClearSel();
-        syncModeUI();
-      });
-    })(us[i]);
-  }
-}
 function openSettings(){smenu.classList.add('on');smask.classList.add('on');syncModeUI();}
 /* 关设置时把问号气泡一并收掉：气泡挂在 body 上（不在 .smenu 内），面板关了它会变成孤儿
  * （触屏路径没有 mouseleave，尤其容易漏）。 */
@@ -540,10 +526,6 @@ tRow.addEventListener('click',function(e){
  *  ③ 状态同步：Esc / F11 / 浏览器 UI 也能退出全屏，监听 fullscreenchange（含 webkit 前缀）反过来刷新按钮外观。 */
 function fsElement(){
   return DD.fullscreenElement||DD.webkitFullscreenElement||null;
-}
-function fsSupported(){
-  var el=DD.documentElement||DD.body;
-  return !!(el&&(el.requestFullscreen||el.webkitRequestFullscreen));
 }
 function toggleFullscreen(){
   var el=DD.documentElement||DD.body;

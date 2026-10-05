@@ -547,62 +547,6 @@ function bndPts(B){
   }
   return out;
 }
-/* 开链笔画/圆弧的地面吸附（当前停用：snapWToGround 首行直接 return false）。
- * 只对开链生效（闭合图形姿态由重心决定，圆形没有朝下的平面）。判据缺一不可：
- *  · 够近：最低点的墨迹下缘离地面在 SNAP_D 之内（也允许轻微扎进地面）
- *  · 够平：最低点处的局部切线与水平夹角在 SNAP_A 之内
- * 满足就绕最低点把切线转成水平（最低点不动），再竖直平移使墨迹下缘落在地面线上：与地面平滑相接，无台阶。
- * force = 允许已固定的体参与吸附（拖拽松手路径）；返回 true 表示确实吸附了。 */
-var SNAP_D=20;                        // 吸附带：离地面 20px 以内
-var SNAP_A=Math.PI*9/180;             // 「即将水平」：与水平相差 9° 以内
-function snapWToGround(B,force){
-  /* 地面吸附已停用：调用点均已删除，这里直接返回 false，残留调用不会改位姿。
-   * 停用原因：吸附不准，且每帧「安定触发」造成卡顿。 */
-  return false;
-  /* eslint-disable no-unreachable */
-  if(!B||B.dead||B.kind!=='W'||B.closed)return false;
-  if(B.fixed&&!force)return false;    // 固定体只在「拖拽松手」这条显式路径上吸附
-  if(!B.pts||B.pts.length<2)return false;
-  var wp=bndPts(B),n=wp.length,i;
-  if(n<2)return false;
-  var lo=-1e9,li=0;
-  for(i=0;i<n;i++)if(wp[i][1]>lo){lo=wp[i][1];li=i;}
-  var gap=groundY-(lo+BND_INK);              // 墨迹下缘到地面的净空（正 = 悬空）
-  if(gap>SNAP_D)return false;                // 太高，够不着
-  if(gap<-BND_INK*5)return false;            // 已经深埋，不是「接近」而是穿模了，别动它
-  // 最低点处的局部切线：取相邻两点连成的方向（弧的采样足够密，等价于真切线）。
-  // 注意开链：首/末点的邻居不能取模绕到另一端（会算出跨越整条线的假切线），端点处用唯一的内侧邻居。
-  var pa,pb;
-  if(li===0){pa=wp[0];pb=wp[1];}
-  else if(li===n-1){pa=wp[n-2];pb=wp[n-1];}
-  else {pa=wp[li-1];pb=wp[li+1];}
-  var tx=pb[0]-pa[0],ty=pb[1]-pa[1];
-  if(Math.abs(tx)<1e-6&&Math.abs(ty)<1e-6)return false;
-  var d=Math.atan2(ty,tx);
-  while(d>Math.PI/2)d-=Math.PI;              // 折到 (-90°,90°]，因为「水平」不分正反方向
-  while(d<=-Math.PI/2)d+=Math.PI;
-  if(Math.abs(d)>SNAP_A)return false;        // 不够平
-  // 绕最低点旋转 -d：最低点在世界坐标里原地不动，只把切线摆平
-  var px=wp[li][0],py=wp[li][1];
-  var c0=Math.cos(-d),s0=Math.sin(-d);
-  var vx=B.x-px,vy=B.y-py;
-  B.x=px+vx*c0-vy*s0;
-  B.y=py+vx*s0+vy*c0;
-  B.th=(B.th||0)-d;
-  // 再按旋转后的真实几何竖直平移，令墨迹下缘 == 地面线（自校正，不依赖上面的角度推导）
-  var wp2=bndPts(B),lo2=-1e9;
-  for(i=0;i<wp2.length;i++)if(wp2[i][1]>lo2)lo2=wp2[i][1];
-  B.y+=groundY-(lo2+BND_INK);
-  B.vx=0;B.vy=0;B.om=0;
-  if(B.mb&&MW){
-    Matter.Body.setPosition(B.mb,{x:B.x,y:B.y});
-    Matter.Body.setAngle(B.mb,B.th);
-    Matter.Body.setVelocity(B.mb,{x:0,y:0});
-    Matter.Body.setAngularVelocity(B.mb,0);
-    Matter.Sleeping.set(B.mb,false);
-  }
-  return true;
-}
 // 悬浮/抓取命中 = 贴着线才算，空心内部不响应：图形是空心的，只有线是边界。
 // 算指针到轮廓折线的最短距离，阈值 = 线半宽 + 抓取余量。
 var INK_GRAB_PAD=11;                     // 线外再放宽 11px 便于点中（视觉线半宽约 4.65）

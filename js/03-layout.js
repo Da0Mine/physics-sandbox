@@ -119,17 +119,6 @@ function stGD(ch,sc){
   d.s=1;
   return d;
 }
-function gapPair(a,b){
-  if(b===SQ)return 1;
-  if(a===SQ)return 2;
-  if(a===OPEN)return 4;
-  if(b===OPEN)return 6;
-  if(a===PLUS)return 3;
-  if(b===PLUS)return 3;
-  if(b===CLOSE)return 3;
-  if(isMass(a))return (b==='g'||b==='v'||b==='r'||b==='a')?-6:4;
-  return 4;
-}
 function tokenSeq(B){
   var out=[B.massG];
   if(B.family===0){
@@ -406,14 +395,8 @@ function initWorld(B){
   }
 }
 var DD=document,dpr=window.devicePixelRatio||1,cvx=cv.getContext('2d');
-var freeL=[],orbHover=null,orbDrag=null,orbLast=null,cur=null;
+var freeL=[];
 var formulas=[];
-var dockSep=null,merging=false;
-function col(x){return Math.max(0,Math.min(255,x|0));}
-function rgba(c,a){return 'rgba('+c[0]+','+c[1]+','+c[2]+','+a+')';}
-var INK=[38,34,28];
-function met2(ch){return met(ch);}
-function glyphH(g){return Math.max(g.el.offsetHeight||F,g.m.bot-g.m.top);}
 var BOX_PAD=2;   // px of slack kept between the visible ink and the collision box
 // Extra clearance for a PLANK contact (rod vs body), applied along the contact normal.
 // The plank is DRAWN as a 3px line (half-thickness 1.5) but COLLIDES as a 4px plank
@@ -685,12 +668,6 @@ function freeLetter(d,x,y,vx,vy,cat){
   d.wx=x;d.wy=y;d.vx=vx||0;d.vy=vy||0;d.cat=cat;
   if(freeL.indexOf(d)<0)freeL.push(d);
   d.el.classList.remove('dockin');
-  placeLetter(d);
-}
-function pickFromDock(d){
-  var r=panel.getBoundingClientRect();
-  d.state='grab';d.body=null;
-  d.wx=pointer.x;d.wy=pointer.y;d.vx=0;d.vy=0;
   placeLetter(d);
 }
 /* 字符 v / q 拖到物体上 ⇒ 赋予该物体属性（不并入 mem）：

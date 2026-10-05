@@ -158,7 +158,6 @@ DD.addEventListener('pointerdown',function(e){if(!e.target.closest('#menu'))clos
 var grab={kind:null,obj:null,gx:0,gy:0,lx:0,ly:0,t:0,svx:0,svy:0,start:0};
 var dblState={t:0,x:0,y:0,body:null};
 var hoverB=null;
-function easeOutBack(k){k-=1;return 1+k*k*((2.2)*k+1+2.2);}
 var TOUCH_LETTER=null;   // 触屏下面板中被点选的符号（等第二次点画布放置）
 /* 「触摸长按 = 右键菜单」的动作体，画布与字符两条入口共用：手指压在小字形上时 .char 自己吃掉
  * pointerdown，只挂在 cv 上的话长按无反应。两条入口共用计时器 TOUCH_LP，
@@ -276,8 +275,6 @@ function gdDown(e,d){
      * 抓起即清速度：松手时会用 grab.svx 赋 L.vx 抛出，不清的话下次抓起它还带着上次速度，从指针下滑走。 */
     d.vx=0;d.vy=0;
     grab={kind:'letter',obj:d,gx:pointer.x-d.wx,gy:pointer.y-d.wy,lx:pointer.x,ly:pointer.y,t:performance.now(),start:pointer.x};
-    /* 这条分支也要记录本次按下命中的字符 */
-    window.__lastDownLetter={d:d,x:pointer.x,y:pointer.y,t:performance.now()};
     return;
   }
   /* 自由字符的抓取放宽到所有非面板状态（不只 free/grab）：双击判定/上一轮操作留下的中间态（如 idle）
@@ -287,8 +284,6 @@ function gdDown(e,d){
     d.state='free';
     d.vx=0;d.vy=0;      // 抓起即清速度（否则带着上次抛出的速度滑走）
     grab={kind:'letter',obj:d,gx:pointer.x-d.wx,gy:pointer.y-d.wy,lx:pointer.x,ly:pointer.y,t:performance.now(),start:pointer.x};
-    /* 记录本次按下命中的字符（window.__lastDownLetter） */
-    window.__lastDownLetter={d:d,x:pointer.x,y:pointer.y,t:performance.now()};
     return;
   }
 }
@@ -468,15 +463,6 @@ cv.addEventListener('contextmenu',function(e){
 });
 DD.addEventListener('pointermove',function(e){
   pointer.x=e.clientX;pointer.y=e.clientY;
-  if(false&&window.__lastDownLetter){   /* 自愈抓取已停用（可能加重 grab 竞态） */
-    var _ld=window.__lastDownLetter;
-    if(_ld.d&&!_ld.d.dead&&_ld.d.state!=='dock'&&(performance.now()-_ld.t)<3000){
-      if(_ld.d.state!=='grab')_ld.d.state='free';
-      grab={kind:'letter',obj:_ld.d,gx:_ld.x-_ld.d.wx,gy:_ld.y-_ld.d.wy,
-            lx:pointer.x,ly:pointer.y,t:performance.now(),start:pointer.x};
-      window.__healCount=(window.__healCount||0)+1;
-    }
-  }
   /* 触摸：一旦移动就不是长按（长按=右键要求手指不动） */
   if(TOUCH_LP){clearTimeout(TOUCH_LP);TOUCH_LP=null;}
   /* 面板符号「按住拖」：待定手势移动超 12px ⇒ 执行原 dock 拖出 */
@@ -649,7 +635,6 @@ DD.addEventListener('pointermove',function(e){
 });
 DD.addEventListener('pointerup',function(e){
   pointer.x=e.clientX;pointer.y=e.clientY;
-  window.__lastDownLetter=null;
   /* 松手时对未锚定的杆端统一跑一次吸附检测：不管这次拖的是杆还是物体，只要杆端此刻靠近某宿主就吸上
    * （与红点预览一致）。 */
   setTimeout(function(){

@@ -1,20 +1,3 @@
-/* 参数系统、参数面板、复制、垃圾桶 / 删除（原 index.html 第 8970–10591 行） */
-/* ================= PARAMETER SYSTEM (right-click -> 参数 slider + input) =================
- * Every designer letter exposes a real physics parameter that feeds the simulation:
- *   m/M  mass   -> collideBodies impulse share + binary-star m1·r1=m2·r2 + well mass
- *   g    gravity-> stepPhysics fall acceleration (GRAV / mass)
- *   a    accel  -> stepPhysics hasA thrust (AACC / mass)
- *   v    bounc  -> wall/ground restitution e (0=viscous … 1=elastic) & collision e
- *   μ    frict  -> wall friction drag multiplier (0..1 per wall hit; 1 = no friction)
- *   r    scale  -> body visual + collision radius & orbit R; well GMm/r² range
- *   B    Bz     -> magnetic Lorentz turning strength (B_FIELD*Bz)
- *   E    Eacc   -> electric field force (E_FIELD_ACC * E)
- *   I    Iacc   -> current magnetic force (A_FORCE * I)
- * Values are stored per-body in B.param (so two m's can have different masses); the
- * in-place value also lives back on the letter symbol (B.paramVal) so a right-click
- * re-open shows the last set value. min/max pick sane gameplay ranges.
- */
-var PF={};
 function pv(B,k,d){var v=B.param?B.param[k]:null;return (v===null||v===undefined||isNaN(v))?d:v;}
 // 比例尺 260 px = 1 m：默认重力 2600 px/s² 显示为 10 m/s²，画布高约 3.5 m。
 // 内部计算全部仍是 px；换算只发生在参数面板的显示/输入层：SI 显示值 = 内部值 / siK。
@@ -39,14 +22,6 @@ var SPR_SPAWN_LEN=110;    // 弹簧：= makeSpring 长度钳制 clamp(d,110,340)
 var ROPE_SPAWN_LEN=110;   // 轻绳：与弹簧同款「拖出来即可用」的默认长度
 var ROD_SPAWN_LEN=170;    // 轻质杆：= makeRod 的默认，也是 vt 拼接实际得到的长度
 var BELT_SPAWN_LEN=260;   // 传送带：矩形宽（带子长度暂不可调，只影响出生尺寸）
-// 铰链折角限位（度）。折角 = 「销→宿主0中心」与「销→宿主1中心」夹角相对连接那一刻的偏差，
-// 超过 ±限位 即投影回边界（硬限位）。无限位时挂在销下的方块被踢一脚能整圈转、钻进固定块。
-// 面板上只有「固定铰链」开关，没有可调角度：
-//   · 关闭（默认）= 完全光滑铰链，相对转动不受限；防穿模由碰撞解算保证（两宿主保持互相碰撞，见 springSyncGroups），
-//     不靠限制转角。
-//   · 开启 = 刚接：限位角取 0°，折角冻结在开启那一刻的构型上。
-// HINGE_FOLD_DEF=90 已不是面板默认，仅保留名字供回归脚本引用。
-var HINGE_FOLD_DEF=90;
 var HINGE_FOLD_STEP=0.08;   // 限位回转每子步限步（rad），防传送瞬滑（见 hingeFoldLimit）
 var HINGE_FOLD_DMAX=2;      // 闭合门：两端距离超过此值视作「未钉合成销」，限位跳过
 // 上限只保留物理上真实存在的：弹性 e∈[0,1]、空气阻力 <1（它是每帧速度占比，≥1 会把速度反向）；
@@ -928,14 +903,6 @@ function peerKeyOf(B){
   if(B===MW.wl||B===MW.wr||B===MW.wt)return '@wall';
   return bodyPid(B);
 }
-function peerNameByKey(k){
-  if(k==='@ground')return '地面';
-  if(k==='@wall')return '墙';
-  for(var i=0;i<bodies.length;i++){
-    if(bodyPid(bodies[i])===k)return bodyName(bodies[i]);
-  }
-  return '（已移除）';
-}
 // 一对 (A,B) 实际生效的配对覆盖。返回 {e:…|null, mu:…|null}（null = 用默认规则）。
 // 双方都显式设过同一条 → 取平均（不偏袒任一方）。
 function pairOvAB(A,B){
@@ -982,17 +949,6 @@ function bodyOfMb(mb){
   if(mb===MW.ground||mb===MW.wl||mb===MW.wr||mb===MW.wt)return null;
   for(var i=0;i<bodies.length;i++)if(bodies[i].mb===mb)return bodies[i];
   return null;
-}
-// Matter 体 -> 可读名字（接触区用）。ground/wall 是引擎常驻静态体，其余按 mb 反查实体，
-// 用编号名（圆1/弧1/杆1…），与配对表标题同源。
-function matterBodyLabel(mb){
-  if(!MW)return '物体';
-  if(mb===MW.ground)return '地面';
-  if(mb===MW.wl||mb===MW.wr||mb===MW.wt)return '墙';
-  for(var i=0;i<bodies.length;i++){
-    if(bodies[i].mb===mb)return bodyName(bodies[i]);
-  }
-  return '物体';
 }
 // 配对表的行：本体默认 + 地面 + 墙 + 场上每一个其它物体
 function pairPeers(B){
@@ -1217,7 +1173,6 @@ function clearAll(){
     if(typeof particles!=='undefined'&&particles&&particles.length)particles.length=0;
     if(typeof rings!=='undefined'&&rings&&rings.length)rings.length=0;
     if(typeof sparks!=='undefined'&&sparks&&sparks.length)sparks.length=0;
-    if(typeof BH_MERGE!=='undefined')BH_MERGE=null;
     if(typeof BH_FINALE!=='undefined')BH_FINALE=null;
     /* 清屏会重新 dockLetter，布局回到默认 ⇒ 必须重跑 fixPanelSlot 重新施加面板排布。 */
     if(typeof fixPanelSlot==='function')setTimeout(fixPanelSlot,0);

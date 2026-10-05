@@ -267,41 +267,6 @@ function rodSnapPreviewScan(){
         if(_snapPt){
           /* 预览点 = 吸附目标点（质心/角/边中点/表面点，属于物体、不随杆动）。 */
           ROD_SNAP_PREVIEW={x:_snapPt.x,y:_snapPt.y,mid:!!qm0,tx:_snapPt.x,ty:_snapPt.y};
-          /* 拖拽中磁吸已禁用（下面两个 if(false&&…) 分支只保留代码）：磁吸是唯一会主动搬移连接件/宿主的通道，
-           * 会导致漂移/拉丝。若恢复：杆只在另一端已锚定时磁吸（自由杆被磁吸会改杆长）；
-           * 铰链需要求指针真的按着（__ptrDown）且整根平移。 */
-          if(false&&_isHingeRod){   /* 已禁用（防漂移/拉丝） */
-            try{
-              var _e0=springEnd(R,0), _e1=springEnd(R,1);
-              if(_e0&&_e1){
-                var _mx=(_e0.x+_e1.x)/2, _my=(_e0.y+_e1.y)/2;
-                var _dx=_snapPt.x-_mx, _dy=_snapPt.y-_my;
-                if(Math.abs(_dx)<60&&Math.abs(_dy)<60){        // 只做"就近吸附"，不做远距离搬运
-                  if(typeof springMoveRig==='function'){springMoveRig(R,_dx,_dy);}
-                  else{
-                    springSetEnd(R,0,_e0.x+_dx,_e0.y+_dy);
-                    springSetEnd(R,1,_e1.x+_dx,_e1.y+_dy);
-                  }
-                  ROD_SNAP_PREVIEW={x:_snapPt.x,y:_snapPt.y,mid:false,tx:_snapPt.x,ty:_snapPt.y};
-                  return;
-                }
-              }
-            }catch(_he){}
-          }
-          if(false&&R.anc[1-e]){   /* 已禁用：磁吸会主动搬移连接件/宿主 */
-            try{
-              var _far=rodEndWorld(R,1-e);
-              if(!_far||!isFinite(_far.x)||!isFinite(_far.y))return;
-              var _mx=_snapPt.x,_my=_snapPt.y;
-              if(!isFinite(_mx)||!isFinite(_my))return;
-              var _dx=_mx-_far.x,_dy=_my-_far.y,_dl=Math.hypot(_dx,_dy)||1;
-              /* 端点投影到以另一端为圆心、半径 = 当前杆长的圆上：只绕另一端旋转，不改杆长。 */
-              var _len0=(typeof B.len==='number'&&B.len>0)?B.len:((typeof B._rodL==='number'&&B._rodL>0)?B._rodL:_dl);
-              _mx=_far.x+_dx/_dl*_len0;_my=_far.y+_dy/_dl*_len0;
-              rodPlaceEnds(R,e?_far.x:_mx,e?_far.y:_my,e?_mx:_far.x,e?_my:_far.y,true);
-              ROD_SNAP_PREVIEW={x:_snapPt.x,y:_snapPt.y,mid:!!qm0,tx:_snapPt.x,ty:_snapPt.y};
-            }catch(_me){}
-          }
           return;
         }
         var dc=Math.hypot(p.x-h.x,p.y-h.y);
@@ -326,14 +291,6 @@ function drawChargeMark(){
     cvx.stroke();
     cvx.restore();
   }
-}
-/* 待融合提示：拖着赋予型字符（v/q）悬停在可赋物体上 ⇒ 该物体灰化
- * （渲染层降饱和 + 半透明），松手即完成赋予。 */
-function bodyPendingBlend(B){
-  if(!(grab&&grab.kind==='letter'&&grab.obj))return 0;
-  var t=grab.obj.type||grab.obj.ch;
-  if(t!=='v'&&t!=='q')return 0;
-  return (B===hoverB)?0.55:0;     // hoverB = 指针下的物体
 }
 /* 待融合提示环：拖着 v/q 悬停在可赋物体上 ⇒ 物体外画一圈橙色虚线。 */
 function drawPendingHint(){
@@ -573,7 +530,7 @@ function cursorTick(){
   if(grab.kind==='rot'){cv.style.cursor='grabbing';return;}
   cv.style.cursor='default';
 }
-var G_RANGE=360, G_PULL=52000;
+var G_RANGE=360;
 /* 真 GM/r²（Plummer 软化）的系数。标定：在 r=150px 处与旧的 G_PULL/(r+80) 加速度相等
  ⇒ G_PULL2 = 52000·(150+80)/150·(150²+80²)^1.5/… = 7.405e6
  （旧公式在 r=150、默认 M/3=1 时 a=52000/230=226.1 px/s²）。 */

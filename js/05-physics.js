@@ -112,10 +112,6 @@ function freeLetterContact(d){
   _flProxy.glyphs[0]=null;
   return best;
 }
-function bodyHitSpeed(B,comp){
-  var v=(comp==='x')?B.vx:B.vy;
-  return Math.abs(v);
-}
 function shatter(B,mode){
   var i=bodies.indexOf(B);if(i>=0)bodies.splice(i,1);
   var cx=B.x,cy=B.y;

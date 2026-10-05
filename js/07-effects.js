@@ -334,7 +334,7 @@ function stepBlackHole(dt){
       continue;
     }
     // ---- stage 1 — alive: devour EVERYTHING on screen (whole-screen accretion) ----
-    if(!(BH_MERGE&&(BH_MERGE.a===B||BH_MERGE.b===B))){if(B.vx||B.vy){B.vx=0;B.vy=0;}}   // the hole itself is immovable（BH_MERGE 合并期间除外）
+    if(B.vx||B.vy){B.vx=0;B.vy=0;}   // the hole itself is immovable
     if(BH_FINALE&&BH_FINALE.hole===B)continue;   // finale drives the hole visuals now (suck/shrink)
     if(grab.kind==='body'&&grab.obj===B)continue;   // paused while the hole is being dragged
     /* 到时清场：不看距离、质量、是否 fixed（黑洞面前固定不住），逐个爆粒子并走既有的湮灭/清场通道。
@@ -572,64 +572,6 @@ function trashCenter(){
   var r=trash.getBoundingClientRect();
   return {x:r.left+r.width/2,y:r.top+r.height/2};
 }
-/* 两黑洞合并：只剩黑洞时两洞解除 immovable、互相螺旋吸引（径向 + 切向），接触即合并（r=√(r1²+r2²)），
- * 之后正常走 finale。当前已停用（不能同时存在两个黑洞，见 maybeStartFinale 与出生处门控）。 */
-var BH_MERGE=null;
-function stepBHMerge(dt){
-  if(!BH_MERGE)return;
-  var A=BH_MERGE.a,Bb=BH_MERGE.b;
-  if(BH_MERGE.ax0==null){BH_MERGE.ax0=A.x;BH_MERGE.ay0=A.y;}
-  if(!A||!Bb||A.dead||Bb.dead||!A.bh||!Bb.bh){BH_MERGE=null;return;}
-  var dx=Bb.x-A.x,dy=Bb.y-A.y,d=Math.hypot(dx,dy)||1;
-  /* 参数化螺旋。不要直接换成真实并合模型：未做数值稳定性（子步/限幅）时会产生 NaN。 */
-  var RR=Math.max(A.bh.r,Bb.bh.r);
-  /* 场上还有未吞的普通体 ⇒ 只螺旋靠近不合并；没有 ⇒ 允许合并 */
-  var _others=0;
-  for(var _oi=0;_oi<bodies.length;_oi++){var _Ob=bodies[_oi];
-    if(_Ob!==A&&_Ob!==Bb&&!(_Ob.bh&&_Ob.bh.stage===1)&&!_Ob.dead)_others++;}
-  /* 只数 bodies，不数自由字母 freeL：黑洞可能永远吞不完某些自由字母（飞出面板的、被固定的），
-   * 计入后会永不融合；由下面的倒计时强制合并兜底。 */
-  if(BH_MERGE.ph==='orbit'&&_others===0&&d<RR*4)BH_MERGE.ph='plunge';   // 吸完瞬间 ⇒ 收尾
-  if(_others===0&&!BH_MERGE.t0)BH_MERGE.t0=performance.now();
-  /* 倒计时强制合并：从物体吸完（t0）起，5~10s 渐进加力（plunge + boost 最高 4×），满 10s 无条件合并，
-   * 防止两洞卡在轨道上抽搐不融合。 */
-  if(BH_MERGE.t0){
-    var _el=performance.now()-BH_MERGE.t0;
-    if(_el>5000){
-      BH_MERGE.ph='plunge';
-      BH_MERGE.boost=Math.max(BH_MERGE.boost||1,1+3*Math.min(1,(_el-5000)/5000));
-    }
-    if(_el>10000){
-      burstParticles(Bb.x||A.x,Bb.y||A.y,40,2);
-      if(isFinite(A.bh.r)&&isFinite(Bb.bh.r))A.bh.r=Math.sqrt(A.bh.r*A.bh.r+Bb.bh.r*Bb.bh.r);
-      else A.bh.r=BH_MAXR*1.4;
-      A.bh.r=Math.min(A.bh.r,BH_MAXR*1.6);
-      A._rcg=0;Bb._rcg=0;
-      if(A.mb&&MW)A.mb.collisionFilter.group=0;
-      killBody(Bb);BH_MERGE=null;return;
-    }
-  }
-  /* 任一侧位置/半径变 NaN ⇒ 立刻复位：否则渲染报 createRadialGradient non-finite 并永远卡住。 */
-  if(!isFinite(A.x)||!isFinite(A.y)||!isFinite(A.bh.r)){
-    A.x=BH_MERGE.ax0||600;A.y=BH_MERGE.ay0||300;A.vx=0;A.vy=0;
-    if(!isFinite(A.bh.r))A.bh.r=BH_MAXR;
-    if(A.mb&&MW)Matter.Body.setPosition(A.mb,{x:A.x,y:A.y});
-  }
-  if(!isFinite(Bb.x)||!isFinite(Bb.y)||!isFinite(Bb.bh.r)){
-    Bb.x=(BH_MERGE.ax0||600)+200;Bb.y=BH_MERGE.ay0||300;Bb.vx=0;Bb.vy=0;
-    if(!isFinite(Bb.bh.r))Bb.bh.r=BH_MAXR;
-    if(Bb.mb&&MW)Matter.Body.setPosition(Bb.mb,{x:Bb.x,y:Bb.y});
-  }
-  /* 正常合并需吸完（t0）后至少 5s，留出螺旋观赏期；满 10s 由上面的分支强制合并。 */
-  var _sinceT0=BH_MERGE.t0?(performance.now()-BH_MERGE.t0):0;
-  if(d<RR*0.8&&_others===0&&_sinceT0>=5000){
-    burstParticles(Bb.x,Bb.y,40,2);ringGo(Bb.x,Bb.y);
-    A.bh.r=Math.sqrt(A.bh.r*A.bh.r+Bb.bh.r*Bb.bh.r);
-    A.bh.r=Math.min(A.bh.r,BH_MAXR*1.6);
-    killBody(Bb);
-    BH_MERGE=null;
-  }
-}
 function maybeStartFinale(){
   /* BH_FINALE 自愈：finale 中途被打断或黑洞被清屏移除时，残留的 BH_FINALE 会让 if(BH_FINALE)return 永久挡住后续黑洞；
    * 宿主已死/不在场/超时（25s）则清掉再继续。 */
@@ -646,10 +588,9 @@ function maybeStartFinale(){
     if(Bx.bh&&Bx.bh.stage===1){if(!hole)hole=Bx;holes.push(Bx);}
   }
   if(!hole)return;
-  /* 合并只在 otherBodies===0（吸完）后允许，判定在 stepBHMerge 里。 */
   var otherBodies=0;
   for(i=0;i<bodies.length;i++){var By=bodies[i];if(!(By.bh&&By.bh.stage===1))otherBodies++;}
-  /* 两黑洞合并已停用：若出现两个洞（极端情况）也不启动合并，各自独立存在。 */
+  /* 不做两黑洞合并：出生处已门控同时只能有一个黑洞；万一出现两个也各自独立存在。 */
   if(holes.length>=2)return;
   var docked=false;
   var chars=panel.querySelectorAll('.char');
@@ -705,7 +646,6 @@ function finaleBurst(){
   ringGo(F.hx,F.hy);
 }
 function stepFinale(dt){
-  if(BH_MERGE){stepBHMerge(dt);return;}
   if(!BH_FINALE){maybeStartFinale();return;}
   var F=BH_FINALE;
   F.t+=dt;
@@ -942,7 +882,6 @@ function drawFieldE(cx,cy,R,th,B){
   cvx.closePath();cvx.stroke();
   cvx.setLineDash([]);
 }
-function max2(a,b){return a>b?a:b;}
 function stepShake(dt){
   if(!shakeOn)return;
   shakeT+=dt;

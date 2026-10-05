@@ -27,28 +27,20 @@ var lastDt=1/60;   // the frame's integration step, reused by the swept rod cont
  * ========================================================================================= */
 var C_LIGHT=299792458;      // 光速 m/s
 var BOSS=null;              // boss 状态机（null = 没有 boss 进行中）
-var BOSS_WANT_LINES=3;      // 已停用，见 BOSS_ROWS_MAX
 /* 平台行数按纵向可用高度自适应：从「Ek 墨迹底 + 余量」到「视口底 − 余量」按行距折算，
  * 上限 BOSS_ROWS_MAX（bossBuildPlat 里实际再限到 3 行）。 */
 var BOSS_ROWS_MAX=4;        // 平台最多几行
-var BOSS_ROWS=2;            // 已停用，见 BOSS_ROWS_MAX
-/* 已停用：旧的无限滚动条带口径。当时条带周期 P 必须 = 行数 × 视口宽：
- * 行 k 相位偏移 k·W 保证「行 k 右缘 → 行 k+1 左缘」接续，P = R·W 才能让末行右缘接回第 0 行左缘不跳字。 */
-var BOSS_CYCLE=2;           // 已停用：旧口径的条带周期 = BOSS_CYCLE × 视口宽
-var BOSS_INK_CAP=1.75;      // 条带里项的总墨迹宽上限（× 视口宽）⇒ 决定项数（"项太多"的解）
-var BOSS_ANCHOR=0;          // 第 0 项（½mv²）的条带偏移
 /* 逐字符汇聚的总时长 s（每字间隔 = BOSS_BUILD_SEC/字符数）。不用固定每字间隔：
  * 字符数随窗口宽度变（实测可达 880 个），固定 0.006 s/字会拖到 5 s 以上。
  * 同时每帧增量 nch/(60·BOSS_BUILD_SEC) 要 ≤8：nch=880、2.2 s ⇒ 6.67 字/帧。 */
 var BOSS_BUILD_SEC=2.2;
-var BOSS_CHAR_DT=0.006;     // 已停用，实际用 BOSS_BUILD_SEC/nch 现算（见 BOSS.charDt）
+var BOSS_CHAR_DT=0.006;     // 逐字符飞入间隔的兜底值；正常由 BOSS.charDt = BOSS_BUILD_SEC/字符数 现算
 /* 项高标定（48px 字号下）：每项 element 高 97.81px，与 n 无关（由 \frac 两行 + 分数线决定）。
  * 行距下限原为 2×BOSS_AMP + 项高；现按下面的口径允许行间轻微重叠。 */
 /* 行距 98、项盒高 100 ⇒ 项盒重叠 2px，叠上 ±BOSS_AMP(15) 晃动后最坏重叠 32px（有意允许轻微重叠）。
  * 大项缩字号后墨迹多在 74px 上下，实际重叠观感远小于盒重叠。 */
 var BOSS_LH=98;             // 行距 px
 var BOSS_ROW_H=100;         // .bossline 的行高（须 ≥ 项高 97.81，否则 overflow:hidden 裁字）
-var BOSS_REPS=2;            // 条带在轨内的拷贝份数
 var BOSS_AMP=15;            // 上下晃动振幅 px（逐行，频率 1.05）
 var BOSS_AMPX=26;           // 左右晃动振幅 px（整块共同，低频 0.41）
 var BOSS_PAD_X=60;         // 行盒两侧外扩量（必须 > BOSS_AMPX，否则晃动会露出边缘）
@@ -63,14 +55,11 @@ var BOSS_WT=185;            // 每一项的目标墨迹宽（超出即按比例�
  * BOSS_WT=185 ⇒ 最宽的项缩到 ≈185px（48→36px 左右），与基准项比 ≤1.5 倍；项变窄后又能多挤进几项。 */
 var BOSS_FSMIN=30;          // 缩字号的下限
 var BOSS_SEP=18;            // 项间距下限 px（等间隙铺满条带时不会低于它，只作保险丝）
-var BOSS_SCROLL=44;         // 左右滚动速度 px/s（正 = 内容向右流）
 var BOSS_RISE_MS=1.35;      // Ek 升空的时长 s
 var BOSS_HOLD=8.0;          // 平台出现（字符补全）后停留 s，然后开始闪黑
 var BOSS_DARK=2.6;          // 黑屏时长 s
 var BOSS_DROP_PAD=80;       // 光速 v 松手时命中 ½mv² 的容差 px（比 MERGE_PAD 宽，好放）
 /* 汇聚粒度是单个字符，不是整项（避免整项整块出现）。 */
-var BOSS_CHAR_DT=0.006;     // 逐字符飞入的默认间隔 s（实际用 BOSS.charDt）
-var BOSS_HALF={n:'½'};      // 占位：BOSS 判定读的是 hasHalf/vCount
 var BOSS_WAIT_GRACE=600;    // 「等用户放 v」的兜底窗口（产品秒）——见 bossLive() 的长注释
 var BOSS_SHAKE=0.55;        // Ek 爆发后的余波时长 s
 var BOSS_FADE_IN=0.46;      // 闪黑两次的时长 s（0.06/0.17/0.28/0.38/0.46 五个台阶）
@@ -298,66 +287,6 @@ function bossPlace(Ek,d){
   bossBump();                       // 还要接着放 ⇒ 窗口重新计时
   if(BOSS.n>=3){bossStartRise(BOSS.ek,d);return;}
   bossRepel(BOSS.ek,d);
-}
-/* ---- ③ 升空爆发 + 造平台 --------------------------------------------------------------- */
-/* 以下两个函数（bossPanelSrc / bossCharSrcFromPanel）当前无调用点，保留备用：
- * 字符从右侧符号面板飞入的方案观感不被接受，bossBuildPlat 用的是「四周随机、半径 55~150px」+ 基准项出生即亮。
- * 原实现：起始点取右侧符号面板的字符格（#panel > .char，sortPanel 按 DOCK_ORDER 钉在固定格位，字符 = textContent）；
- * 面板里没有的字符（数字、+、=、⋯ …）取面板矩形内的随机点。
- * 返回 {map:{字符→面板坐标}, rect:{x,y,w,h}}；面板不可用时 map/rect 皆空（调用方原地退化）。 */
-function bossPanelSrc(){
-  var out={map:{},rect:null};
-  var pan=(typeof DD!=='undefined'&&DD.getElementById)?DD.getElementById('panel'):null;
-  if(!pan)return out;
-  var pr=pan.getBoundingClientRect();
-  if(!(pr.width>1&&pr.height>1))return out;
-  out.rect={x:pr.left,y:pr.top,w:pr.width,h:pr.height};
-  var cs=pan.querySelectorAll('.char');
-  for(var i=0;i<cs.length;i++){
-    var ch=(cs[i].textContent||'').replace(/\s/g,'');
-    if(!ch||out.map[ch])continue;
-    var r=cs[i].getBoundingClientRect();
-    if(!(r.width>0.5&&r.height>0.5))continue;
-    out.map[ch]={x:r.left+r.width/2,y:r.top+r.height/2};
-  }
-  return out;
-}
-/* 逐字符把「面板起点 − 槽位」写进 --dx/--dy（CSS 过渡负责飞入）。
- * 必须在 bossPlatLayout() 之后调用：行轨平移（translate3d）落位前量到的槽位会整体偏一行。
- * 先归零再量：.bcharg 的 left/top 就是 --dx/--dy，带着旧值量到的是起点而非槽位；归零后读一次 offsetWidth 强制重排。
- * 行盒只做 translate3d（无 scale）⇒ 相对定位的 px 偏移与屏幕 px 1:1。 */
-function bossCharSrcFromPanel(list){
-  if(!list||!list.length)return [];
-  var S=bossPanelSrc(),i,ce,r,sx,sy,ch,p,out=[];
-  BOSS.srcRect=S.rect;                 /* build 时刻的面板矩形（给判据/调试对齐用） */
-  /* 写起始值之前必须先关掉过渡：.bcharg 的 left/top 带 0.62s 过渡，且 bossPlatLayout() 已强制过布局
-   * （left 当前值 = 0），直接写 --dx/--dy 会被当成「从 0 过渡到面板位置」，字符先向外飘再被 .on 拉回。
-   * 正确写法：transition:none 写完 → 强制一次重排（让起始值成为过渡起点）→ 还原。 */
-  for(i=0;i<list.length;i++)list[i].style.transition='none';
-  for(i=0;i<list.length;i++){
-    list[i].style.setProperty('--dx','0px');
-    list[i].style.setProperty('--dy','0px');
-  }
-  if(list[0]&&list[0].offsetWidth===undefined)return [];   /* 强制一次重排（读属性即可） */
-  for(i=0;i<list.length;i++){
-    ce=list[i];
-    r=ce.getBoundingClientRect();
-    sx=r.left+r.width/2; sy=r.top+r.height/2;
-    ch=(ce.textContent||'').replace(/\s/g,'');
-    var hit=S.map[ch]?1:0;                     /* 必须先判命中再做随机兜底（否则 hit 恒 1） */
-    p=S.map[ch]?S.map[ch]:null;
-    if(!p&&S.rect)p={x:S.rect.x+Math.random()*S.rect.w,
-                     y:S.rect.y+Math.random()*S.rect.h};
-    if(!p)p={x:sx,y:sy};
-    out.push({ch:ch,dx:+(p.x-sx).toFixed(1),dy:+(p.y-sy).toFixed(1),hit:hit,
-              sx:+p.x.toFixed(1),sy:+p.y.toFixed(1),slotX:+sx.toFixed(1),slotY:+sy.toFixed(1)});
-    ce.style.setProperty('--dx',(p.x-sx).toFixed(1)+'px');
-    ce.style.setProperty('--dy',(p.y-sy).toFixed(1)+'px');
-  }
-  /* 起始值已成为当前值 ⇒ 强制一次重排后再把过渡还回去，之后 `.on` 的位移才会平滑过渡 */
-  if(list[0])list[0].offsetWidth;
-  for(i=0;i<list.length;i++)list[i].style.transition='';
-  return out;
 }
 function bossBuildPlat(){
   /* =======================================================================================
@@ -679,24 +608,6 @@ function bossFinale(){
   shake(15,0.55);
 }
 
-function bossTotalItems(){
-  var n=0,rows=BOSS&&BOSS.rows;
-  if(!rows)return 0;
-  for(var i=0;i<rows.length;i++)n+=rows[i].items.length;
-  return n;
-}
-function bossNthItem(k){
-  var rows=BOSS&&BOSS.rows;
-  if(!rows)return null;
-  var c=0;
-  for(var i=0;i<rows.length;i++){
-    for(var j=0;j<rows[i].items.length;j++){
-      if(c===k)return rows[i].items[j];
-      c++;
-    }
-  }
-  return null;
-}
 function bossBurst(){
   var cx=W/2,cy=BOSS.y||BOSS.y1||(H*0.25);
   spawnExplosion(cx,cy);
