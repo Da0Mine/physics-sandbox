@@ -351,7 +351,9 @@ export function shapeOutline(shape,x0,y0,x1,y1){
     // 会让形状突然旋转 90°。开口朝哪一侧由末点相对首点的方向决定。
     // 规范形（开口朝上）：左上角 → 顶边小平台 → 四分之一弧 → 底边 → 左边闭合，R=min(H,W-t)。
     var wT=bx-ax,hT=by-ay,wT2=wT,hT2=hT;
-    var t5=Math.max(12,wT-hT),R5=Math.min(hT,wT-t5);
+    // 半径下限 2px（同 tub）：平台 t5 至少 12px，宽度不足 12px 时 wT−t5 为负，
+    // 负半径会让 canvas.arc() 抛异常（拖出很小的半凹槽时预览那一帧画不完），落体后的轮廓也会翻折。
+    var t5=Math.max(12,wT-hT),R5=Math.max(2,Math.min(hT,wT-t5));
     // 弧采样 29 段：渲染走 canvas 真弧（见 arcs 元数据），加密是给碰撞用的 —— 段越密多边形越贴真弧
     // （R≈400px 时 14 段弦高偏差 ~2px，28 段 ~0.5px）。取奇数让弧的扫过中点落在段中央（同 tub 的接缝楔住问题）。
     var N5=29,base=[],k5;

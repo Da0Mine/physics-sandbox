@@ -55,13 +55,13 @@ tests/                确定性回归测试（见下）
 - `scenarios.js` 是 18 个针对性场景（字母合并、各种形状、器件、黑洞、BOSS、触屏……），`monkey.js` 再加 6 组随机但可复现的操作序列；
 - 每 5 帧采样一次「画布像素 + DOM」的指纹，与 `tests/golden.json` 对比。
 
-当前 golden 是用重构前的原版录制的，所以 `npm test` 通过就说明行为与原版一致。
+golden 是用重构前的原版录制的（之后只因修复下面这个 bug 更新过 `monkey1` 的报错记录），所以 `npm test` 通过就说明行为与原版一致。
 
 **有意改变行为后**（修 bug、加功能），先确认改动符合预期，再运行 `npm run test:update` 重新录制 golden，并把 golden 的变化一起提交。
 
 Chrome 不在默认位置时，用环境变量 `CHROME_PATH` 指定。
 
-## 已知问题
+## 已知问题 / 修复记录
 
-- 拖出非常小的半凹槽/圆弧时，预览阶段 `traceWPath`（`src/bodies/boundary.js`）会收到负的圆弧半径，`canvas.arc()` 抛异常，那一帧的绘制提前结束。原版就有，回归测试 `monkey1` 会复现它。
+- 已修复：拖出很小的半凹槽时弧半径为负，`canvas.arc()` 抛异常、那一帧画不完（原版就有）。现在半径下限 2px，见 `shapeOutline` 的 trough 分支。
 - 「提交 Bug」会把记录数据 POST 到 `src/ui/bug-report.js` 里的 `BUG_ENDPOINT`（原作者的服务）。
