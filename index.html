@@ -360,6 +360,27 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .binfo{font-size:12.5px;color:rgba(38,34,28,.55);margin:9px 0 2px;line-height:1.6}
 .bbtns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
 .rbtn[disabled]{opacity:.5;cursor:default}
+/* ★★R132-10o：设置面板「Bug 修复列表」按钮 + 它的次级菜单（用户 2026-10-05）。
+   次级菜单复用 .bmask/.bbox（与「提交 Bug 记录」同一套弹层视觉），只是更宽、内容是只读状态表。 */
+.wbtn{flex:1 1 100%;width:100%;text-align:center;padding:9px 16px}
+.bbox.fixbox{width:min(920px,94vw)}
+.fixtabwrap{margin-top:4px;max-height:calc(100vh - 190px);overflow:auto;overscroll-behavior:contain;
+  border:1px solid rgba(38,34,28,.14);border-radius:12px}
+.fixtab{width:100%;border-collapse:collapse;font-size:13.5px;font-style:normal}
+.fixtab th,.fixtab td{padding:7px 9px;text-align:left;vertical-align:top;
+  border-bottom:1px solid rgba(38,34,28,.10)}
+.fixtab tr:last-child td{border-bottom:none}
+.fixtab th{position:sticky;top:0;z-index:1;background:#F6F3ED;font-style:italic;
+  font-size:13px;letter-spacing:.4px;white-space:nowrap}
+.fixtab tr:hover td{background:rgba(38,34,28,.045)}
+.fixtab td.id{font-family:ui-monospace,Consolas,'Courier New',monospace;font-size:12.5px;white-space:nowrap}
+.fixtab td.tm{font-size:12.5px;color:rgba(38,34,28,.72);white-space:nowrap}
+.fixtab td.nm{min-width:190px}
+.fixtab td.st{white-space:nowrap}
+.fixtab td.rm{color:rgba(38,34,28,.62);min-width:150px}
+.fx-fixed{color:#2E7D46;font-weight:600}
+.fx-todo{color:#B23A2E}
+.fx-pend{color:rgba(38,34,28,.55)}
 /* ★★R132-8（用户：「在物理模式那个控制的右边加一个问号的按钮，鼠标悬浮显示那些解释性文字，
    手机版是点击显示」）：问号按钮 —— 与 .sbtn/.ubtn 同一套视觉语言（同色、同字体），
    但做成**正圆**（它是「信息」不是「选项」，形状上要与旁边的分段按钮区分开）。 */
@@ -755,6 +776,11 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
        （recUI/recStart/recDump 都在写它），删掉元素会让记录模式失去进度反馈。
        平时为空 ⇒ 由 CSS `:empty{display:none}` 收成 0 高度，视觉上等于不存在。 -->
   <div class="snote" id="recnote"></div>
+  <!-- ★★R132-10o（用户 2026-10-05：「在设置按钮里面 bug 记录下面增加一个按钮，
+       叫做 Bug 修复列表。点击后进入次级菜单，里面显示各个 bug 的状态」）。 -->
+  <div class="srow">
+    <button class="rbtn wbtn" id="bugfixbtn">Bug 修复列表</button>
+  </div>
 </div>
 <!-- ★★R132-8：问号气泡**必须挂在 `<body>` 上，不能放进 `#smenu`**。
      实测（_tmp_r311 首轮）：`#smenu` 带 `transform:translate(-50%,-50%) scale(1)`，
@@ -776,6 +802,19 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
     <button class="rbtn" id="bugdl">仅下载文件</button>
   </div>
   <div class="snote" id="bugstatus"></div>
+</div>
+<!-- ★★R132-10o：Bug 修复列表（设置 → Bug 记录 → Bug 修复列表 → 次级菜单）。
+     与 #bugbox 同款弹层（.bmask/.bbox），加 .fixbox 放宽；内容是**只读**状态表，
+     数据在脚本里的 BUGFIX_LIST。列序照用户原话：Bug编号 提交时间 名称 状态 备注。 -->
+<div class="bmask" id="fixmask"></div>
+<div class="bbox fixbox" id="fixbox">
+  <div class="fmhead"><span class="fmtitle">Bug 修复列表</span><button class="fmclose" id="fixclose">✕</button></div>
+  <div class="fixtabwrap">
+    <table class="fixtab">
+      <thead><tr><th>Bug 编号</th><th>提交时间</th><th>名称</th><th>状态</th><th>备注</th></tr></thead>
+      <tbody id="fixrows"></tbody>
+    </table>
+  </div>
 </div>
 <script>
 /* Matter.js v0.20.0 — 2D rigid-body physics engine (MIT, (c) Liam Brummitt / brm.io).
@@ -818,6 +857,17 @@ var prows=document.getElementById('prows'),pclose=document.getElementById('pclos
     pcontacts=document.getElementById('pcontacts');
 var trash=document.getElementById('trash');
 var pointer={x:-9999,y:-9999};
+/* ★★R132-10v：采纳上游 PR#1（fisHarly0，分支 `fix/touch-drag-start`）的修法 —— 在**捕获
+ *  阶段**按本次事件坐标刷新 pointer，作为**唯一兜底入口**（只写坐标，无其它副作用）。
+ *  背景（本机实测）：触屏**没有 hover**，按下之前不会有任何 pointermove ⇒ 任何在
+ *  pointerdown 里读 pointer 的处理都拿到**上一次**的坐标。此前只有两条入口各自补了刷新
+ *  （`gdDown` L6986 / `cv.pointerdown` R132-10t），而 `handle`（旋转手柄）、
+ *  `rszHandle`（场域半径手柄）等入口仍是「按下即读」⇒ 实测：pointer 定在 (100,100) 后
+ *  往 `#trash` 派发一个 (900,800) 的 pointerdown，pointer 纹丝不动。
+ *  ★与那两条入口的刷新**幂等**（同值覆盖），故保留它们不动（各自还兼着「用本次事件而非
+ *    最后一次事件」的语义注释）；本行是**全局保证**，防止以后新增入口再漏。
+ *  ★在 L859 处 `DD` 尚未定义（L5940 才赋值）⇒ 这里必须写 `document`。 */
+document.addEventListener('pointerdown',function(e){pointer.x=e.clientX;pointer.y=e.clientY;},true);
 var W=0,H=0,groundY=0,t=0,menuBody=null,menuLetter=null;
 var dragBody=null,dragLetter=null,rotBody=null,rotGrab=0,hoverBody=null,handleBody=null;
 // R59：旋转手柄驻留 —— 手柄显示过之后即使 hover 丢了也再留一段时间，让指针来得及挪到手柄上
@@ -6050,7 +6100,15 @@ function refresh(B){
     var _hasBH=false;
     for(var _bi2=0;_bi2<bodies.length;_bi2++){
       var _B2=bodies[_bi2];
-      if(_B2&&_B2!==B&&_B2.bh&&_B2.bh.stage>=1&&!_B2.dead){_hasBH=true;break;}
+      /* ★★R132-10o（用户 bug `1791077880063`「制造出两个黑洞后，会一直吸无法停下或恢复」）：
+       *  原判据是 `_B2.bh.stage>=1`，而新生黑洞要在 **stage 0 停 0.8 秒**才升到 stage 1
+       *  （`stepBlackHole` 的 `k=bh.t/0.8`）⇒ 0.8 秒内放两次史瓦西公式 = 两个黑洞。
+       *  实测（`_diag_r132_10o_bhgate.py`，本地版与线上版同一张表）：
+       *    间隔 0 / 100 / 300 / 500 ms → **2 个**；800 ms 起 → 1 个。
+       *  ⇒ 判据**不再看 stage**：场上还有**任何活着的黑洞**（含正在坍缩的 stage 0）就拦。
+       *    `!bh.dead` 是保险丝：`dead` 只在黑洞被移除/收定时置位，防止残留标志位把后续黑洞
+       *    永久挡死（R131-44 踩过：「合成了第一个黑洞就合成不了第二个」）。 */
+      if(_B2&&_B2!==B&&_B2.bh&&!_B2.bh.dead&&!_B2.dead){_hasBH=true;break;}
     }
     if(!_hasBH){
       B.bh={stage:0,r:0,R:210,t:0,age:0,spin:0,seed:Math.random()*1000,dead:false};
@@ -6938,6 +6996,10 @@ function gdDown(e,d){
    *  修：按下时**先按本次事件坐标刷新 pointer**，再算抓点偏移。 */
   if(e&&typeof e.clientX==='number'){pointer.x=e.clientX;pointer.y=e.clientY;}
   if(e.button!==0)return;
+  /* ★★R132-10p（用户 1791079470959：「此时用户也不能再抓握其他字符」）：终局期间禁止再抓握。
+   *  刻意放在**函数最前** —— 一条门就盖住下面全部分支（面板拖出 / promote / v-a-q-t / 自由
+   *  字符），免得像 R132-10n 那样「同一条交互两个入口、只堵了一个」而真源在另一处。 */
+  if(grabLocked())return;
   /* ★★R131-59：字符这条入口也要起**长按计时**——手指压在小字形上时画布那条入口收不到
    *  （见 touchLongPressStart 的注释）。面板(dock)字符除外：那边走 TOUCH_PENDING 的点选/
    *  拖出分流，长按计时会和它打架。移动/松手会统一取消（两条入口共用 TOUCH_LP）。 */
@@ -7118,6 +7180,16 @@ cv.addEventListener('pointerdown',function(e){
   // 右键就会凭空拆掉弹簧。字母的 gdDown 一直有 e.button!==0 守卫，cv 是漏网的那个。
   // 右键的全部语义归 contextmenu 处理，这里不掺和。
   if(e.button!==0)return;
+  /* ★★R132-10t：**把「按本次事件坐标刷新 pointer」提到所有分支之前，统一成一个入口**。
+   *  用户 2026-10-06 追问「触屏点放器件会读旧坐标这个 bug 还存在吗」——**存在**：
+   *  R131-59 / R131-27 那两轮只把刷新插到了**命中扫描之前**（原 L7193），而
+   *  `TOOL.mode==='device'` 的「点一下放一个」分支排在它**更前面**（原 L7177）就已经
+   *  `placeDevice(TOOL.device,pointer.x,pointer.y)` 并 `return` 了 ⇒ 器件分支**永远读不到**
+   *  本次坐标。鼠标有 hover 垫着看不出，触屏按下前没有任何 pointermove ⇒
+   *  第一次点放会落在**上一次手指抬起的位置**。
+   *  ⇒ 与 gdDown 同口径：**进函数第一件事就是进坐标**，后面谁都不必再自己刷新。
+   *  （画笔/形状两条分支本来就各自取 `e.clientX`，见 `startShapeDrag` L17571，不受影响。） */
+  if(e&&typeof e.clientX==='number'){pointer.x=e.clientX;pointer.y=e.clientY;}
   // drawing tools own the canvas while they are armed — never fall through to a grab
   if(TOOL.mode==='brush'){e.preventDefault();startStroke(e);return;}
   if(TOOL.mode==='shape'){e.preventDefault();startShapeDrag(e);return;}
@@ -7129,13 +7201,12 @@ cv.addEventListener('pointerdown',function(e){
     if(dspB&&!TOOL.cont)setToolMode(null);
     return;
   }
-  /* ★★R131-59：**按下必须先用本次事件的坐标刷新 pointer，再做命中扫描**。
-   *  原来这行排在 hit 扫描**之后** ⇒ 扫描用的是**上一次移动留下的旧坐标**：
-   *   · 鼠标有 hover（move 一直更新 pointer）⇒ 看不出问题；
-   *   · **触屏按下前不会有任何 pointermove** ⇒ 指针是一段旧坐标（甚至上一次手指抬起的位置）
-   *     ⇒ `hit` 恒空 ⇒ 摸 стояния 到画布上的物体/杆**抓不起来**（用户报的触摸"时能拖时不能拖"）。
-   *  与 gdDown（5490 附近）和触摸分支的做法统一：**先进坐标，再判定**。 */
-  if(e&&typeof e.clientX==='number'){pointer.x=e.clientX;pointer.y=e.clientY;}
+  /* ★★R132-10p（用户 1791079470959）：终局期间禁止再抓握（`grabLocked` 见垃圾桶那一段）。
+   *  刻意放在三条**工具**分支**之后**：画笔 / 形状 / 器件照旧可用，只掐掉「抓取」这一件事
+   *  （免得把整个画布按下都锁死，连画图都做不了）。 */
+  if(grabLocked())return;
+  /* ★★R131-59 的「按下必须先用本次事件的坐标刷新 pointer，再做命中扫描」**已上移到本函数入口**
+   *  （R132-10t 统一口径），这里不再重复刷新 —— 见 `if(e.button!==0)return;` 之后那一句。 */
   var hit=null;
   for(var i=0;i<bodies.length;i++){
     var B=bodies[i];
@@ -7150,8 +7221,7 @@ cv.addEventListener('pointerdown',function(e){
     var lx=c*dx+s*dy,ly=-s*dx+c*dy;
     if(Math.abs(lx)<(B.hw||30)+10&&Math.abs(ly)<(B.hh||24)+10)hit=B;
   }
-  /* ★R131-27：同上——画布抓取前先按本次事件坐标刷新 pointer（触摸端跟手）；见上面的统一入口。 */
-  if(typeof e.clientX==='number'){pointer.x=e.clientX;pointer.y=e.clientY;}
+  /* ★R131-27 的同一句也已并入入口刷新（R132-10t）。 */
   /* ★R131-27 触摸版：按下即启动长按计时（450ms 未移动 ⇒ 当右键弹菜单）
    *  垃圾桶/面板上的按下不走画布触摸逻辑（垃圾桶有自己的 tap×2 清屏与拖动）。 */
   if(e.target&&(e.target.id==='trash'||(e.target.closest&&(e.target.closest('#trash')||e.target.closest('#panel')||e.target.closest('#panelToggle')))))return;
@@ -9845,6 +9915,24 @@ function renderParamPanel(){
     sl.type='range';
     var nu=document.createElement('input');
     nu.type='number';
+    /* ★★R132-10u（用户 2026-10-06：「手机版模式下，那个 v 的输入框输入不了符号 c」）：
+     *  根因**不在下面 keydown 那段特例**（桌面用物理键盘敲 c 一直是好的），而在输入框本身：
+     *  `<input type="number">` 在手机上调起的是**数字键盘**，上面**根本没有字母键** ⇒
+     *  用户物理上打不出 `c`，那句「keydown 捕获 c」永远等不到事件。
+     *  ⇒ 只给 vsize 这一行换成 `type="text"`：手机弹全键盘，字母 c 才可达。
+     *  为什么敢换：本行的读写点全项目只有 `applyParam` 那几处，取值一律走 `+nu.value`，
+     *  `type=text` 下 `+"123"` 与 `type=number` 完全等价；blur/change 里对 `NaN`/空串已有
+     *  兜底（回默认值）⇒ 多输了字母也不会写坏参数。
+     *  ★代价：这一行失去数字框的上下微调箭头（`v` 的大小本来就以滑块为主，可接受）。
+     *  ★`autocapitalize/autocomplete/spellcheck` 全关：iOS 的 text 框默认首字母大写 +
+     *    拼写检查，会把 `c` 变成 `C` 或弹候选词，干扰「敲一个 c 就进光速态」。 */
+    if(spec.key==='vsize'){
+      nu.type='text';
+      nu.setAttribute('inputmode','text');
+      nu.setAttribute('autocapitalize','off');
+      nu.setAttribute('autocomplete','off');
+      nu.setAttribute('spellcheck','false');
+    }
     var pb=document.createElement('div');
     pb.className='presets';
     row.appendChild(head);row.appendChild(sl);row.appendChild(nu);
@@ -10006,6 +10094,19 @@ function renderParamPanel(){
             e.preventDefault();e.stopPropagation();
             bossLightOn(nu2,val2);
           }
+        };
+      })(nu,val));
+      /* ★★R132-10u（同上：手机版打不出 c）：手机上软键盘/联想输入常常**不派发可用的 keydown**
+       *  （Android 部分输入法给 `key='Unidentified'`，iOS 走 IME 时 `e.key` 是 `'Process'`），
+       *  但 `input` 事件一定会带上**已经落进 value 的字符**。所以补一条兜底：
+       *  只要 value 里出现 c/C，就按「输入 c」处理（清空 value + 进光速态）。
+       *  ★两个入口做的是**同一件幂等的事**（`bossLightOn` 只置态、无副作用分支），不存在
+       *    「同一条交互写在两个入口」那类分流冲突；桌面路径仍由 keydown 先 `preventDefault`
+       *    拦下，字符落不进 value ⇒ 兜底不会重复触发。 */
+      nu.addEventListener('input',(function(nu2,val2){
+        return function(){
+          var _v=nu2.value;
+          if(_v.indexOf('c')>=0||_v.indexOf('C')>=0){nu2.value='';bossLightOn(nu2,val2);}
         };
       })(nu,val));
     }
@@ -10515,9 +10616,38 @@ function eraseUnderTrash(){
     if(hit)killBody(B);
   }
 }
+/* ★★R132-10p（用户 1791079470959：「此时用户也不能再抓握其他字符」）：终局期间**禁止再抓握**。
+ *  锁的宿主是**那一颗黑洞本身**（`maybeStartFinale` 强制脱手的那一帧记下）。
+ *  ★自愈：只认**那一颗**洞 —— 它被吞掉 / 被清屏 / 已不在场 ⇒ 立刻解锁。
+ *  绝不写成一个「布尔量锁死」：那有两个雷 —— ①漏一处解锁 = 用户**从此再也拖不动字符**；
+ *  ②终局结束后再召唤第二颗黑洞，会被上一颗留下的锁**永久粘住**（本轮设计时自己踩到过②）。 */
+var BH_LOCKH=null;
+function grabLocked(){
+  if(BH_FINALE)return true;
+  if(!BH_LOCKH)return false;
+  if(!BH_LOCKH.dead&&bodies.indexOf(BH_LOCKH)>=0)return true;
+  BH_LOCKH=null;
+  return false;
+}
+/* 垃圾桶可拖性：黑洞的**整个生命周期**（含 stage 0 坍缩中）+ 终局动画期间都不可拖。 */
+function trashDraggable(){
+  if(BH_FINALE)return false;
+  for(var _bi=0;_bi<bodies.length;_bi++){
+    var _b=bodies[_bi];
+    if(_b&&_b.bh&&!_b.bh.dead)return false;
+  }
+  return true;
+}
 trash.addEventListener('pointerdown',function(e){
   if(e.button!==0)return;
   e.preventDefault();e.stopPropagation();
+  /* ★★R132-10p（用户 1791079470959：「在黑洞召唤之后，那个删除键就不可以被拖动，只保留双击的
+   *  交互功能」）：黑洞在场（或终局动画正在搬它）时**不启动拖动**。
+   *  为什么必须堵：`maybeStartFinale` 里有 `if(trashDrag.active)return;` —— 用户拖着垃圾桶时
+   *  终局**永远不开始**（录屏 1791079470959 实测：手指松开才开始吞噬）；而且终局自己会用
+   *  `trashTo()` 把垃圾桶沿抛物线搬到指针位置，用户的手只会跟它**对拉**。
+   *  双击清屏（`dblclick` L10508 / 触屏 tap×2 L10523）完全不受影响（本轮 A2 判据实测 nbody=0）。 */
+  if(!trashDraggable())return;
   trashDrag.active=true;
   var r=trash.getBoundingClientRect();
   trash.style.right='auto';trash.style.bottom='auto';
@@ -10828,7 +10958,11 @@ function blastAt(cx,cy,R){
   }
   for(var fl2=freeL.length-1;fl2>=0;fl2--){
     var L2=freeL[fl2];
-    if(L2.state==='grab')continue;
+    /* ★★R132-10p（同族第 2 处，本轮 C 项实测）：判「被抓住」要用 `grab.obj`，不能用 `state`
+     *  —— 抓在手里的自由字符 `state` 是 'free'（R131-51 放宽）⇒ 旧写法让爆炸把**手里的字符
+     *  当场汽化**（实测 A.dead=true、直接从 freeL 消失）。守卫意图本来就是"别炸掉用户正拿着
+     *  的东西"（见上面体循环那句 `grab.kind==='body'&&grab.obj===O`）。 */
+    if(grab.kind==='letter'&&grab.obj===L2)continue;
     var ldx=L2.wx-cx,ldy=L2.wy-cy;
     if(Math.hypot(ldx,ldy)<=R){killLetter(L2);}   // killLetter already removes it from freeL
   }
@@ -10953,6 +11087,11 @@ function stepBlackHole(dt){
       for(var fl2=freeL.length-1;fl2>=0;fl2--){
         var LF=freeL[fl2];
         if(!LF||LF.dead)continue;
+        /* ★★R132-10p：**指针下抓着的不清** —— 与上面体循环的 `grab.obj` 守卫（`grab.obj===OF`）
+         *  同一条不变式："那是用户此刻正拿着的东西，不该在手里被吃掉"。旧版只给体加了守卫、
+         *  字符漏了 ⇒ 15s 兜底会把用户手里的字符一起抹掉，`grab.obj` 变成死引用、终局此后
+         *  再也进不来（本轮 D 项实测：900 帧时 nfree 由 1 突降到 0，正是这一句干的）。 */
+        if(grab.kind==='letter'&&grab.obj===LF)continue;
         try{burstParticles(LF.wx||LF.x||0,LF.wy||LF.y||0,4,0.6);}catch(e4){}
         LF.body=null;LF.inBody=false;
         try{killLetter(LF);}catch(e5){}
@@ -11053,7 +11192,13 @@ function stepBlackHole(dt){
     }
     for(var fl=freeL.length-1;fl>=0;fl--){
       var L2=freeL[fl];
-      if(L2.state==='grab')continue;
+      /* ★★R132-10p（用户 1791079470959：「此时如果一直抓着字符会导致字符也不被吸过去」）：
+       *  **判「被抓住」必须用 `grab.obj`，不能用 `state`** —— `gdDown` 给画布上抓起的自由字符
+       *  写的是 `state='free'`（R131-51 放宽），只有「刚从面板拖出的克隆」才是 'grab'
+       *  ⇒ 旧写法对画布上重新抓起的字符**完全失效**：照样攒速度（实测 1664px/s）、照样淡出
+       *  （fade=0.1）、进洞半径就被 `killLetter`（= 从手里凭空消失）。
+       *  同族守卫：L8107（积分跳过）/ L10982、L11047（体）。 */
+      if(grab.kind==='letter'&&grab.obj===L2)continue;
       var fdx=B.x-L2.wx,fdy=B.y-L2.wy;
       var fd=Math.hypot(fdx,fdy)||1;
       if(fd>reach)continue;
@@ -11258,7 +11403,11 @@ function maybeStartFinale(){
                 (BH_FINALE.t0&&performance.now()-BH_FINALE.t0>25000));
     if(_stale)BH_FINALE=null;else return;
   }
-  if(grab.kind||trashDrag.active)return;
+  /* ★★R132-10p（用户 1791079470959）：**「用户手上有东西」不再等于「终局不能开始」**。
+   *  录屏实测：手指一直按着时终局**永远不进来**（3000 帧 = 52s 都 nfree=0 / docked=0 /
+   *  nbody=1 / live=1），一松手 30 帧内就吞完了 —— 手指挡住的正是下面这一句。
+   *  真正的处置挪到「其余一切都吃干净」之后（强制脱手 / 垃圾桶归位）。 */
+  if(trashDrag.active)return;
   var hole=null,holes=[];
   for(var i=0;i<bodies.length;i++){
     var Bx=bodies[i];
@@ -11282,7 +11431,30 @@ function maybeStartFinale(){
   }
   if(docked)return;                 // tray letters still remain to be eaten
   if(bodies.length>1)return;        // other bodies still being devoured
-  if(freeL.length||formulas.length)return;   // debris still in flight
+  /* ★★R132-10p（用户 1791079470959：「在所有其他字符被吸完后（包括右上角里面的框里的，也就是
+   *  在垃圾桶图标飞过来之前），用户抓着的字符也会脱离用户的抓握，此时用户也不能再抓握其他字符」）：
+   *  ① 判「被抓住」必须用 `grab.obj`，**不能用 `state==='grab'`** —— `gdDown` 给画布上抓起的
+   *     自由字符写的是 `state='free'`（R131-51 放宽），拿 state 判会漏掉它；
+   *  ② 手里那颗字符**本身就在 freeL 里** ⇒ 旧写法 `if(freeL.length||…)return` 会把它自己算成
+   *     「还有碎片在飞」⇒ 死循环（这也是手指一直按着终局就永远不来的第二个原因）。
+   *  ⇒ 除手上这颗以外都吃干净 ⇒ 把手上这颗**交还给世界**（下一帧被黑洞吃掉，freeL 自然清空），
+   *     并给抓握上锁（`grabLocked`）。 */
+  var heldL=null;
+  if(grab.kind==='letter'&&grab.obj){
+    if(grab.obj.dead){grab.kind=null;grab.obj=null;}    // 残影自愈：手上的字符已经不在了
+    else heldL=grab.obj;
+  }
+  var otherDebris=0;
+  for(var q2=0;q2<freeL.length;q2++){if(freeL[q2]!==heldL)otherDebris++;}
+  if(otherDebris||formulas.length)return;   // 除手上那颗以外还有碎片在飞
+  if(trashDrag.active){trashDrag.active=false;resetTrashPos();return;}
+  if(heldL){
+    try{freeLetter(heldL,heldL.wx,heldL.wy,0,0,1);}catch(eH){}
+    grab.kind=null;grab.obj=null;
+    BH_LOCKH=hole;
+    return;                         // 本帧先放手；下一帧 freeL 清空后终局自然开始
+  }
+  BH_LOCKH=hole;
   // everything is consumed — begin the finale
   var bin=trash.getBoundingClientRect();
   hole.bh.finalizing=true;
@@ -14846,7 +15018,19 @@ function shapeOutline(shape,x0,y0,x1,y1){
     // 开口朝哪一侧仍由末点相对首点的方向决定。
     // 规范形（开口朝上）：四分之一弧圆心 (ax+t,by)、半径 R，从正上方扫到正右方。
     var wT=bx-ax,hT=by-ay,wT2=wT,hT2=hT;
-    var t5=Math.max(12,wT-hT),R5=Math.min(hT,wT-t5);
+    /* ★★R132-10t（GitHub PR#6 `shiheishan:refactor/split-files` 的最后一个 commit
+     *  `7d71674b` 指出的真 bug，本机已独立复核成立）：
+     *  包围盒宽 `wT<12` 时 `t5=Math.max(12,wT-hT)=12` ⇒ `wT-t5<0` ⇒ `R5=min(hT,负数)=负数`
+     *  （实测 wT=4/8/11 ⇒ R5=−8/−4/−1）。该值经 `arcs5[0].r` 存进 `B.arcs`，渲染在
+     *  `traceWPath` 的 `c.arc(acx,acy,A.r,…)` 以负半径调用 ⇒ **canvas 抛 IndexSizeError**，
+     *  而 `drawBoundaries` 在 `render()` 里**每帧**都跑 ⇒ 那个形状一存在就每帧抛、那一帧画不完。
+     *  取证：`_diag_r132_10t_trough.py`（真鼠标拖 5px 宽半凹槽 ⇒ arcs[0].r=−7，
+     *  `render→drawBoundaries→traceWPath` 抛 `Failed to execute 'arc'… radius provided (-7)
+     *  is negative`）。canvas 实测：r=−7 抛、**r=0 与 r=2 都不抛**。
+     *  修法与**同文件 `tub` 分支 L15024 的既有写法对齐**（那条早就写了 `Math.max(2,…)`，
+     *  只有 trough 漏了）—— 取 2 而不是 0：既保证不抛，又让四分之一弧仍是「可见的弧」
+     *  而非退化成一点；`R5=2 ≪ hT` 时弧完全落在包围盒内（`ay+R5<by−1` 补壁那条照旧触发）。 */
+    var t5=Math.max(12,wT-hT),R5=Math.max(2,Math.min(hT,wT-t5));
     // R68：采样 14 -> 28 段。渲染已改 canvas 真弧（见 arcs 元数据），这里加密是给**碰撞**
     // 用的——Matter 只吃多边形，段越密多边形越贴真弧（大滑梯 R≈400px 时 14 段弦高偏差 ~2px，
     // 28 段降到 ~0.5px，球贴着弧面滚不再看见悬浮/下陷）。
@@ -16622,11 +16806,30 @@ function closeSettings(){
 //    记下目标元素的 tag#id.class 与文字 ⇒ 事后能把「哪一帧的读数」和「用户按了什么」对上。
 //  · **只读**：整个通道不写任何物理量，只是看 —— 记录模式不该改变被测行为。
 //  · 导出 = Blob 下载 + 一份写进 localStorage（download 被浏览器挡住时还有退路）。
-var REC={on:false,t0:0,frames:[],events:[],raf:0,lastMove:0,tickUI:0};
-var REC_MAX=5400;                 // 90s @60fps
+var REC={on:false,t0:0,frames:[],events:[],raf:0,lastMove:0,tickUI:0,init:null,drop:0};
+/* ★★R132-10u（用户原话：「那个 bug 记录的功能是不是现在没有详细记录整个事件的快照？补齐一下，
+ *   免得以后这边又放不了，导出的文件要能精确定位问题，并且能直接重放整个过程，
+ *   并且对快照时间增加限时，只能录 30 秒的内容」）：
+ *  · **时长上限按时间判**（`REC_MS`），**不按帧数** —— 高刷屏 120Hz 下 30 秒是 3600 帧；
+ *    只卡帧数会让「30 秒」在 120Hz 机器上缩水成 15 秒。原来的 `REC_MAX=5400 // 90s @60fps`
+ *    就是这个毛病：注释写 90 秒，一到 120Hz 实际只有 45 秒。
+ *  · `REC.init`：录制**起点**的完整快照（含公式记忆、质量倍率、μ、全量顶点等重字段）。
+ *    原来只有环形缓冲，一旦超过上限 `shift()` 就把**首帧（初始态）**丢掉 ⇒ 录屏从半路开始，
+ *    **无法重放整个过程**（这正是用户说的「能直接重放」缺的那一块）。
+ *    现在首帧单独存一份、永不丢；`frames` 只管逐帧。
+ *  · `REC.drop`：本段实际被丢弃的帧数（导出时明示，免得把「不完整」误当成「没 bug」）。
+ *  · `REC_MAX` 降级为**帧数硬兜底**（防 rAF 抖动/重复挂载把内存撑爆），正常 60fps 用不到。 */
+var REC_MS=30000;                 // ★时长上限 30s（用户指定）
+var REC_MAX=3600;                 // 帧数硬兜底 = 120fps × 30s
 var REC_EVMAX=4000;
+/* ★手工维护：每次给产品做完有意义的改动就改这里，导出的 JSON 里带它 ⇒ 一眼看出录屏出自哪一版
+ *  （历次定位最费时的第一件事就是「用户跑的是本地新版还是线上旧版」）。 */
+var REC_APP_VER='R132-10u';
 function recNow(){return +(performance.now()).toFixed(1);}
-function recSnap(){
+function recSnap(full){
+  /* ★R132-10u：`full=true` 只用于 `REC.init`（录制起点的完整快照）。同一体的「物理语义」字段
+   *  （公式记忆 / 质量倍率 / μ / 全量墨迹顶点）在它整个生命周期里都不变，逐帧重复记会让 30 秒的
+   *  JSON 体积翻好几倍；只在起点记一次，复现时拿它重建初始场景即可。 */
   var f={t:+(recNow()-REC.t0).toFixed(1),mode:(typeof PHYS_MODE!=='undefined'?PHYS_MODE:null),
          g:(typeof GRAV!=='undefined'?GRAV:null)};
   if(MW&&MW.engine)f.pt=+MW.engine.timing.timestamp.toFixed(1);
@@ -16684,8 +16887,35 @@ function recSnap(){
       if(_out[_out.length-1]!==B.pts[B.pts.length-1])
         _out.push([+B.pts[B.pts.length-1][0].toFixed(1),+B.pts[B.pts.length-1][1].toFixed(1)]);
       o.pts=_out;
+      if(full){   // ★R132-10u：起点快照记**全量**顶点（逐帧那串是降采样到 ≤24 点的，重建不够精确）
+        var _fo=[];for(_q=0;_q<B.pts.length;_q++)_fo.push([+B.pts[_q][0].toFixed(2),+B.pts[_q][1].toFixed(2)]);
+        o.ptsF=_fo;
+      }
     }
     if(B.charge!=null)o.q=+B.charge;
+    /* ★★R132-10u（用户：「详细记录整个事件的快照」「能直接重放整个过程」）：
+     *  ★历次复现真正卡住的地方，是「这个 W 体的**物理身份**是什么」在录屏里看不见：
+     *    · `B.mem` 公式记忆 —— 决定它到底是个什么东西（va 的抛体 / vc 的圆周 / r 的旋转…）。
+     *      只记 `type` 串：mem 里装的是**字符对象**（含 DOM 引用），直接 JSON 化会炸或爆体积。
+     *    · `B.mMul` 质量倍率 —— **场力 a=E_FIELD_ACC·(q/q_ref)·(E/E_ref)/(m/m_ref) 用的就是它**，
+     *      不是 Matter 的 `mb.mass` ⇒ 少记它，复现时算出来的加速度就不对。
+     *    · `B.wFrict` —— 用户显式调过 μ 的体走**自算库仑摩擦**（`wfSelfFriction`，mb.friction 被清零），
+     *      与默认体不是同一条物理路径；`null`（没调过）与 `0`（调成 0）必须区分 ⇒ 用 `!=null` 判。
+     *    · `B.rad` —— 圆/圆轨/弧的半径（碰撞壳由「三条解析通道」生成，缺半径无法重建）。
+     *    · `B._nm` —— 稳定中文名（「圆1/弧2」），定位「用户说的是哪一个」时最省事。
+     *  只在 `full`（起点快照）里记，逐帧不记（逐帧重复记会让 30s 的体积翻几倍）。 */
+    if(full){
+      if(B.mem&&B.mem.length){
+        var _ms='';
+        for(var _mi=0;_mi<B.mem.length;_mi++){if(B.mem[_mi]&&B.mem[_mi].type)_ms+=B.mem[_mi].type;}
+        if(_ms)o.mem=_ms;
+      }
+      if(B.mMul!=null)o.mMul=+B.mMul;
+      if(B.wFrict!=null)o.muf=+B.wFrict;
+      if(B.rad!=null)o.rad=+B.rad;
+      if(B._nm)o.nm=B._nm;
+      if(B.wshape)o.shp=B.wshape;
+    }
     /* ★★R131-43（用户：「杆链脱钩你不是有日志吗？把日志输出内容改多点不就行了」）：
      *  REC 里为**杆（T）与铰链（S+hinge）**补记诊断字段——长度/当前长度/两端锚定状态/
      *  两端锚定到的体序号/端点世界坐标/锚点本地偏移（脱钩时 ox,oy 或 anc 会立刻暴露）。 */
@@ -16758,8 +16988,11 @@ function recSnap(){
 }
 function recTick(){
   if(!REC.on)return;
+  /* ★★R132-10u：**先判时长**（用户规格「只能录 30 秒」）。到点自动收尾，而不是继续录 ——
+   *  继续录只会把开头挤掉，拿到一段「从半路开始」的录屏，恰好毁掉「能直接重放整个过程」。 */
+  if(recNow()-REC.t0>=REC_MS){recAutoStop();return;}
   REC.frames.push(recSnap());
-  while(REC.frames.length>REC_MAX)REC.frames.shift();
+  while(REC.frames.length>REC_MAX){REC.frames.shift();REC.drop++;}
   if(++REC.tickUI>=20){REC.tickUI=0;recUI();}
   REC.raf=requestAnimationFrame(recTick);
 }
@@ -16799,28 +17032,63 @@ var recbtn=document.getElementById('recbtn'),recnote=document.getElementById('re
 function recUI(){
   if(recbtn){
     recbtn.classList.toggle('on',REC.on);
-    recbtn.textContent=REC.on?('停止并导出（'+Math.round((recNow()-REC.t0)/1000)+'s / '
-                               +REC.frames.length+'帧）'):'开始记录';
+    recbtn.textContent=REC.on?('停止并导出（'+(Math.min(REC_MS,recNow()-REC.t0)/1000).toFixed(1)
+                               +'s / 30s · '+REC.frames.length+'帧）'):'开始记录';
   }
   if(recbadge)recbadge.classList.toggle('on',REC.on);
 }
 function recStart(){
   REC.on=true;REC.t0=recNow();REC.frames.length=0;REC.events.length=0;
+  /* ★R132-10u：起点的**完整快照**（`full=true` 带公式记忆/质量倍率/μ/全量顶点）+ 丢弃计数清零。
+   *  它是环形缓冲里永远不会被丢掉的那一份 ⇒ 哪怕录到一半开始丢帧，也总能从起点重放。 */
+  REC.init=recSnap(true);REC.drop=0;
   recHook(true);recEv('start',null);
   REC.raf=requestAnimationFrame(recTick);recUI();
   if(recnote)recnote.textContent='记录中……照常操作复现 bug，然后回到设置点「停止并导出」。'
-                                +'（只保留最后 90 秒；右上角有红点提示）';
+                                +'（最多 30 秒，满 30 秒自动停止；右上角有红点提示）';
 }
 function recStop(){
   REC.on=false;recHook(false);
   if(REC.raf)cancelAnimationFrame(REC.raf);
   REC.raf=0;recEv('stop',null);recUI();
 }
+/* ★R132-10u：录满 30 秒的自动收尾。**刻意不弹提交框** —— 用户此刻往往还在复现，
+ *  弹框只会打断他；提示一句 + 红点熄灭即可（要导出照常点「停止并导出」）。
+ *  ★另一条理由：自动停止时用户通常还没复现完，此刻逼他写文字描述只会得到「不知道」。 */
+function recAutoStop(){
+  recStop();
+  if(recnote)recnote.textContent='已录满 30 秒并自动停止（'+REC.frames.length+' 帧 / '
+    +REC.events.length+' 个操作）。点「停止并导出」即可导出这一段；要再录一段就再点「开始记录」。';
+}
 // ★★R132-10n：把 payload 的构建从 recDump 里抽出来 —— 「提交到后端」也要用它，
 //   但**不能**走 recDump（那个会触发下载）。两处共用同一个 recPayload()，口径不会分叉。
+/* ★★R132-10u（用户：「导出的文件要能精确定位问题」）：把「这一份录屏出自什么环境」钉进文件。
+ *  历次定位最费时的两件事：① 不知道用户跑的是哪一版（本地刚改过、线上还是旧的）；
+ *  ② 不知道视口 / DPR / UI 模式 ⇒ 事件坐标（clientX/Y）对不上画布坐标，落点全偏。
+ *  全部用 try 包住：任何一个符号缺失都只是少一个字段，**绝不能**让导出整条挂掉。 */
+function recEnv(){
+  var e={ver:REC_APP_VER,ms:REC_MS,recv:2};
+  try{e.ua=navigator.userAgent;}catch(x){}
+  try{e.dpr=window.devicePixelRatio;}catch(x){}
+  try{e.iw=window.innerWidth;e.ih=window.innerHeight;}catch(x){}
+  try{e.sx=window.scrollX;e.sy=window.scrollY;}catch(x){}
+  try{e.ui=(typeof UI_MODE!=='undefined'?UI_MODE:null);}catch(x){}
+  try{e.touch=(typeof isTouchDevice==='function')?!!isTouchDevice():null;}catch(x){}
+  try{e.tool=(typeof TOOL!=='undefined')?(TOOL.mode+(TOOL.shape?('/'+TOOL.shape):'')):null;}catch(x){}
+  try{e.cont=(typeof TOOL!=='undefined')?!!TOOL.cont:null;}catch(x){}
+  try{e.tz=(new Date()).getTimezoneOffset();}catch(x){}
+  try{e.nb=bodies.length;e.nfl=freeL.length;}catch(x){}
+  try{e.wb=(typeof MW!=='undefined'&&MW&&MW.engine)?MW.engine.world.bodies.length:null;}catch(x){}
+  try{e.panel=paramBody?(paramBody._nm||paramBody.kind||'?'):null;}catch(x){}
+  try{e.light=(typeof bossLightState==='function')?!!bossLightState():null;}catch(x){}
+  return e;
+}
 function recPayload(){
-  var payload={v:1,kind:'sandbox-rec',savedAt:new Date().toISOString(),
-    meta:{},frames:REC.frames,events:REC.events};
+  /* ★R132-10u：`v:1 → v:2`（结构变更：新增 `init` 起点完整快照 / `env` 环境指纹 / `dropped`）。
+   *  消费方（复现台、`_an_bugs.py`）必须能靠版本号区分「老录屏没有 init」与「新录屏 init 为空」。 */
+  var payload={v:2,kind:'sandbox-rec',savedAt:new Date().toISOString(),
+    meta:{},env:recEnv(),init:REC.init,dropped:REC.drop,
+    initT:(REC.init?REC.init.t:null),frames:REC.frames,events:REC.events};
   ['W','H','groundY','PX_PER_M','GRAV','PHYS_MODE','SPR_KS_DEF','SPR_K_MAX','SPR_DAMP',
    'SPR_SPAWN_LEN','BALL_REST','CIRCLE_SIDES','BND_INK'].forEach(function(k){
     try{payload.meta[k]=eval(k);}catch(e){payload.meta[k]=null;}
@@ -16839,7 +17107,9 @@ function recDump(){
   }catch(e){}
   try{localStorage.setItem('__LAST_REC__',s);}catch(e){}
   if(recnote)recnote.textContent='已导出 '+name+'：'+REC.frames.length+' 帧 / '
-    +REC.events.length+' 个操作 / '+Math.round(s.length/1024)+' KB。文件在浏览器的下载目录里，'
+    +REC.events.length+' 个操作 / '+Math.round(s.length/1024)+' KB'
+    +(REC.drop?('（★已丢弃最前 '+REC.drop+' 帧）'):'（含起点完整快照，可从头重放）')
+    +'。文件在浏览器的下载目录里，'
     +'把它给我（或让我读 localStorage 的 __LAST_REC__）就能直接判断。';
   return {name:name,frames:REC.frames.length,events:REC.events.length,bytes:s.length};
 }
@@ -16905,6 +17175,145 @@ if(bugclose)bugclose.addEventListener('click',closeBugDlg);
 if(bugdl)bugdl.addEventListener('click',function(){recDump();});
 if(bugsubmit)bugsubmit.addEventListener('click',bugSubmit);
 window.openBugDlg=openBugDlg;window.bugSubmit=bugSubmit;window.closeBugDlg=closeBugDlg;
+/* ★★R132-10o：Bug 修复列表（用户 2026-10-05：「在设置按钮里面 bug 记录下面增加一个按钮，
+   叫做 Bug 修复列表。点击后进入次级菜单，里面显示各个 bug 的状态。分别按照 Bug编号
+   提交时间 名称 状态 备注（就是已修复，待修复，待提交）。先只放目前才归纳的那些，
+   其他的下一批提交」）。
+   ★R132-10v 已并入回收站第二批 42 条（用户 2026-10-06「可以，一并并入」）；
+     该批录屏尚未下载分析 ⇒ 状态一律「未判定」+备注「录屏待分析」，**不写「待修复」**
+     （写「待修复」等于凭空断言 bug 存在）。合计 86 条（第二批 42 + 第一批 44）。
+   ★★时间**不硬编码**：编号本身就是「毫秒时间戳(UTC)」，显示时 +8h 得北京时间
+     —— 单一真源，避免清单与表两处时间打架（已用 `_gen_bugfix.py` 交叉校验过 86 条）。
+   每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
+var BUGFIX_LIST=[
+  ['1791273176929','「Mmv?」无有效信息','未判定','机检:未检出异常'],
+  ['1791272101066','黑洞消失后被抓的字母变透明','未判定','机检:检出异常'],
+  ['1791267272540','两根弹簧连一根棍后持续抽搐并单向飘移','未判定','机检:检出异常'],
+  ['1791264904385','「黑洞」无有效信息','未判定','机检:检出异常'],
+  ['1791264593293','μg+g 无法组合出 M','未判定','机检:未检出异常'],
+  ['1791263035366','复制传送带出神秘方框、球在墙角不停跳（与 1791263032193 重复）','未判定','机检:检出异常'],
+  ['1791263032193','复制传送带出神秘方框、球在墙角不停跳（与 1791263035366 重复）','未判定','机检:检出异常'],
+  ['1791262537162','复制 r 得到 m（与 1791262536181 重复）','未判定','机检:未检出异常'],
+  ['1791262536181','复制 r 得到 m（与 1791262537162 重复）','未判定','机检:未检出异常'],
+  ['1791261812114','「不知道」无有效信息','未判定','机检:未检出异常'],
+  ['1791261597128','点公式区域弹出墙面','未判定','机检:检出异常'],
+  ['1791258453287','复制 Gcc 得到 Gmcc','未判定','机检:未检出异常'],
+  ['1791254327391','滑动公式和不出来','未判定','机检:未检出异常'],
+  ['1791252917866','两个黑洞后全部消失、回收站也回收不了','未判定','机检:检出异常'],
+  ['1791249757474','「刚才是玩」无有效信息','未判定','机检:检出异常'],
+  ['1791213916545','多个黑洞同时召唤后卡住','未判定','机检:无画面'],
+  ['1791213754281','黑洞后凭空出现「2」','未判定','机检:检出异常'],
+  ['1791209612744','圆+两根杆+绳崩溃、圆到处飞','未判定','机检:未检出异常'],
+  ['1791209443435','两根杆连在圆上交叉后加绳崩溃飞出','未判定','机检:未检出异常'],
+  ['1791208963679','大学模式显示为高中','未判定','机检:无画面'],
+  ['1791206092341','三弹簧串联到长方形后持续抽搐','未判定','机检:检出异常'],
+  ['1791180423381','询问「大小是否可调、小物块有吗」（与 1791180418603 重复）','未判定','机检:未检出异常'],
+  ['1791180418603','询问「大小是否可调、小物块有吗」（与 1791180423381 重复）','未判定','机检:未检出异常'],
+  ['1791180321480','「公式错误」无有效信息','未判定','机检:无画面'],
+  ['1791175773898','画面缺失、旁边符号框为空','未判定','机检:检出异常'],
+  ['1791172601612','g 分裂','未判定','机检:检出异常'],
+  ['1791172307796','轻绳悬在半空不落地','未判定','机检:检出异常'],
+  ['1791171949271','「I do not know」无有效信息','未判定','机检:检出异常'],
+  ['1791171733349','小体积物体接触传送带时被弹飞','未判定','机检:检出异常'],
+  ['1791170838525','M 脱离公式、反复叠加 V 却无速度加快','未判定','机检:未检出异常'],
+  ['1791165370367','物体无法推动','未判定','机检:无画面'],
+  ['1791164804021','三弹簧串联到长方形后持续抽搐（与 1791206092341 重复）','未判定','机检:检出异常'],
+  ['1791164532548','物体一直颤抖（与 1791164289667 重复）','未判定','机检:检出异常'],
+  ['1791164289667','物体一直颤抖（与 1791164532548 重复）','未判定','机检:未检出异常'],
+  ['1791160844560','按 t+u 组合再加线组合并拖动若干下后异常','未判定','机检:检出异常'],
+  ['1791140680703','动能方程加入 a 后异常、2 可与 mv 融合','未判定','机检:未检出异常'],
+  ['1791140295847','动能方程加入 a 后异常','未判定','机检:未检出异常'],
+  ['1791138871622','r 复制成 m、一调参数 r 就消失','未判定','机检:检出异常'],
+  ['1791134563665','传送带复制后变成矩形','未判定','机检:未检出异常'],
+  ['1791130089297','「这应该是bug吧」无有效信息','未判定','机检:检出异常'],
+  ['1791129950404','「这是bug吧」无有效信息','未判定','机检:未检出异常'],
+  ['1791129742262','深色模式下公式字母完全不可见','未判定','机检:未检出异常'],
+  ['1791127892592','给矩形赋予 a 后图形重复回弹','待修复',''],
+  ['1791121882475','杆/圆/环/弹簧组合体持续抽搐并飞出','待修复',''],
+  ['1791119763192','弹簧与线条连接后组合体上飞','待修复',''],
+  ['1791118680887','错位（说明不足）','待修复',''],
+  ['1791112660029','「kk」无有效信息','待修复',''],
+  ['1791111647203','两个球互相碰撞没完没了','待修复',''],
+  ['1791107280730','连拖 16 次字符不落地','待修复',''],
+  ['1791107000992','连拖 23 次字符同点叠加不落地','待修复',''],
+  ['1791106362343','「1」无有效信息','待修复',''],
+  ['1791105732901','「6」无有效信息','待修复',''],
+  ['1791105218810','Q 拖进公式会消失、公式不变','待修复',''],
+  ['1791099854237','「bug」无有效信息','待修复',''],
+  ['1791097215886','同时创造两个后无法返回','待修复',''],
+  ['1791091449885','向心力公式的 m 飞出画布','待修复',''],
+  ['1791091207019','「你」无有效信息（字母乱飞）','待修复',''],
+  ['1791090033321','数值发散：坐标千万级、速率 25 万','待修复',''],
+  ['1791088164137','弹簧数值爆炸（y 达 5.9 亿）','待修复',''],
+  ['1791087650098','v 可堆叠在 G、M 后面','待修复',''],
+  ['1791087524346','铰链+弹簧+矩形拖动时剧烈抖动','待修复',''],
+  ['1791086731524','史瓦西黑洞无轮廓、只吸不显示','待修复',''],
+  ['1791086366554','杆+弹簧组合体抽搐并飞出','待修复',''],
+  ['1791084661295','一次造两个黑洞后物品不刷新','待修复',''],
+  ['1791084340867','「我也不知道发生了什么」','待修复',''],
+  ['1791084206636','M 乱飞','待修复',''],
+  ['1791084025924','黑洞吸地面、暂停后仍在吸','待修复',''],
+  ['1791083198360','给球赋予 m 后飞出画面','待提交','操作记录未记录到有效信息，请在点击开始记录后完整复现该操作'],
+  ['1791083094899','双杆模型搭不起来','待修复',''],
+  ['1791079470959','关「物理字母」后黑洞仍吞噬字符','已修复','2.0版本已修复，需刷新网页加载新资源'],
+  ['1791079319395','球在履带上不受重力','待修复',''],
+  ['1791077880063','两个黑洞后一直吸、只能刷新网页','已修复','2.0版本已修复，需刷新网页加载新资源'],
+  ['1791077860128','弹簧乱蹦（长度震荡不收敛）','待修复',''],
+  ['1791077788979','弹簧与墙体、方块连接异常','待修复',''],
+  ['1791077178901','悬挂结构绘制层级（z-order）反了','待修复',''],
+  ['1791077092470','两个黑洞时垃圾箱没被吸上去','待修复',''],
+  ['1791045490426','「6」无有效信息（与 1791045487342 重复）','待修复',''],
+  ['1791045487342','「6」无有效信息（与 1791045490426 重复）','待修复',''],
+  ['1791043778086','离家出走的 m','待修复',''],
+  ['1791043488266','E=mc² 炸后 G、c 粘在一块','待修复',''],
+  ['1791043250702','公式渲染缺「+」','待修复',''],
+  ['1791042705493','杆+弹簧组合体像电梯一样上升','待修复',''],
+  ['1791040170662','开发者自测（删除 Workers 后回归）','待修复',''],
+  ['1791039775993','开发者自测（测试问题）','待修复',''],
+  ['1791039449866','开发者自测（在线端到端提交）','待修复',''],
+  ['1791039018374','开发者自测（Pages Functions 链路）','待修复',''],
+];
+/* 编号(ms, UTC) → 北京时间字符串。
+   ★不用本机时区：先 +8h 再用 getUTC* 读，任何时区的机器算出来都一样。 */
+function bugFixTime(id){
+  var ms=Number(id);
+  if(!isFinite(ms))return '';
+  var d=new Date(ms+8*3600*1000);
+  function p(n){return (n<10?'0':'')+n;}
+  return d.getUTCFullYear()+'-'+p(d.getUTCMonth()+1)+'-'+p(d.getUTCDate())
+    +' '+p(d.getUTCHours())+':'+p(d.getUTCMinutes());
+}
+function bugFixEsc(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function renderBugFixList(){
+  var tb=DD.getElementById('fixrows');if(!tb)return;
+  var h='';
+  for(var i=0;i<BUGFIX_LIST.length;i++){
+    var r=BUGFIX_LIST[i];
+    var cls=r[2]==='已修复'?'fx-fixed':(r[2]==='待修复'?'fx-todo':'fx-pend');
+    h+='<tr><td class="id">'+bugFixEsc(r[0])+'</td><td class="tm">'+bugFixTime(r[0])+'</td>'
+      +'<td class="nm">'+bugFixEsc(r[1])+'</td><td class="st '+cls+'">'+bugFixEsc(r[2])+'</td>'
+      +'<td class="rm">'+bugFixEsc(r[3])+'</td></tr>';
+  }
+  tb.innerHTML=h;
+}
+var fixmask=DD.getElementById('fixmask'),fixbox=DD.getElementById('fixbox'),
+    fixclose=DD.getElementById('fixclose'),bugfixbtn=DD.getElementById('bugfixbtn');
+function openBugFixList(){
+  renderBugFixList();
+  if(fixmask)fixmask.classList.add('on');
+  if(fixbox)fixbox.classList.add('on');
+}
+function closeBugFixList(){
+  if(fixmask)fixmask.classList.remove('on');
+  if(fixbox)fixbox.classList.remove('on');
+}
+if(bugfixbtn)bugfixbtn.addEventListener('click',openBugFixList);
+if(fixmask)fixmask.addEventListener('click',closeBugFixList);
+if(fixclose)fixclose.addEventListener('click',closeBugFixList);
+window.openBugFixList=openBugFixList;window.closeBugFixList=closeBugFixList;
+window.BUGFIX_LIST=BUGFIX_LIST;
 smask.addEventListener('click',closeSettings);
 sclose.addEventListener('click',closeSettings);
 /* ★R131-27b：触屏面板把手（点按展开/收起符号面板） */
