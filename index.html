@@ -770,6 +770,7 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
   <div class="srow">
     <span class="slab">Bug 记录</span>
     <button class="rbtn" id="recbtn">开始记录</button>
+    <button class="rbtn" id="recnew" hidden>清空并重录</button>
   </div>
   <!-- ★★R132-8：Bug 记录下面那段小字已删（用户：「把设置里面的bug记录下面的小字都给删了」）。
        但 `#recnote` **元素保留** —— 它是「记录中……/已导出 xxx 帧」的**状态回显**载体
@@ -16806,7 +16807,7 @@ function closeSettings(){
 //    记下目标元素的 tag#id.class 与文字 ⇒ 事后能把「哪一帧的读数」和「用户按了什么」对上。
 //  · **只读**：整个通道不写任何物理量，只是看 —— 记录模式不该改变被测行为。
 //  · 导出 = Blob 下载 + 一份写进 localStorage（download 被浏览器挡住时还有退路）。
-var REC={on:false,t0:0,frames:[],events:[],raf:0,lastMove:0,tickUI:0,init:null,drop:0};
+var REC={on:false,ready:false,t0:0,frames:[],events:[],raf:0,lastMove:0,tickUI:0,init:null,drop:0};
 /* ★★R132-10u（用户原话：「那个 bug 记录的功能是不是现在没有详细记录整个事件的快照？补齐一下，
  *   免得以后这边又放不了，导出的文件要能精确定位问题，并且能直接重放整个过程，
  *   并且对快照时间增加限时，只能录 30 秒的内容」）：
@@ -16824,7 +16825,7 @@ var REC_MAX=3600;                 // 帧数硬兜底 = 120fps × 30s
 var REC_EVMAX=4000;
 /* ★手工维护：每次给产品做完有意义的改动就改这里，导出的 JSON 里带它 ⇒ 一眼看出录屏出自哪一版
  *  （历次定位最费时的第一件事就是「用户跑的是本地新版还是线上旧版」）。 */
-var REC_APP_VER='R132-10u';
+var REC_APP_VER='R132-10u-export';
 function recNow(){return +(performance.now()).toFixed(1);}
 function recSnap(full){
   /* ★R132-10u：`full=true` 只用于 `REC.init`（录制起点的完整快照）。同一体的「物理语义」字段
@@ -17028,17 +17029,19 @@ function recHook(on){
   }
 }
 var recbtn=document.getElementById('recbtn'),recnote=document.getElementById('recnote'),
+    recnew=document.getElementById('recnew'),
     recbadge=document.getElementById('recbadge');
 function recUI(){
   if(recbtn){
     recbtn.classList.toggle('on',REC.on);
     recbtn.textContent=REC.on?('停止并导出（'+(Math.min(REC_MS,recNow()-REC.t0)/1000).toFixed(1)
-                               +'s / 30s · '+REC.frames.length+'帧）'):'开始记录';
+                               +'s / 30s · '+REC.frames.length+'帧）'):(REC.ready?'导出记录':'开始记录');
   }
+  if(recnew)recnew.hidden=!REC.ready;
   if(recbadge)recbadge.classList.toggle('on',REC.on);
 }
 function recStart(){
-  REC.on=true;REC.t0=recNow();REC.frames.length=0;REC.events.length=0;
+  REC.on=true;REC.ready=false;REC.t0=recNow();REC.frames.length=0;REC.events.length=0;
   /* ★R132-10u：起点的**完整快照**（`full=true` 带公式记忆/质量倍率/μ/全量顶点）+ 丢弃计数清零。
    *  它是环形缓冲里永远不会被丢掉的那一份 ⇒ 哪怕录到一半开始丢帧，也总能从起点重放。 */
   REC.init=recSnap(true);REC.drop=0;
@@ -17048,17 +17051,18 @@ function recStart(){
                                 +'（最多 30 秒，满 30 秒自动停止；右上角有红点提示）';
 }
 function recStop(){
+  if(REC.on)REC.ready=true; // 保留这一段，直到用户明确选择清空并重录。
   REC.on=false;recHook(false);
   if(REC.raf)cancelAnimationFrame(REC.raf);
   REC.raf=0;recEv('stop',null);recUI();
 }
 /* ★R132-10u：录满 30 秒的自动收尾。**刻意不弹提交框** —— 用户此刻往往还在复现，
- *  弹框只会打断他；提示一句 + 红点熄灭即可（要导出照常点「停止并导出」）。
+ *  弹框只会打断他；提示一句 + 红点熄灭即可（之后可点「导出记录」）。
  *  ★另一条理由：自动停止时用户通常还没复现完，此刻逼他写文字描述只会得到「不知道」。 */
 function recAutoStop(){
   recStop();
   if(recnote)recnote.textContent='已录满 30 秒并自动停止（'+REC.frames.length+' 帧 / '
-    +REC.events.length+' 个操作）。点「停止并导出」即可导出这一段；要再录一段就再点「开始记录」。';
+    +REC.events.length+' 个操作）。点「导出记录」保存这一段，或点「清空并重录」开始新记录。';
 }
 // ★★R132-10n：把 payload 的构建从 recDump 里抽出来 —— 「提交到后端」也要用它，
 //   但**不能**走 recDump（那个会触发下载）。两处共用同一个 recPayload()，口径不会分叉。
@@ -17117,7 +17121,12 @@ if(recbtn)recbtn.addEventListener('click',function(){
   /* ★★R132-10n（用户 2026-10-03）：「点击结束后，**不下载**那个文件，而是弹出提交框，
    *   编辑文字说明，提交就可以将 json 文件和文字说明一起提交到后端」。
    *   ⇒ 停止后走 openBugDlg()；下载降级为弹框里的「仅下载文件」备选。 */
-  if(REC.on){recStop();openBugDlg();}else{recStart();}
+  if(REC.on){recStop();openBugDlg();}
+  else if(REC.ready){openBugDlg();}
+  else{recStart();}
+});
+if(recnew)recnew.addEventListener('click',function(){
+  if(!REC.on&&REC.ready){closeBugDlg();recStart();}
 });
 window.REC=REC;window.recStart=recStart;window.recStop=recStop;window.recDump=recDump;
 window.recPayload=recPayload;
