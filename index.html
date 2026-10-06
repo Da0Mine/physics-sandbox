@@ -9656,10 +9656,9 @@ function copyWBody(src,dx,dy,quiet){
   if(src.wFrict!=null)B.wFrict=src.wFrict;
   if(src.wBounc!=null)B.wBounc=src.wBounc;
   applyWMul(B);
-  /* ★R110：**器件身份也要跟着复制**。旧版只拷 pts/th/质量/固定标志，
-   *   于是「地面/墙面」的副本变成一块**普通木板**（没有 gnd、参数面板也不对）。
-   *   ★同一类缺口在 `belt` 上也存在（传送带副本同样丢身份）—— 那是既有行为，
-   *   本轮只补自己新加的这一个（不越权改旧器件的复制语义）。 */
+  // 器件身份和专属参数一起复制，避免副本退化为普通图形。
+  // 带速按原值保留，包括 0（停转）和负数（反转）。
+  if(src.belt){B.belt=true;B.conv=src.conv;}
   if(src.gnd){B.gnd=1;B.len=src.len;B.hw=(src.len||GROUND_SPAWN_LEN)/2;B.hh=src.hh||GROUND_TH/2;}
   if(src.fixed){B.fixed=true;if(B.mb&&MW){Matter.Body.setStatic(B.mb,true);Matter.Sleeping.set(B.mb,false);}}
   B.pop=1;B.orbPulse=1;B.copied=true;
