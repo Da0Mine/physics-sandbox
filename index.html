@@ -17667,8 +17667,9 @@ var REC_EVMAX=4000;
  *  （历次定位最费时的第一件事就是「用户跑的是本地新版还是线上旧版」）。
  *  ★R133c：采纳 PR #8 时顺手补上 —— 本地这一版累计了 R133 轨迹 + R133b 轨迹 UI + PR#8 录制导出，
  *    而这一行当时还停在 'R132-10u'（R133/R133b 都漏改了，导出 JSON 里一直谎报版本）。
- *  ★R133d：修「轨迹开关在符号物体上是死开关」（`trailOwner` 归一）+ 冻结体不出轨迹那一行。 */
-var REC_APP_VER='R133e';
+ *  ★R133d：修「轨迹开关在符号物体上是死开关」（`trailOwner` 归一）+ 冻结体不出轨迹那一行。
+ *  ★R133i：R133e 之后 R133f/g/h 三代又漏改（导出 JSON 一直写 'R133e'）⇒ 本次补到当前代。 */
+var REC_APP_VER='R133i';
 function recNow(){return +(performance.now()).toFixed(1);}
 function recSnap(full){
   /* ★R132-10u：`full=true` 只用于 `REC.init`（录制起点的完整快照）。同一体的「物理语义」字段
