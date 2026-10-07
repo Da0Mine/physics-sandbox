@@ -5846,8 +5846,19 @@ function gapPair(a,b){
 function tokenSeq(B){
   var out=[B.massG];
   if(B.family===0){
-    // pure mass stack (M+m): show all mem masses
-    for(var mi0=0;mi0<B.mem.length;mi0++)if(isMass(B.mem[mi0]))out.push(B.mem[mi0]);
+    /* ★★R135b（用户 bug `1791105218810`「Q 拖进公式会消失、公式不变」；产品内状态 = 待修复）：
+       原来这里**只 push 质量**（`if(isMass(...))`）。可字符面板 17 个字母里只有 8 个会设
+       family 标记（`setF` 只认 g/a/v/r/½/μ/c/G）⇒ 剩下 **7 个（t / B / E / q / I / k / x）
+       不改变 family**。它们并进 family 0 的体之后：进了 `mem`、却进不了 `glyphs`，
+       而本函数末尾的 `fin` 就是 `refresh()` 写 `B.glyphs` 的来源，紧接着那一句
+       「不在 glyphs 里的 mem 一律 display:none」⇒ **字母凭空消失、公式照旧**。
+       实测（`_diag_r135_misc_pre.log`）：`m`+`M` 造的体再并 q / E / t / I ⇒ 目标 **4/4**
+       `disp='none'`；同一条链的 family 1 对照臂（`mg`+q、`mg`+E）已排版且 `overlap=[]`
+       —— 量尺成立，因为 family 1 走 `layoutBracket` = 全量 `tokenSeq`。
+       ⇒ 口径统一：**family 0 也列出 `mem` 里的每一个字母**（与 family 2 分支同义）。
+       ★`massG` 自己重复入列由 `fin` 的**按对象去重**兜住（`promoteFreeLetter` 造的体里
+         massG 同时在 mem 里）。 */
+    for(var mi0=0;mi0<B.mem.length;mi0++)if(B.mem[mi0])out.push(B.mem[mi0]);
   }else if(B.family===1){
     if(B.mem.length===1)out.push(B.mem[0]);
     else if(B.cCount>=2){
@@ -5877,8 +5888,13 @@ function tokenSeq(B){
     }
     if(B.vCount>=2)out.push(B.st.sq);
   }
+  /* ★R135b：按**对象身份**去重 —— 同一个字形只应出现一次。
+     `promoteFreeLetter` 造的体里 `massG` **同时也在 `mem` 里**，会让它进 `out` 两遍
+     （改前实测 `dup=1`，见 `_diag_r135_misc_pre.log` 的 `f0_mM_*` 四臂）。
+     ★不能按 type 去重：`mv²` 里两个 v 是**不同对象**，本来就该并排 —— `indexOf` 比引用，
+       天然满足这条。 */
   var fin=[];
-  for(var k=0;k<out.length;k++)if(out[k])fin.push(out[k]);
+  for(var k=0;k<out.length;k++){var v2=out[k];if(v2&&fin.indexOf(v2)<0)fin.push(v2);}
   return fin;
 }
 function kern(a,b){
@@ -6101,13 +6117,37 @@ function layoutBody(B){
     layoutBracket(B);return;
   }
   if(isFrac){layoutFrac(B,vG,rG);return;}
-  var num=[{g:base,s:1,dy:0}];
-  if(vG&&vG!==base)num.push({g:vG,s:1,dy:0});
-  if(B.vCount>=2&&B.st.sq&&B.st.sq!==base)num.push({g:B.st.sq,s:1,dy:0});
-  if(B.family===0){
-    // pure mass stack (e.g. M then m, no G/v/r yet): render every mass side by side
-    for(var mq=0;mq<B.mem.length;mq++)if(isMass(B.mem[mq])&&B.mem[mq]!==base)num.push({g:B.mem[mq],s:1,dy:0});
-  }
+  /* ★R135b：这里不再手工往 `num` 里塞字母 —— 口径改为**直接取 `tokenSeq(B)`**，
+     理由见本分支末尾那段注释（下面紧跟着的 R135 注释保留，是上一轮修复的记录）。 */
+  var num=[];
+  /* ★★R135（用户 bug `1791296885048`「把 M、m、v 放在一起后互相重叠」）：
+     这段 extras 循环原来**只在 family 0 跑**（`if(B.family===0)`）⇒ 一个 family 2 的体
+     （含 v / r / ½）里再并进第二个质量字母时，那个字母拿不到 `sx/sy` —— `placeRun` 只写
+     `num` 里的项 —— 而 `refresh()` 末尾仍把它算进 `B.glyphs`（`tokenSeq` 认它）⇒
+     它停在**体心**、和 mv 叠在一起。实测（`_diag_r135_merge.log`，改前）：
+       `mv` 体再并 `M` ⇒ `M` 的 `sx=sy=0`、DOM 中心 = 体心 (700,315)，
+       重叠 `[m,M,29,43]` / `[v,M,12,43]`；family-1 对照臂 `overlap=[]`（量尺成立）。
+     原 family 0 分支的注释就是这条口径 ——「纯质量堆叠（先 M 再 m、还没有 G/v/r）：
+     每一个质量都并排」—— 同一个语义当然也该管 family 2 ⇒ 合并成两族共用：
+       `isMass` 只认 m/M，`vG` 与 `st.sq` 都不是质量 ⇒ 不会重复入列；
+       位置放在 `st.sq` **之前**，与 `tokenSeq` 的 [base, v, …额外质量…, sq] 顺序对齐。
+     ★family 1 不受影响：它走 `layoutBracket`/`layoutGrav`/cCount≥2 三条各自的通道，
+       `layoutBracket` 本来就是按 `tokenSeq` 全量排的。 */
+  /* ★★R135b：family 0 / 2（非分数）的排列**口径 = `tokenSeq`（唯一真源）**。
+     历史：R135 只把「**额外的质量字母**」补进 family 2（上面那段注释）—— 修好了
+     `1791296885048`「M、m、v 放一起互相重叠」，但那仍然是 **hand-rolled 的 `num`**。
+     只要 `tokenSeq` 多认一种字母，两边立刻漂移：`glyphs` 里有它、`placeRun` 没有它
+     ⇒ 它停在**体心**叠成一团。实测（`_diag_r135_misc_pre.log`，改前）：
+       不设 family 标记的 7 个字母（t/B/E/q/I/k/x）并进 `mv` 体 ⇒ **7/7** 与 m 重叠
+       （`["m","q",20,43]` / `["m","E",22,43]` / …）；同一批臂里 family 1 对照
+       （`mg`+q / `mg`+E）`overlap=[]` ⇒ 量尺成立。
+     ⇒ 现在直接从 `tokenSeq` 取序列：**显示的集合 ≡ 排版的集合**，结构上不可能再漂移。
+     ★`vCount>=2` 补 sq 的口径由 `tokenSeq` 自己负责，这里不重做（免得又生第二份实现）；
+     ★`base` 的兜底保留（family 0 的裸体可能 `massG` 为 null ⇒ `tokenSeq` 首项为 null）；
+     ★family 1（`layoutBracket`）与分数支（`layoutFrac`）走各自通道，不受影响。 */
+  var toks=tokenSeq(B);
+  for(var ti=0;ti<toks.length;ti++)if(toks[ti])num.push({g:toks[ti],s:1,dy:0});
+  if(!num.length)num.push({g:base,s:1,dy:0});
   layoutRun(B,num);
 }
 function slot(B,g){
@@ -18065,6 +18105,16 @@ window.openBugDlg=openBugDlg;window.bugSubmit=bugSubmit;window.closeBugDlg=close
      ★★「已修复」只代表**本地这份 index.html** 修好了 —— 线上仍是旧版，push 之后才对用户生效。
    ★★时间**不硬编码**：编号本身就是「毫秒时间戳(UTC)」，显示时 +8h 得北京时间
      —— 单一真源，避免清单与表两处时间打架（已用 `_gen_bugfix.py` 交叉校验过 86 条）。
+   ★★R135/R135b（2026-10-07，用户「先简单看一下这些新增 bug 的状态，是否存在，和是否和以前重复，
+     然后挑几个简单的进行修复」）：第三批 `1791296885048`（把 M、m、v 放在一起后互相重叠）
+     **实测复现并修好** ⇒ 状态「未判定」→「已修复」；第一批 `1791105218810`（Q 拖进公式会消失）
+     **修掉主因但分数/幂次形仍未覆盖** ⇒ 状态保持「待修复」，备注写明覆盖范围（不许把「修了一半」
+     写成「已修复」）。修完状态分布 = 未判定 61 / 已修复 15 / 待修复 40 / 待提交 2。
+     ★依据都是**量出来的**（不是推测）：`_diag_r135_merge.py`（DOM 矩形两两重叠）、
+       `_diag_r135_misc.py`（7 个不设 family 标记的字母 t/B/E/q/I/k/x × family 0/2/分数 共 28 臂）、
+       `_diag_r135_e2e.py`（**真鼠标拖放**，并拿改前备份当负对照并排量）、
+       `_diag_r135_preset.py`（10 预设逐行与改前一致）、`bash _reg_all.sh fast`
+       ⇒ pass=89 / flaky=0 / fail=0 / stale=0。
    每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
 var BUGFIX_LIST=[
   ['1791382860938','「666不知道怎么了」无有效信息','未判定','机检:检出异常'],
@@ -18092,7 +18142,7 @@ var BUGFIX_LIST=[
   ['1791304943366','动能方程里的 2 被抛下','未判定','机检:未检出异常'],
   ['1791304787274','q 可无限堆叠、会被字母吃掉、被吃的字母不能合成公式','未判定','机检:无画面'],
   ['1791299136159','「？？？」无有效信息','未判定','机检:检出异常'],
-  ['1791296885048','把 M、m、v 放在一起后互相重叠','未判定','机检:未检出异常'],
+  ['1791296885048','把 M、m、v 放在一起后互相重叠','已修复','机检:未检出异常｜R135 已修复：第二质量字母并入横向排列（改前 5 处重叠，改后 0）'],
   ['1791296117687','把公式拖进图像（拖到一半）公式会鬼畜','未判定','机检:未检出异常'],
   ['1791295184655','给球电荷后与弹簧相连，大量物件飞出画面','未判定','机检:检出异常'],
   ['1791280171429','地面挂 mg 弹簧后拖地面，地面向右位移且拖不动','未判定','机检:检出异常'],
@@ -18151,7 +18201,7 @@ var BUGFIX_LIST=[
   ['1791107000992','连拖 23 次字符同点叠加不落地','待修复',''],
   ['1791106362343','「1」无有效信息','待修复',''],
   ['1791105732901','「6」无有效信息','待修复',''],
-  ['1791105218810','Q 拖进公式会消失、公式不变','待修复',''],
+  ['1791105218810','Q 拖进公式会消失、公式不变','待修复','R135b 部分修复：family 0/2 非分数体不再吞字母（真拖放：q 由消失→并排）；分数/幂次形仍隐藏'],
   ['1791099854237','「bug」无有效信息','待修复',''],
   ['1791097215886','同时创造两个后无法返回','待修复',''],
   ['1791091449885','向心力公式的 m 飞出画布','待修复',''],
