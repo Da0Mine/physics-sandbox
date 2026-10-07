@@ -42,10 +42,15 @@ body.bossing .tools{opacity:.10}
  *  第 4 格（=把手所在位置）留空，第 4 个字符强制换到第 2 行开头，后续自动顺延。 */
 .panel>:nth-child(4){grid-column:1;grid-row:2}
 .shadow{position:fixed;left:0;top:0;height:12px;border-radius:50%;background:radial-gradient(ellipse at center,rgba(38,34,28,.45),rgba(38,34,28,0) 70%);pointer-events:none;will-change:transform,opacity;display:none}
-/* ★R131-27b 触屏：符号面板默认下拉收起，点把手展开（电脑版不受影响） */
+/* ★R131-27b 触屏：符号面板默认下拉收起，点把手展开 */
+/* ★★R133f（用户 2026-10-07：「手机电脑版都一样，都有那个」）：
+ *  这个把手原来只在触屏版显示（`display:none` + `body.touch-ui` 才 `flex`），
+ *  而 `fixPanelSlot` 的「首行只放 3 个」布局**本来就给第 1 行第 4 格留了空位**等它
+ *  （见 `fixPanelSlot` 注释）⇒ 电脑版那块位置一直是空的。改成**两版都显示**，
+ *  并把折叠规则从 `touch-ui` 限定里解出来（两版都能收起/展开）。 */
 /* ★R131-27c：面板把手 —— 视觉与左上角 .ttoggle 完全同款（同一类控件同一张脸） */
 #panelToggle{position:fixed;top:22px;right:22px;z-index:46;width:44px;height:44px;border-radius:10px;
-  background:rgba(255,255,255,.62);border:1px solid rgba(38,34,28,.22);display:none;
+  background:rgba(255,255,255,.62);border:1px solid rgba(38,34,28,.22);display:flex;
   align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:#26221C;
   box-shadow:0 4px 14px rgba(38,34,28,.10);padding:0;
   transition:background .16s,border-color .16s,transform .16s;}
@@ -58,10 +63,10 @@ body.bossing .tools{opacity:.10}
  *  这里补齐同一套反白规则（含图标描边），使「展开 = 反白」成为**这一族控件的统一语言**。 */
 #panelToggle.open{background:#26221C;border-color:#26221C}
 #panelToggle.open svg{stroke:#F4F1EA}
-body.touch-ui #panelToggle{display:flex;}
-body.touch-ui.touch-panel-folded #panel{transform:translateY(-110%);}
-body.touch-ui.touch-panel-folded #panelToggle{transform:translateY(0);}
-body.touch-ui #panel{transition:transform .3s ease,opacity .45s ease;}
+/* ★R133f：折叠规则不再限定触屏版（电脑版也有这个把手 ⇒ 也要能收起/展开）； */
+body.touch-panel-folded #panel{transform:translateY(-110%);}
+body.touch-panel-folded #panelToggle{transform:translateY(0);}
+#panel{transition:transform .3s ease,opacity .45s ease;}
 /* ★R131-27 触摸版：面板符号被点选（触屏放置流程的第一步） */
 .char.touch-pick{outline:2px solid #e8a33d;outline-offset:-2px;background:rgba(232,163,61,.22);border-radius:8px;}
 /* ★R131-27 触摸版：点选放置的选中态高亮 */
@@ -364,6 +369,118 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
    次级菜单复用 .bmask/.bbox（与「提交 Bug 记录」同一套弹层视觉），只是更宽、内容是只读状态表。 */
 .wbtn{flex:1 1 100%;width:100%;text-align:center;padding:9px 16px}
 .bbox.fixbox{width:min(920px,94vw)}
+/* ★★R133：运动轨迹（用户 2026-10-06：「新增一个功能，物体运动轨迹显示，默认关闭…在旁边
+   有一个外观按钮，点击进入次级菜单，里面可以调节是显示为实线还是虚线，轨迹是什么颜色，
+   多久消失，是否消失；具体位置在每个物体的参数面板里面也能单独开启和关闭该物体的轨迹」）。
+   外观次级菜单复用 .bmask/.bbox（与「提交 Bug 记录」「Bug 修复列表」同一套弹层视觉），
+   所以这里只补三个新控件：颜色框 .tcol、寿命行 .tnum/.trange，以及参数面板那侧
+   深色底上的选中态。★同一类控件两处主题：浅色弹层直接生效，深色参数面板靠
+   `.params` 后代选择器换肤（不复制一份类名，避免两处样式漂移）。 */
+input[type=color].tcol{width:62px;height:30px;flex:none;padding:2px;border-radius:8px;
+  border:1px solid rgba(38,34,28,.28);background:rgba(255,255,255,.7);cursor:pointer}
+input[type=color].tcol::-webkit-color-swatch-wrapper{padding:0}
+input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
+/* ★R133f：这行控件现在真的落在参数面板里（展开区 `.tpane` 的一行 = 标签 + 控件）
+   ⇒ 不能再用 `width:100%`（会跟 50px 的标签一起撑破 240px 的面板），改成占满**剩余**宽度。 */
+.params input[type=color].tcol{width:auto;flex:1 1 auto;min-width:0;height:26px;
+  border-color:rgba(244,241,234,.18);background:rgba(244,241,234,.08)}
+.params input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
+.trange{flex:1 1 80px;min-width:64px}
+.tnum{width:58px;flex:none;box-sizing:border-box;padding:5px 4px;text-align:center;border-radius:8px;
+  border:1px solid rgba(38,34,28,.28);background:rgba(255,255,255,.7);
+  font-family:inherit;font-size:13px;color:#26221C;outline:none}
+/* 参数面板里「运动轨迹」的三态按钮沿用 .presets 那一套深色按钮，只补一个选中态
+   （与 `.pdd.open` 同一金色口径，表达「这一档当前生效」）。 */
+.presets button.act{background:rgba(201,168,106,.30);border-color:#C9A86A;color:#F4F1EA}
+.tsep{border-top:1px dashed rgba(38,34,28,.22);margin:12px 0 2px;padding-top:10px}
+.params .tsep{border-top-color:rgba(244,241,234,.22)}
+/* ★★R133b：参数面板的轨迹开关＝**左右胶囊**（用户 2026-10-07 原话：「那个开启按钮我要的是
+   那种左右胶囊切换的那种按钮」）。轨道 46×24 + 18px 圆钮；开启时轨道转金、圆钮滑到右端
+   （位移 = 轨道内宽 44 − 钮 18 − 两侧各 2 留白 = **22px**）。
+   ★它只出现在**深色参数面板**里 ⇒ 用深色主题的浅前景，别照抄弹层那套浅色皮肤。 */
+.tsw{position:relative;flex:none;width:46px;height:24px;box-sizing:border-box;padding:0;
+  border-radius:12px;border:1px solid rgba(244,241,234,.24);background:rgba(244,241,234,.10);
+  cursor:pointer;transition:background .16s ease,border-color .16s ease}
+.tsw .kn{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;
+  background:#B9B1A2;transition:transform .16s ease,background .16s ease}
+.tsw.on{background:rgba(201,168,106,.34);border-color:#C9A86A}
+.tsw.on .kn{transform:translateX(22px);background:#F4F1EA}
+/* 「运动轨迹」一行的右侧控件组（胶囊 + 外观按钮）。★用一层 .tctl 把两个控件打包，
+   否则 .prhead 的 `justify-content:space-between` 会把三件东西摊到整行、排版散掉。 */
+.tctl{display:flex;align-items:center;gap:8px;flex:none}
+/* 「外观」按钮：视觉语言与 `.presets button` 同款（同一类控件同一张脸），但它不在
+   `.presets` 容器里（这一行是 `.prhead` + `.tctl` 的布局）⇒ 单独给一份。
+   ★用 `:not(.tsw)` 把胶囊排除掉，避免把 46×24 的轨道按钮也套上内边距。 */
+.tctl button:not(.tsw){background:rgba(244,241,234,.08);border:1px solid rgba(244,241,234,.16);
+  color:#F4F1EA;border-radius:7px;padding:3px 10px;font-size:12px;font-family:Georgia,serif;
+  font-style:italic;cursor:pointer;transition:background .14s,border-color .14s}
+.tctl button:not(.tsw):hover{background:rgba(201,168,106,.24);border-color:#C9A86A}
+/* `.prhead` 默认按基线对齐（给「标签 + 数值文字」用的）；这一行右边是 24px 高的胶囊，
+   基线对齐会把它顶歪 ⇒ 本行改成垂直居中。 */
+#ptrail .prhead{align-items:center}
+/* ★★R133f：轨迹外观 = **参数面板内就地展开**（用户 2026-10-07：「轨迹外观点击后…我要的就是
+   原来参数面板打开次级菜单」；原来是弹屏幕中央的 `.bmask/.bbox` 框）。
+   交互照搬面板里既有的「配对 ▾」（`.pdd` + `.ppairs`）：按钮点开反白 + 文案变 ▴，展开块
+   `display:none` → `block`；展开态由模块级 `trailPaneOpen` 记着，面板重建后还原。
+   ★底色是深色参数面板 ⇒ 这里的控件用面板的浅前景口径（`.tbtn`），不沿用设置面板的 `.sbtn`
+     （那一族与 `#smenu` 的 `data-mode` 委托绑得太近，换一套类名从根上避开）。 */
+.tdd{background:rgba(244,241,234,.08);border:1px solid rgba(244,241,234,.16);
+  color:#F4F1EA;border-radius:7px;padding:3px 10px;font-size:12px;font-family:Georgia,serif;
+  font-style:italic;cursor:pointer;white-space:nowrap;transition:background .14s,border-color .14s}
+.tdd:hover{background:rgba(201,168,106,.24);border-color:#C9A86A}
+.tdd.open{background:rgba(201,168,106,.28);border-color:#C9A86A}
+.tpane{display:none;margin-top:6px;padding-top:5px;border-top:1px dashed rgba(244,241,234,.14)}
+.tpane.on{display:block}
+.tsrow{display:flex;align-items:center;gap:8px;padding:4px 0}
+.tsrow .tlbl{flex:none;width:50px;font-size:12px;font-style:italic;letter-spacing:.3px;color:#D8CBB0}
+/* ★★R133g（用户 2026-10-07：「怎么左边的下拉框里面的 ui 变了？以前都有那个框的呀」）：
+   这三条原来写成**全局 `.tbtn`**，与左上角工具条的按钮样式（前段 `.tbtn{width:46px;height:46px;
+   border-radius:12px;border:1px solid rgba(38,34,28,.16);background:rgba(255,255,255,.55)}`）
+   **同名**，而本段定义在后 ⇒ 同优先级、后定义者胜 ⇒ 工具条的 6 个按钮被套上深色面板的
+   浅前景口径：边框 `rgba(244,241,234,.16)` 是**近白色**、底色 `rgba(244,241,234,.08)` 近全透
+   ⇒ 画在米色画布上**框与底一起消失**，用户看到的就是「以前都有那个框，现在没了」。
+   器件面板（`.dsub .tbtn`）同样中招。
+   ⇒ 加 `.tpane ` 作用域前缀：这套深色外观**只属于参数面板里的轨迹展开块**。
+   证据（`_diag_r133g_multi.py` A 组 computed style，两版对照）：
+     当前 R133f  .tbtn 边框 rgba(244,241,234,.16) / 底色 rgba(244,241,234,.08) / 圆角 7px / flex 1 1 auto
+     线上 R132-10v .tbtn 边框 rgba(38,34,28,.16) / 底色 rgba(255,255,255,.55) / 圆角 12px / flex 0 1 auto */
+.tpane .tbtn{flex:1 1 auto;background:rgba(244,241,234,.08);border:1px solid rgba(244,241,234,.16);
+  color:#F4F1EA;border-radius:7px;padding:3px 8px;font-size:12px;font-family:Georgia,serif;
+  font-style:italic;cursor:pointer;white-space:nowrap;transition:background .14s,border-color .14s}
+.tpane .tbtn:hover{background:rgba(201,168,106,.24);border-color:#C9A86A}
+.tpane .tbtn.act{background:rgba(201,168,106,.30);border-color:#C9A86A}
+.tseg{flex:1 1 auto;display:flex;gap:6px;min-width:0}
+/* 展开块里的三个控件在 240px 宽的面板里要能挤下：颜色/滑块按剩余宽度伸缩、数字框定宽 */
+.tpane .trange{flex:1 1 40px;min-width:40px}
+/* ★★R133g：数字框原来**只改了配色、没写宽度** ⇒ 用浏览器默认的 `<input type=number>`
+   宽度（≈200px）⇒ 整行撑破面板右边界。`_diag_r133g_multi.py` B 组实测：`#tlifen`
+   rect=[296,706,200,27]、右边界 496，而面板右边界只有 410 ⇒ **溢出 86px**；
+   用户 2026-10-07：「你这个排版也没排好，很多都超出这个窗口了」。定宽 + `flex:none`。 */
+.tpane .tnum{flex:none;width:56px;min-width:0;border-color:rgba(244,241,234,.18);
+  background:rgba(244,241,234,.08);color:#F4F1EA}
+/* 颜色框同理（`<input type=color>` 默认也是 ~200px 宽的块） */
+.tpane .tcol{flex:none;width:56px;min-width:0;height:26px;padding:1px 2px;
+  border:1px solid rgba(244,241,234,.18);border-radius:7px;background:rgba(244,241,234,.08)}
+/* ★R133g 轨迹次级页顶部那行「‹ 返回参数」（整块面板切进次级页时的唯一出口） */
+.tbackrow{display:flex;gap:8px;padding:2px 0 6px}
+.tbackrow .tdd{flex:1 1 auto;text-align:left}
+/* ★R133f：`.ptip`（展开块底部那条说明文案的样式）随文案一起删除 —— 全产品只此一处用它，
+   留着就是死 CSS。见 `renderTrailPanel` 里的收尾注释（L051）。 */
+/* ★★R133b：设置面板的分区标题（「更新记录」）—— 比 .slab 更弱更小、带字距，
+   与「一行一个控件」的 .srow 拉开层级。 */
+.sdiv{font-size:13px;letter-spacing:2px;color:rgba(38,34,28,.45);
+  margin:16px 0 0;padding-top:14px;border-top:1px solid rgba(38,34,28,.10)}
+/* ★★R133b：更新记录列表（「历史记录」次级菜单）。沿用 .bbox 的弹层皮肤，只做条目排版。 */
+.histlist{margin-top:2px;max-height:calc(100vh - 190px);overflow:auto;overscroll-behavior:contain}
+.histit{padding:10px 2px 11px;border-bottom:1px solid rgba(38,34,28,.10)}
+.histit:last-child{border-bottom:none}
+.histit .ht{font-size:13px;font-style:normal;font-family:Consolas,Menlo,monospace;
+  color:rgba(38,34,28,.52);letter-spacing:.3px}
+.histit .hv{font-size:12px;font-style:normal;font-family:Consolas,Menlo,monospace;
+  color:#B23A2E;margin-left:8px;letter-spacing:.4px}
+.histit ul{margin:6px 0 0;padding-left:18px;font-size:14px;line-height:1.65}
+.histit li{margin:0 0 3px}
+.histit li:last-child{margin-bottom:0}
 .fixtabwrap{margin-top:4px;max-height:calc(100vh - 190px);overflow:auto;overscroll-behavior:contain;
   border:1px solid rgba(38,34,28,.14);border-radius:12px}
 .fixtab{width:100%;border-collapse:collapse;font-size:13.5px;font-style:normal}
@@ -770,6 +887,8 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
   <div class="srow">
     <span class="slab">Bug 记录</span>
     <button class="rbtn" id="recbtn">开始记录</button>
+    <!-- ★★R133c（PR #8 by fisHarly0 采纳）：自动停止后这一段记录还留着，按钮变「导出记录」，
+         再配一颗「清空并重录」——否则「点开始记录」会把刚录好的一段直接清掉（缺陷见 PR 正文）。 -->
     <button class="rbtn" id="recnew" hidden>清空并重录</button>
   </div>
   <!-- ★★R132-8：Bug 记录下面那段小字已删（用户：「把设置里面的bug记录下面的小字都给删了」）。
@@ -781,6 +900,19 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
        叫做 Bug 修复列表。点击后进入次级菜单，里面显示各个 bug 的状态」）。 -->
   <div class="srow">
     <button class="rbtn wbtn" id="bugfixbtn">Bug 修复列表</button>
+  </div>
+  <!-- ★★R133b（用户 2026-10-07：「关于外观按钮你理解错我的意思了，我不是要在设置里面加那个
+       总按钮，就是每个符号物体单独一个，只控制那个物体」）：
+       R133 放在这里的「运动轨迹」总开关**整行删除** —— 轨迹改为**只按物体**控制，
+       入口在右键物体打开的参数面板底部（见 `renderTrailPanel`），不再有全局开关。
+       ★随之作废的还有那条「开关必须用 .rbtn 不能用 .sbtn」的约束（这里已无按钮）；
+        但**那条约束本身仍然有效** —— 日后若再往 `#smenu` 里加开关，照样只能用 .rbtn。 -->
+  <!-- ★★R133b：更新记录（用户 2026-10-07：「在设置界面最下面增加一个更新记录标题，下面有一个
+       历史记录按钮，点击进入次级菜单，里面展示多久时间更新的内容」）。
+       与「Bug 修复列表」同款次级菜单（.bmask/.bbox），数据在脚本里的 UPDATE_LOG。 -->
+  <div class="sdiv">更新记录</div>
+  <div class="srow">
+    <button class="rbtn wbtn" id="histbtn">历史记录</button>
   </div>
 </div>
 <!-- ★★R132-8：问号气泡**必须挂在 `<body>` 上，不能放进 `#smenu`**。
@@ -816,6 +948,22 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
       <tbody id="fixrows"></tbody>
     </table>
   </div>
+</div>
+<!-- ★★R133f：轨迹外观**不再弹屏幕中央的框**（用户 2026-10-07：「轨迹外观点击后，我不是说了
+     要进次级菜单吗？你怎么是在屏幕中央重新打开了一个？我要的就是**原来参数面板打开次级菜单**」）
+     ⇒ 原来这里的 `#tmask` / `#tbox`（`.bmask/.bbox` 弹层）**整块删除**，
+     外观控件改成参数面板「运动轨迹」行下方**就地展开的那块**（`.tpane`，见 `renderTrailPanel`）。
+     ★仍然只作用于**当前这个物体**的 `ent.trailCfg`（每个物体各调各的），没动过的项回落
+       `TRAIL_CFG` 默认外观 —— 这条口径一个字都没变，只是换了展示位置。
+     ★控件不再用 `.sbtn/.sseg`：参数面板虽然也不在 `#smenu` 内，但那一族类名与设置面板的
+       `data-mode` 委托绑得太近，这里改用面板自己的 `.tbtn`（同一张脸的深色版），
+       从根上不留「哪天 DOM 挪进 #smenu 就写坏 PHYS_MODE」的隐患。 -->
+<!-- ★★R133b：更新记录（设置 → 更新记录 → 历史记录 → 次级菜单；用户 2026-10-07：
+     「点击进入次级菜单，里面展示多久时间更新的内容」）。条目由脚本里的 UPDATE_LOG 渲染。 -->
+<div class="bmask" id="histmask"></div>
+<div class="bbox" id="histbox">
+  <div class="fmhead"><span class="fmtitle">历史记录</span><button class="fmclose" id="histclose">✕</button></div>
+  <div class="histlist" id="histlist"></div>
 </div>
 <script>
 /* Matter.js v0.20.0 — 2D rigid-body physics engine (MIT, (c) Liam Brummitt / brm.io).
@@ -982,6 +1130,10 @@ function GD(ch,sc){
          *   修：菜单照常用 B2（`openMenu` 自己持有引用），但把 `d.body` 立刻清回 null，
          *   状态仍是 `'dock'`（面板槽位不变）—— 下次右键会重新 promote 一个干净的临时宿主。 */
         d.body=null;
+        /* ★R133h：`promoteFreeLetter` 刚刚把字母的轨迹过户给了这个**不上场的临时宿主** B2；
+           它马上要被从 bodies 摘掉 ⇒ 轨迹必须**对称还回**字母，否则会随 B2 一起人间蒸发
+           （字母仍是 dock 态、仍在场，轨迹却没了）。同一个函数反向调用即可。 */
+        trailAdopt(d,B2);
         openMenu(e.clientX,e.clientY,B2,d);
       }
     }
@@ -1050,6 +1202,12 @@ function promoteFreeLetter(d){
   var y=d.wy!==undefined?d.wy:d.el.offsetTop;
   var B=BODY(x,y);
   d.pop=0;d.body=B;d.inBody=true;
+  /* ★R133h：`promoteFreeLetter` 是"原地提升"的**同一族**（右键自由字母 ⇒ 造宿主弹参数面板）。
+     字母此刻若有轨迹（典型：刚从宿主身上撞碎出来、正画着），提升后同样会被 `trailOwner`
+     归一掉 ⇒ 必须一起过户。B 建在字母当前位置，点是连续的，直接搬。
+     ★调用方若把这个宿主**又摘掉**（dock 态那路：造临时宿主后立刻 `bodies.splice` 并把
+     `d.body` 清回 null），必须把轨迹**还回**字母 —— 见下面那个 `trailAdopt(d,B2)`。 */
+  trailAdopt(B,d);
   /* ★★R131-50（用户：「ma 我现在都组合不了」——R131-43 让 a 「不并入 mem」把组合也一起
    *  掐掉了）：**按目标类型分流**——
    *   · 目标是**由字符组成的体**（massG / glyphs / mem 里有字母，即"表达式"）⇒ **正常并入**
@@ -3821,6 +3979,8 @@ function springMirror(B){
   // W（画出来的线）与弹簧的碰撞归 Matter 管（和 T 杆同一条规则），所以弹簧也要有一个 Matter
   // 镜像：一根静态薄板，每帧跟着 e0->e1 走。Matter 的薄板不能改长度，所以长度变化超过
   // SPR_MIRROR_TOL 才重建 —— 否则弹簧每「呼吸」一次就造一个新体。
+  // ★★R133d：这块板是**位置驱动的壳**、不是弹簧的物理体 ⇒ 创建处打 `_kinShell` 标记
+  //   （下游 `trailFrozen` 靠它把「静态」与「不会动」分开，见创建处的长注释）。
   if(!MW)return;
   var stale=(B._mlen==null)||(Math.abs(B._mlen-B.cur)>SPR_MIRROR_TOL);
   if(B.mb&&!stale){
@@ -3833,6 +3993,11 @@ function springMirror(B){
   B.mb=Matter.Bodies.rectangle(B.x,B.y,Math.max(8,B.cur),8,
         {isStatic:true,friction:0.3,frictionStatic:0.6,restitution:0,slop:0.02,
          collisionFilter:{group:SPR_CGROUP}});
+  /* ★★R133d：给这块静板打**位置驱动碰撞壳**标记。Matter 的 `isStatic` 只说明「不吃力」，
+     不代表「这个实体不会动」—— 壳每帧由本函数 setPosition/setAngle 跟着 e0→e1 摆，
+     弹簧本身（中点、两端）明明会动。`trailFrozen` 必须能区分这两件事（否则弹簧的轨迹行被误伤，
+     `_verify_r66.py` 6c 实测判红）。标记只在本函数这一处创建点写，重建时自然重打。 */
+  B.mb._kinShell=true;
   B._mlen=B.cur;
   Matter.Composite.add(MW.wLayer,B.mb);
   springEndCaps(B);
@@ -4093,6 +4258,11 @@ function setUIMode(m){
 function applyUIModeClasses(){
   if(uiTouch()){DD.body.classList.add('touch-ui');DD.body.classList.add('touch-panel-folded');}
   else{DD.body.classList.remove('touch-ui');DD.body.classList.remove('touch-panel-folded');}
+  /* ★R133f：把手改成两版都显示 ⇒ 它的「已展开」视觉（`.open` = 反白 + 箭头翻转，见 R132-8
+     那一族控件的统一语言）必须与**真实的折叠状态**对齐，否则电脑版一进来就是
+     「面板明明展开着、箭头却朝下说要展开」的矛盾状态。 */
+  var tg0=DD.getElementById('panelToggle');
+  if(tg0)tg0.classList.toggle('open',!DD.body.classList.contains('touch-panel-folded'));
   fixPanelSlot();
   alignPanelToggle();
 }
@@ -4104,7 +4274,10 @@ function applyUIModeClasses(){
 function alignPanelToggle(){
   var pan=DD.getElementById('panel'),tg=DD.getElementById('panelToggle');
   if(!pan||!tg)return;
-  if(!DD.body.classList.contains('touch-ui'))return;
+  /* ★★R133f：**两版都对齐**。原版这里有一句 `if(!body.classList.contains('touch-ui'))return;`
+     —— 那是「把手是触屏专属控件」时期的前提；现在电脑版也显示它，必须同样把它对齐到
+     **第 1 行第 4 格**，否则它停在 CSS 的 `right:22/top:22`（与格子差 12px，看起来像一块
+     没对齐的浮块，而且会压住第 4 格本该空着的位置）。 */
   /* ★R131-31b：面板在触屏折叠态下 getBoundingClientRect 是**折叠后**的位置（拿不到
    *  格子坐标）⇒ 用**固定布局算法**：面板固定在 top:24/right:24，padding 10，
    *  格 44 + gap 6 ⇒ 第 1 行第 4 格 = 右起 (24+10+44) 、上起 (24+10)。 */
@@ -6062,6 +6235,21 @@ function refresh(B){
     B.glyphs=B._plainGlyphs;
   }else{
     B.glyphs=tokList(B);
+    /* ★★R132-11（用户 bug `1791138871622`「r 复制成 m、**一调参数 r 就消失**」的后半句）：
+     *   `tokenSeq` 认的是「排布」而不是「有哪些字母」——它的 family-2 分支对 'r' 是
+     *   `if(tt==='r')continue;`（那是 `½mv²` / `v²/r` 的口径：r 由分数线单独摆，不参与横向 run）。
+     *   可是 `setF` 把**孤立的 r** 也判成 family 2（`hasR ⇒ family=2`，见 setF 末段），
+     *   于是孤立 r 走 family-2 分支 → r 被 `continue` 跳过 → `tokList` 返回**空数组**。
+     *   接下去本函数末尾「不在 glyphs 里的字母一律 display:none」把 r 隐藏 ⇒ 字母凭空消失。
+     *   实测（`_tmp_r_dimension_probe.py`，走产品自己的 promoteFreeLetter + openMenu + 参数面板）：
+     *     · 孤立 r 的参数面板只发 `scale` 一行（`paramDef` 的 `t==='r'` 分支）；
+     *     · `applyParam(B,PARAM_DEFS['scale'],2)` → refresh → `glyphs=[]`、`r.display='none'`
+     *       ⇒ **副本与原字母都一样**，与"复制"无关 —— 就是「一调参数 r 就消失」；
+     *     · 同一路径下 v / ½ 都不会中招（vCount=1 时 tokenSeq 照样 push，½ 走 else 分支）。
+     *   ⇒ 此处只做**兜底**：tokList 吐出空数组（必然导致隐藏）且本体是「孤立单词母」时，
+     *     直接用 mem 自己当 glyphs。★len===1 && !massG 的守卫保证不碰任何公式/质量体
+     *     （质量体有 massG，公式体 mem.length ≠ 1）。 */
+    if(!B.glyphs.length&&!B.massG&&B.mem.length===1)B.glyphs=[B.mem[0]];
   }
   for(var i=0;i<B.glyphs.length;i++){B.glyphs[i].body=B;B.glyphs[i].inBody=true;}
   // any LETTER owned by this body that is NOT in B.glyphs must be hidden, INCLUDING the
@@ -6424,6 +6612,12 @@ function attach(B,d){
   d.state='mem';
   B.mem.push(d);
   d.body=B;d.inBody=true;
+  /* ★R133h：字母并入物体后 = 由宿主的轨迹代表它（`trailOwner` 归一）⇒ 若这个字母自己
+     开着轨迹（典型：撞碎出来的那条还在画），不接这一下同样会「并入即静默关闭」。
+     ★口径与「原地提升」**刻意不同**：这里宿主与字母的历史位置不重合，点**不能倒**进去
+     （会凭空连出一条假线）⇒ `dropPts=true`，只过户开关与外观，轨迹从宿主当前位置重新开始画。
+     ★`trailAdopt` 内部「宿主自己没设过才接受」的判据保证**不会反向覆盖**宿主已有的开关。 */
+  trailAdopt(B,d,true);
   B.pop=1;
   refresh(B);
   var hh=Math.max(20,B.hh||18);
@@ -6476,6 +6670,10 @@ function splitOne(B,d){
     var fi=freeL.indexOf(L); if(fi>=0)freeL.splice(fi,1);
     freeLetter(L, sp.x, sp.y, msvx-dx*sep+(Math.random()*24-12), msvy-dy*sep+(Math.random()*24-12), false);
   }
+  /* ★★R133e：双击拆分 = 用户说的「**解散**」⇒ 轨迹自动回默认（口径与理由见 `trailResetOn`）。
+     **体与拆出的字符都复位**：体留着会继续被采样（实测点数 7→28），字符脱体后也从此会被采样。 */
+  trailResetOn(B);
+  for(var m2=0;m2<out.length;m2++)trailResetOn(out[m2]);
 }
 function canMerge(B,d){
   /* ★★R131-42（用户：「G 和 m 连接后，为什么还能连接字符 c 组成 Gmc？这个不应该能组合」）：
@@ -6847,13 +7045,30 @@ menu.addEventListener('click',function(e){
      *  自由字符），完全不碰临时宿主；同时保持原字符的状态（不回面板、仍可拖动）。 */
     /* ★★R131-55（用户：「组合体的复制失效了，只复制里面的一个元素」）：上一版无条件
      *  按"复制字符本身"处理 ⇒ **把组合体的整体复制也吃掉了**。
-     *  修：**只有"独立的赋予型字符"（v/a/q/t 且不构成表达式）才复制字符**；
-     *  其余（真正的组合体/物体）走原来的 copyBody（整体复制）。 */
+     *  修：**只有"孤立字符"才复制字符本身**；其余（真正的组合体/装配体/物体）走 copyBody。 */
+    /* ★★R132-11（用户 bug `1791262537162`/`1791262536181`「为什么我的 r 复制出来是 m？」、
+     *   `1791138871622`「复制的时候发现复制出来的是 m」）：R131-49 开出的这条支路**判据太窄** ——
+     *   白名单只有 v/a/q/t 四个赋予型字符，其余字母（r/m/M/g/B/E/I/μ）仍落进 `copyBody`，
+     *   而 `copyBody` 在**没有 massG 的源体**上会凭空补一个 `'m'`（见该函数里的 R132-11）
+     *   ⇒ 副本变成「m + 原字符」。
+     *   实测（`_tmp_copy_probe.py`，12 个字母逐个过；复制后应恰好多出**同一个**字符）：
+     *     r → ['r','m','r']    m → ['m','m','m']    M → ['M','M','M']    g → ['g','m','g']
+     *     B → ['B','m','B']    E → ['E','m','E']    I → ['I','m','I']    μ → ['μ','m','μ']
+     *     a / v / q / t → 正确（R131-49 已覆盖）
+     *   ⇒ 坏的 8 个、好的 4 个；症状与用户原话逐字一致。
+     *   修：判据从「字母 ∈ {v,a,q,t}」放宽到「**任何孤立字符**」。
+     *   守卫（保住 R131-55 的"组合体整体复制"）三条全中才算孤立：
+     *     ① 宿主里只有这一个字形、且 mem 只有这一个成员（多字形 = 表达式/组合体）；
+     *     ② 宿主不是 S/T/W 器件（贴在形状/杆/弹簧上的字母不该被单独摘下来）；
+     *     ③ 不挂在任何弹簧/绳/铰链装配体上（`springAssemblyOf` 长度 ≤ 1）。
+     *   ★即：贴着弹簧的字母右键复制，拿到的仍是"整个装配体"，一点没变。 */
     var _ml=menuLetter;
-    var _isLoneGiveChar=!!(_ml&&_ml.ch&&!_ml.dead&&
-        (_ml.ch==='v'||_ml.ch==='a'||_ml.ch==='q'||_ml.ch==='t')&&
-        !(menuBody&&((menuBody.mem&&menuBody.mem.length>1)||(menuBody.glyphs&&menuBody.glyphs.length>1))));
-    if(_isLoneGiveChar){
+    var _isLoneChar=!!(_ml&&_ml.ch&&!_ml.dead&&
+        !(menuBody&&(menuBody.mem&&menuBody.mem.length>1))&&
+        !(menuBody&&(menuBody.glyphs&&menuBody.glyphs.length>1))&&
+        !(menuBody&&menuBody.kind)&&
+        (!menuBody||springAssemblyOf(menuBody).length<=1));
+    if(_isLoneChar){
       var _nd=GD(_ml.ch);
       _nd.cat=_ml.cat||1;_nd.pop=0;
       var _px=(_ml.wx!=null?_ml.wx:0)+48, _py=(_ml.wy!=null?_ml.wy:0)+10;
@@ -7919,6 +8134,11 @@ DD.addEventListener('pointerup',function(e){
         refresh(nb3);
         if(canMerge(nb3,L)){
           attach(nb3,L);
+          /* ★R133h：同一个坑的第二支 —— 顺手被抬起来当"底座"的那个自由质量字母（FM）也会
+             在这里原地变成体 nb3，同样要把它的轨迹过户过来（见 `trailAdopt`）。
+             ★放在 `canMerge` **成立之后**：上面那个撤销分支会把 nb3 从 bodies 摘掉、
+             `FM.body` 清回 null ⇒ 那时 FM 仍是场上自由字母，轨迹必须留在它自己身上。 */
+          trailAdopt(nb3,FM);
           ringGo(nb3.x,nb3.y);
         }else{
           // not a valid merge after all — undo the promotion and keep the old behaviour
@@ -7947,6 +8167,11 @@ DD.addEventListener('pointerup',function(e){
       // mem (setF/layoutGrav read G from mem, not massG).
       var nb=BODY(L.wx,L.wy);
       L.pop=0;L.body=nb;L.inBody=true;
+      /* ★★R133h（用户：「字符用力撞到墙壁后轨迹会自动关闭」的**真因所在**）：这就是那条路径 ——
+         撞碎出来的字母（轨迹刚从宿主继承过来、正画着）被用户拖一下松手，在这里被**原地提升成体**。
+         不把轨迹过户给 nb，`trailOwner` 归一到 nb 后 `trailEnabled` 读到 host 的 undefined
+         ⇒ 回落默认关 ⇒ 轨迹当场消失。详见 `trailAdopt`。 */
+      trailAdopt(nb,L);
       if(isMass(L)){ nb.massG=L; nb.glyphs=[L]; refresh(nb); }
       else { nb.glyphs=[L]; attach(nb,L); }
       ringGo(nb.x,nb.y);
@@ -8188,6 +8413,9 @@ function bodyHitSpeed(B,comp){
 }
 function shatter(B,mode){
   var i=bodies.indexOf(B);if(i>=0)bodies.splice(i,1);
+  /* ★★R133f：体被**物理消灭**（撞墙碎 / 撞出公式）= 用户从没关过轨迹 ⇒ 轨迹接着淡出，
+     不能当帧瞬失（实测「会被画出来的点数」7 → 0，而点一个没少）。见 `trailRetire`。 */
+  trailRetire(B);
   var cx=B.x,cy=B.y;
   var S=Math.hypot(B.vx,B.vy)||1;
   var ux=-B.vx/S,uy=-B.vy/S;
@@ -8206,6 +8434,12 @@ function shatter(B,mode){
       L.pop=0;
       var off=(q-(lets.length-1)/2)*28;
       freeLetter(L,cx+px*off,cy+py*off, ux*base+px*spread*off/28, uy*base+py*spread*off/28, false);
+      /* ★★R133g（用户 2026-10-07：「这个字符为什么用力撞到墙壁后，轨迹会自动关闭？」）：
+         撞碎**不是**用户主动解散 ⇒ 碎出来的字符**继承**宿主的轨迹设置（开关 + 外观），
+         轨迹从碎点接着往下画，撞一下不会「自动关掉」。
+         ★与 `splitOne`（双击拆分，**用户主动**操作）的口径**刻意不同**：那条仍走
+           `trailResetOn` 回默认 —— 那是用户 R133e 的明确要求，两条需求各自成立、不冲突。 */
+      trailInherit(L,B);
     }
   }else{
     for(var j=0;j<lets.length;j++){
@@ -9662,6 +9896,17 @@ function copyWBody(src,dx,dy,quiet){
    *   ★同一类缺口在 `belt` 上也存在（传送带副本同样丢身份）—— 那是既有行为，
    *   本轮只补自己新加的这一个（不越权改旧器件的复制语义）。 */
   if(src.gnd){B.gnd=1;B.len=src.len;B.hw=(src.len||GROUND_SPAWN_LEN)/2;B.hh=src.hh||GROUND_TH/2;}
+  /* ★★R132-11（用户 bug `1791134563665`「传送带复制后会变成矩形」、`1791263032193` /
+   *   `1791263035366`「我刚才复制了一下传送带…它就复制出来一个神秘方框」）：
+   *   上面 R110 那段注释**自己把这个缺口记下来了**（「同一类缺口在 `belt` 上也存在
+   *   —— 那是既有行为」）却一直没补 ⇒ `B.belt` 不随副本走。副本的几何仍然是一模一样的
+   *   矩形，但渲染分派是 `if(B.belt)drawBeltBody(B,…)`（L17959）—— 不命中就按**普通木板**
+   *   画成一块光板矩形（= 用户嘴里的"神秘方框"，没有滚轮、没有会走的人字纹）；
+   *   参数面板也从「带速 v / 带角」退化成普通本体的四行。
+   *   修：把器件身份与**带速**（`conv`，唯一决定带面跑不跑/朝哪跑的量）与 `gnd` 并列补齐。
+   *   `fixed` 由下一行继承、`wFrict` 由上面的 `src.wFrict` 继承、几何由 mkBoundary
+   *   从**同一份平移后的 pts** 算出（与源带逐点同形，非重新生成）。 */
+  if(src.belt){B.belt=true;B.conv=(src.conv!=null)?src.conv:CONV_DEF;}
   if(src.fixed){B.fixed=true;if(B.mb&&MW){Matter.Body.setStatic(B.mb,true);Matter.Sleeping.set(B.mb,false);}}
   B.pop=1;B.orbPulse=1;B.copied=true;
   // 注意：**不能** refresh(B)。refresh 走 layoutField，而 layoutField 只为 S/T 分支做了处理，
@@ -9769,12 +10014,22 @@ function copyBody(src){
     sortPanel();
     return nb;
   }
-  var ch=(src.massG&&src.massG.type==='M')?'M':'m';
-  var massN=GD(ch);
-  massN.pop=0;
+  /* ★★R132-11（用户 bug `1791258453287`「为啥复制这个 Gcc 会复制出 Gmcc」；同族 =
+   *   `1791262537162`/`1791262536181`「为什么我的 r 复制出来是 m」、
+   *   `1791138871622`「复制的时候发现复制出来的是 m」）：
+   *   源体**没有质量字母**时（`Gcc` / 单个 r / g / B / E / I / μ …），旧代码在这里
+   *   **无条件造一个 `'m'` 当 massG** ⇒ 副本凭空多出一个前导 m。
+   *   实测（`_tmp_copy_probe.py`）：`Gcc` 那一臂 原 `glyphs='Gr-'` → 副本 `'Gmr-'`；
+   *   12 个单字母逐个过，坏的 8 个（r/m/M/g/B/E/I/μ）全都是"多一个 m"。
+   *   修：**源体有 massG 才造**；没有就一个都不造，只抄 `src.mem`
+   *   （`refresh` 会照源体那套从 mem 重建 glyphs —— L6050 `if(B.massG)` 本来就有空守卫）。
+   *   ★不能顺手改「单体单字母」那一族 —— 它们走的是菜单里「复制字符本身」那条支路
+   *   （见 L6851 一带的 R131-49/R132-11），根本不该进 `copyBody`。 */
+  var ch=(src.massG&&src.massG.type==='M')?'M':(src.massG?'m':null);
+  var massN=ch?GD(ch):null;
+  if(massN)massN.pop=0;
   var B=BODY(src.x+40+Math.random()*60-30,src.y+30+Math.random()*40-20);
-  B.massG=massN;
-  massN.body=B;
+  if(massN){B.massG=massN;massN.body=B;}
   var old=B.glyphs;
   B.glyphs=[];B.mem=[];
   var mm=[];
@@ -9784,7 +10039,7 @@ function copyBody(src){
     B.mem.push(g2);
     mm.push(g2);
   }
-  var list=[massN].concat(mm);
+  var list=(massN?[massN]:[]).concat(mm);
   list.forEach(function(g){g.body=B;g.inBody=true;g.prev={x:0,y:0};B.glyphs.push(g);});
   refresh(B);
   B.pop=1;
@@ -9796,8 +10051,11 @@ function copyBody(src){
   if(B.param.massM!=null)B.massCap=B.param.massM;   // capital-M mass (independent key)
   if(B.scaleParam!=null)refresh(B);
   ringGo(B.x,B.y);
-  var ms=slot(B,B.massG);
-  B.x+=src.x-ms.x;B.y+=src.y-ms.y;
+  /* ★R132-11：对齐基准优先取质量字母；源体没有质量字母时退回**第一个字形**；
+   *   两者都没有（退化：空 mem）就不对齐。
+   *   ★不能照旧直接 `slot(B,B.massG)` —— `slot` 里要读 `g.sx`，massG 为空时必抛。 */
+  var _align=B.massG||list[0]||null;
+  if(_align){var ms=slot(B,_align);B.x+=src.x-ms.x;B.y+=src.y-ms.y;}
   refresh(B);
   B.vx=60;B.vy=-40;
   sortPanel();
@@ -9815,6 +10073,7 @@ function openParams(B,d){
   paramLetter=d||null;
   paramRows=[];
   pairOpenField=null;   // R73-B：换成另一个物体 = 配对展开状态重来（否则会带着上一体的口径）
+  trailPaneOpen=false;  // ★R133f：轨迹「外观」展开块同理 —— 换物体就收起，避免带着上一体的对象
   pbox.style.left=clamp(B.x-120,4,W-248)+'px';
   pbox.style.top=clamp(B.y+44,4,H-190)+'px';
   pbox.classList.add('on');
@@ -9846,6 +10105,16 @@ var PARAM_OWNER={mass:'m',massM:'M',grav:'g',acc:'a',bounc:'v',frict:'μ',scale:
   wmass:'本体',wfrict:'本体',wbounc:'本体',wair:'本体',convspeed:'本体',beltangle:'本体',rlen:'本体'};   // R99 带速；R101⑦ 绳长；★R115 删 wroll
 function renderParamPanel(){
   if(!paramBody)return;
+  /* ★★R133g（用户 2026-10-07：「我的那个次级菜单不是说展开，而是**整个这个参数面板进入
+     次级菜单**，不然太冗长了」）：轨迹外观**不再在长参数面板里就地展开一小块**，而是把
+     **整块面板切换成「运动轨迹」页**（标题 `xx · 运动轨迹`、顶部一个「‹ 返回参数」），
+     进去以后才看得到那几件控件 ⇒ 一级参数页永远不会被撑长。
+     ★作用对象就是进来时钉住的那个（`TRAIL_TGT`）；它死了（解体 / 被删）就自动退回参数页。 */
+  if(trailPaneOpen){
+    var _tent=trailTgtOf();
+    if(_tent&&!_tent.dead){renderTrailSubview(_tent);return;}
+    trailPaneOpen=false;TRAIL_TGT=null;
+  }
   // R71⑪（用户：「菜单标题写物体的具体名称（圆1、弧1…）」）：标题直接用编号名，
   // 不再显示裸的 kind（'W' / 'S' / 'T' 这种对用户毫无意义的内部代号）。
   /* ★★R132-9m（用户：「在字符 t 的参数面板里为什么标题写的是物体1，而不是 t？还有没有其他字符
@@ -10112,6 +10381,149 @@ function renderParamPanel(){
       })(nu,val));
     }
   }
+  /* ★R133：面板末尾追加「运动轨迹」区块（用户：「具体位置在每个物体的参数面板里面也能
+     单独开启和关闭该物体的轨迹，和单独控制其外观」）。放在 ids 循环之外自成一块。 */
+  if(typeof renderTrailPanel==='function')renderTrailPanel();
+}
+/* ★★R133b：参数面板里的「运动轨迹」区块 —— 每个物体/字符单独开关 + 单独外观。
+ *  ★用户 2026-10-07 澄清（改正 R133 那版的理解）：「关于外观按钮你理解错我的意思了，我不是
+ *    要在设置里面加那个总按钮，就是每个符号物体单独一个，只控制那个物体，而且一级菜单只有
+ *    那个开启的按钮和一个外观按钮，次级菜单才是调节其他的，那个开启按钮我要的是那种左右
+ *    胶囊切换的那种按钮，要注意排版」。
+ *    ⇒ **一级（本区块）只放两件控件**：①左右胶囊开关（`.tsw`） ②「外观」按钮；
+ *      「实线/虚线、颜色、多久消失、是否消失」全部搬进**次级菜单**。
+ *  ★R133f：那个「次级菜单」现在是**本行下方就地展开**的 `.tpane`（原来弹屏幕中央的 `.bbox`
+ *    框已被用户否掉：「我要的就是原来参数面板打开次级菜单」）—— 见 `buildTrailPane`。
+ *    ⇒ 全局总开关随之取消；`TRAIL_CFG.on` 退化为「从没动过的物体」的回落默认值（= 关）。
+ *  ★刻意**不**挂进 PARAM_DEFS / applyParam / paramV：那三处是**物理参数**的通道
+ *    （有 siK 换算、物理边界、"默认值==出生值"契约、配对表、PARAM_OWNER 标注等一堆既有
+ *    纪律），轨迹是纯视觉量，走实体自己的 `trailOn` / `trailCfg` 字段 —— 两条通道互不
+ *    污染，也就不会为了一个视觉开关去动物理参数的既有判据。
+ *  ★作用对象：针对某字符打开的面板 ⇒ 写**字符本身**（`paramLetter`）；整块物体 ⇒ 写
+ *    `paramBody`。理由见 R132-9m：右键字符时传进来的 paramBody 是一个**临时参数宿主体**
+ *    （"有宿主但不在 glyphs/mem 里"），往它身上写视觉字段等于写到丢。
+ *  ★胶囊只表达**开/关**两态（内部仍沿用 `ent.trailOn` 的 1/2；0/null 一律显示为"关"）。 */
+function trailTarget(){return paramLetter?paramLetter:paramBody;}
+function renderTrailPanel(){
+  /* ★★R133d：两道门 —— ① 先做**作用对象归一**（贴体字母 → 宿主体，见 `trailOwner`）；
+     ② 再判「这个对象**永远不可能**有轨迹」就**整行不出**：固定体在 `trailFrozen` 下**连点都不采**，
+     给它一个开关只能是「开了什么也不发生」的死开关（2026-10-07 实测：传送带 / 地面器件
+     的 `trailOn=1`、`enabled=True`，点数恒 0）。
+     ★「固定物体不显示轨迹」本身就是规格 ⇒ 不出这行与规格一致，不是少给功能：
+     取消固定后这一行会自己回来，那时再开即可。
+     ★★别把「会动的器件」也算进来：弹簧的 `mb` 是位置驱动的静态壳（`_kinShell`），
+     弹簧本身会动 ⇒ 它的这一行必须出（R133d 首版误伤过，`_verify_r66.py` 6c 判红）。 */
+  var ent=trailOwner(trailTarget());
+  if(!ent||!prows)return;
+  if(trailFrozen(ent))return;
+  var row=document.createElement('div');
+  row.className='prow';
+  row.id='ptrail';
+  row.style.cssText='margin-top:10px;border-top:1px dashed rgba(244,241,234,.22)';
+  var head=document.createElement('div');
+  head.className='prhead';
+  var lab=document.createElement('span');
+  lab.className='plab';lab.textContent='运动轨迹';
+  /* —— 右侧控件组：胶囊开关 + 外观（用户：「一级菜单只有那个开启的按钮和一个外观按钮」）—— */
+  var ctl=document.createElement('span');
+  ctl.className='tctl';
+  /* 胶囊开关：构造抽到 `makeTrailSwitch`（与轨迹次级页共用同一个实现，避免两处漂移）。 */
+  ctl.appendChild(makeTrailSwitch(ent,false));
+  /* ★★R133g：「外观」不再是**就地展开**，而是**把整块面板切进「运动轨迹」次级页**
+     （用户 2026-10-07：「我的那个次级菜单不是说展开，而是整个这个参数面板进入次级菜单，
+     不然太冗长了」）。文案用 `›` 表示「进入下一层」而不是 `▾` 表示「就地展开」。
+     ★这里调 `openTrailBox` 而不是自己设 `trailPaneOpen` —— 与探针/外部入口共用同一个函数，
+     作用对象归一（贴体字母 → 宿主体）的口径只有一份。 */
+  var ab=document.createElement('button');
+  ab.type='button';
+  ab.setAttribute('data-trailappear','1');
+  ab.className='tdd';
+  ab.textContent='外观 ›';
+  ab.title='打开运动轨迹设置（整个面板切换成轨迹页）';
+  ab.addEventListener('click',function(e){
+    e.stopPropagation();
+    openTrailBox(trailOwner(trailTarget())||ent);
+  });
+  ctl.appendChild(ab);
+  head.appendChild(lab);head.appendChild(ctl);
+  row.appendChild(head);
+
+  /* ★★R133g：原先这里还有一块**就地展开**的外观区（`.tpane` 直接挂在 `#ptrail` 这一行
+     下面、`if(trailPaneOpen)` 时现场建控件）—— **已整块删除**。理由：那正是用户说的
+     「太冗长」（一级参数页被这块撑长）。现在外观整体搬进**轨迹次级页**
+     （`renderTrailSubview`），一级页只留「运动轨迹 [胶囊] [外观 ›]」一行。
+     ⇒ `buildTrailPane` 的唯一调用点变成 `renderTrailSubview`。 */
+  prows.appendChild(row);
+}
+/* ★R133g：胶囊开关的统一构造（一级参数页与轨迹次级页**共用同一张脸 + 同一套写入口径**）。
+   `pinToTarget=true` ⇒ 作用对象取**钉住的** `TRAIL_TGT`（次级页里用，绝不写错对象）；
+   否则取「点击那一刻的当前对象」（一级页里用 —— 物体可能在面板开着期间换身，闭包里那个
+   引用会变成死引用）。★两条路都先过 `trailOwner` 归一（贴体字母 → 宿主体），与采样口径同源。 */
+function makeTrailSwitch(ent,pinToTarget){
+  var on=!!trailEnabled(ent);
+  var sw=document.createElement('button');
+  sw.type='button';
+  sw.className='tsw'+(on?' on':'');
+  sw.title=on?'这个物体正在显示轨迹（点一下关掉；已画出的轨迹会一起清掉）'
+             :'这个物体不显示轨迹（点一下打开；只影响它自己，别的物体不受影响）';
+  sw.setAttribute('data-trailsw','1');
+  var kn=document.createElement('span');
+  kn.className='kn';
+  sw.appendChild(kn);
+  sw.addEventListener('click',function(e){
+    e.stopPropagation();
+    var t=pinToTarget?(trailTgtOf()||ent):(trailOwner(trailTarget())||ent);
+    if(!t)return;
+    var turnOn=!trailEnabled(t);      // 用**实时**状态定方向，不用渲染时捕获的 `on`
+    t.trailOn=turnOn?1:2;             // 1=开 / 2=关（全局开关已取消，不再有「跟随全局」这一档）
+    if(!turnOn)trailClearOne(t);      // ★「关掉」= 连已采的点一起清（同 R133 的口径）
+    renderParamPanel();               // 重画本面板（与「固定铰链」开关同一手法）
+  });
+  return sw;
+}
+/* ★★R133g：**轨迹次级页** —— 整块参数面板切成这一页。
+   用户 2026-10-07：「我的那个次级菜单不是说展开，而是**整个这个参数面板进入次级菜单**，
+   不然太冗长了」⇒ 一级页只留「运动轨迹 [胶囊] [外观 ›]」一行，长面板不再被撑长。
+   ★底部那块「全场对象 · 配对摩擦…」属于**参数页**，这里主动让位（`updateParamContacts`
+     的 `show` 也同步加了 `!trailPaneOpen`）—— 免得它贴在轨迹控件下面，被当成「轨迹的说明
+     文字」（用户：「把下面的说明性文字给删掉」）。※它本身是 R132 起的既有功能，只在这里
+     让位，**没有删任何代码**。 */
+function renderTrailSubview(ent){
+  ptitleEl.textContent=(paramLetter?paramLetter.ch:bodyName(ent))+' · 运动轨迹';
+  pvalEl.textContent='';
+  prows.innerHTML='';
+  paramRows=[];
+  var back=document.createElement('button');
+  back.type='button';back.className='tdd';back.id='trailback';
+  back.textContent='‹ 返回参数';
+  back.title='回到这个物体的参数页';
+  back.addEventListener('click',function(e){
+    e.stopPropagation();
+    trailPaneOpen=false;TRAIL_TGT=null;
+    renderParamPanel();
+    if(typeof clampParamPanel==='function')clampParamPanel();
+  });
+  var brow=document.createElement('div');
+  brow.className='tbackrow';
+  brow.appendChild(back);
+  prows.appendChild(brow);
+  /* 开关（胶囊）也在这一页里 —— 用户不必先返回参数页才能开关 */
+  var sr=document.createElement('div');
+  sr.className='tsrow';
+  var sl=document.createElement('span');sl.className='tlbl';sl.textContent='显示轨迹';
+  var sc=document.createElement('span');sc.className='tctl';
+  sc.appendChild(makeTrailSwitch(ent,true));
+  sr.appendChild(sl);sr.appendChild(sc);
+  prows.appendChild(sr);
+  /* 四件控件（线型 / 颜色 / 多久消失 / 是否消失）—— 复用同一个 `buildTrailPane`，
+     它末尾会 `syncTrailPane(pane)` 把控件态刷成这个物体的**生效值**。 */
+  var pane=document.createElement('div');
+  pane.className='tpane on';
+  pane.id='tpane';
+  buildTrailPane(pane,ent);
+  prows.appendChild(pane);
+  if(pcontacts){pcontacts.classList.remove('on');pcontacts.innerHTML='';}
+  if(typeof clampParamPanel==='function')clampParamPanel();
 }
 function fmtVal(v,spec){
   v=Math.round(v*1000)/1000;
@@ -10119,7 +10531,13 @@ function fmtVal(v,spec){
   if(spec.unit)return v+' '+spec.unit;
   return ''+v;
 }
-function closeParams(){if(pbox)pbox.classList.remove('on');paramBody=null;paramLetter=null;}
+function closeParams(){
+  if(pbox)pbox.classList.remove('on');
+  paramBody=null;paramLetter=null;
+  /* ★R133g：关面板时把轨迹次级页的状态**一并复位** —— 否则下次给**别的**物体开面板时，
+     一级页的胶囊会拿着**上一次钉住的** `TRAIL_TGT` 去写对象（「改 A 结果 B 变了」）。 */
+  trailPaneOpen=false;TRAIL_TGT=null;
+}
 // R71⑪（用户：「菜单标题写物体的具体名称（圆1、弧1…）」）：每个物体都有**稳定**的中文名。
 // 名字只在第一次被请求时生成并缓存进 B._nm —— 之后即使前面同类的物体被删掉，名字也不变
 // （否则用户按名字设好的配对系数会因为改名而「跑掉」，这比编号不连续糟得多）。
@@ -10380,7 +10798,12 @@ function refreshPairUI(){
 // 「将要生效」的值（μ=min 双方）。识别对象从来不需要先接触。
 function updateParamContacts(){
   if(!pcontacts)return;
-  var show=paramBody&&paramBody.kind==='W'&&paramBody.mb&&MW&&pbox.classList.contains('on');
+  /* ★R133g：轨迹次级页里**不显示**这块（它属于**参数页**）。用户 2026-10-07：「把下面的
+     说明性文字给删掉」—— 它当时就贴在轨迹控件下方，被当成了「轨迹的说明文字」。
+     ★血统澄清：本块是 **R132 起的既有功能**（线上 R132-10v 源码里同样存在，不是新加的），
+     所以这里只让它**在轨迹页让位**，不删任何代码。 */
+  var show=paramBody&&paramBody.kind==='W'&&paramBody.mb&&MW&&pbox.classList.contains('on')
+           &&!trailPaneOpen;
   if(!show){pcontacts.classList.remove('on');pcontacts.innerHTML='';return;}
   // R73-B（用户：「如果展开摩擦系数，就显示关于摩擦的接触，如果展开弹力系数，就显示关于弹力的
   // 接触情况」）：这一区显示的量跟着**展开的配对行**走 —— 展开 μ 行看摩擦、展开 e 行看弹性、
@@ -10484,6 +10907,9 @@ function clearAll(){
     if(typeof sparks!=='undefined'&&sparks&&sparks.length)sparks.length=0;
     if(typeof BH_MERGE!=='undefined')BH_MERGE=null;
     if(typeof BH_FINALE!=='undefined')BH_FINALE=null;
+    /* ★R133f：清屏是**用户主动**操作 ⇒ 残影轨迹（撞碎后还在淡出的那些）也要一起清掉，
+       否则点了垃圾桶画面里还留着几段没人管的轨迹。 */
+    if(typeof retiredTrails!=='undefined'&&retiredTrails)retiredTrails.length=0;
     /* ★R131-43（用户：「清屏后字符回到初始排列，和下拉按钮又重合、a 又跑回原位」）：
      *  清屏会把 dock 字符重新 dockLetter ⇒ 布局回到默认 ⇒ 必须**重跑 fixPanelSlot**
      *  把第 4 格留空、a 换行的排布重新施加。 */
@@ -11008,6 +11434,8 @@ function blastBoundary(O,cx,cy){
 function explodeBody(B){
   var cx=B.x,cy=B.y;
   var i=bodies.indexOf(B);if(i>=0)bodies.splice(i,1);
+  /* ★R133f：同 `shatter` —— 膨胀自毁也是**物理消灭**，轨迹该淡出而不是瞬失 */
+  trailRetire(B);
   spawnExplosion(cx,cy);
   for(var j=0;j<B.glyphs.length;j++){var g=B.glyphs[j];if(g.body===B){g.body=null;g.inBody=false;killLetter(g);}}
   B.glyphs=[];B.mem=[];
@@ -11040,7 +11468,36 @@ var BH_REACH=2000;
  *   （R131-23b 的补偿上限 8 倍，且"连着固定点拉不动是正确物理"）⇒ **连接体/远处物体
  *   可能永远进不了视界**。用户要的就是这个兜底：时间到就清场。 */
 var BH_FORCE_AGE=15;
+/* ★★R132-11（用户 bug `1791272101066`：「为什么放置黑洞旁边抓住字母等黑洞消失，字母就会变透明」）：
+ *   **「被黑洞吸到发虚」这个状态没有复位通道** —— 体与字母两条通道**不对称**：
+ *     · 体：`stepBlackHole` 里 `if(d>reach){O.bhFade=null;O.bhShed=0;continue;}`（出半径即复位）；
+ *     · 字母：同一位置只是 `if(fd>reach)continue;` —— `L2.fade`**只写不复位**，
+ *       而 `placeLetter` 每帧把 `d.fade` 写进 `el.style.opacity` ⇒ 一旦进过淡出半径
+ *       （`bh.r+280`），字母就**永久半透明**；黑洞消失后更是永无复位机会。
+ *   实测（`_tmp_bhfade_probe.py`，逐帧钉住字母避免被吞）：
+ *     · 进入半径 §fade=0.348 / opacity=0.348；
+ *     · 拖到 fd=1200（远超 385）后 §fade 仍 0.348、opacity 仍 0.348 ⇒ **未复位**；
+ *     · 把黑洞整个拿掉后 §fade 仍 0.341 ⇒ **未复位**。
+ *   ★为什么放在这个**每帧必跑**的位置而不是黑洞循环里：场上没有黑洞时黑洞循环整段不执行，
+ *     而"黑洞消失后字母仍然透明"恰恰是用户报的那一条 ⇒ 复位必须与"有没有黑洞"解耦。 */
+function clearBHLetterFade(){
+  for(var i=0;i<freeL.length;i++){
+    var L=freeL[i];
+    if(!L||L.dead||L.fade==null)continue;
+    var near=false;
+    for(var j=0;j<bodies.length;j++){
+      var H=bodies[j];
+      if(!H.bh||H.dead)continue;
+      if(Math.hypot(H.x-L.wx,H.y-L.wy)<=((H.bh.r||0)+280)){near=true;break;}
+    }
+    if(!near)L.fade=null;      // null ⇒ placeLetter 把 opacity 清空（回满不透明）
+  }
+}
 function stepBlackHole(dt){
+  /* ★★R132-11：每帧先复位「已经不在任何活黑洞淡出半径内」的字母淡出（见本函数上方
+   *   `clearBHLetterFade` 的整段说明）。放在最前面 ⇒ 本帧真正在半径内的字母由下面的
+   *   淡出分支重新写值，出半径/黑洞消失的一律被清掉。 */
+  clearBHLetterFade();
   for(var i=0;i<bodies.length;i++){
     var B=bodies[i];
     if(!B.bh)continue;
@@ -12167,8 +12624,391 @@ function drawPendingHint(){
   cvx.beginPath();cvx.arc(B.x,B.y,rad,0,6.2832);cvx.stroke();
   cvx.restore();
 }
+/* ★★★R133 运动轨迹（用户 2026-10-06 原话：「新增一个功能，物体运动轨迹显示，默认关闭；
+ *  固定物体不显示；开启后，运动的字符和物体会在后面显示一条黑色的会逐渐变淡消失的运动
+ *  轨迹；在旁边有一个外观按钮，点击进入次级菜单，里面可以调节是显示为实线还是虚线，
+ *  轨迹是什么颜色，多久消失，是否消失；具体位置在每个物体的参数面板里面也能单独开启和
+ *  关闭该物体的轨迹，和单独控制其外观」）
+ *
+ *  ★★R133b 规格修正（用户 2026-10-07：「我不是要在设置里面加那个总按钮，就是每个符号物体
+ *    单独一个，只控制那个物体，而且一级菜单只有那个开启的按钮和一个外观按钮，次级菜单才是
+ *    调节其他的」）：**全局总开关取消**，改为**只按物体**控制 ——
+ *    · `ent.trailOn`：**1 = 开，2 = 关**（0/undefined 仍视为"没设置过"，回落到 `TRAIL_CFG.on`
+ *      这个默认值 = false，所以**新物体默认仍然不显示轨迹**）；
+ *    · `ent.trailCfg`：{color,dash,life,fade}，缺项一律回落到 `TRAIL_CFG` 那一项（= 默认外观）；
+ *    · UI：参数面板底部「运动轨迹」= **胶囊开关 + 外观按钮**；外观在**同一面板里就地展开**
+ *      （`.tpane`，R133f 起；原来弹屏幕中央的 `#tbox` 已删）。
+ *    ⇒ `TRAIL_CFG` 现在的角色从"全局开关"退化为"**默认外观模板 + 未设置物体的回落开关**"。
+ *
+ *  ★三条硬口径（都直接来自用户原话，别顺手改）：
+ *    ① **默认关闭** ⇒ 没被单独打开过的物体一律不显示；不读 localStorage（用户没要求记忆）；
+ *    ② **固定物体不显示** ⇒ 采样与绘制都过 `trailFrozen()`（唯一真源），
+ *       判据 = 产品级的「钉住」（`ent.fixed`）或「静态且非位置驱动的壳」（`mb.isStatic && !_kinShell`）。
+ *       ★R133d 订正：原注释写的「地面/墙/顶墙也是 isStatic，一并被挡住」**不成立** ——
+ *       那四个体只进 `E.world`、不在 `bodies[]`，根本走不到 `trailFrozen`（详见该函数上方长注释）；
+ *    ③ 轨迹画在 **canvas 最底层**（`render()` 里 clearRect 之后第一件事）：
+ *       物体画在 canvas 上、字母是 z-index:5 的 DOM ⇒ 轨迹天然在两者「后面」，
+ *       不需要也不应该去动任何既有绘制顺序。
+ *
+ *  ★为什么「距上一点 ≥ TRAIL_MIN_SEG 才记」而不是每帧都记：
+ *    · 静止（但没被固定）的物体不会长点 ⇒ 不画点数 = 符合「运动的…才显示轨迹」；
+ *    · 采样由位移驱动而非时间驱动 ⇒ 慢速长轨迹、快速短轨迹，视觉上都连续；
+ *    · 加 `TRAIL_MAX_PTS` 硬上限 ⇒ 内存与每帧 stroke 次数都有界（不会因「不消失」爆掉）。
+ *  ★时间轴用 `lastDt`（交互层 dt，最小 1/240s）而不是 `dt`（受 Δt 时间倍率控制）：
+ *    Δt=0 时物体不动但用户仍能拖动 ⇒ 拖动应该留痕；且「多久消失」按真实秒数走更直觉。
+ *  ★探针接口：`window.TRAIL_CFG`、`window.__trailStats()`（只读统计，见文件尾部 UI 段）。 */
+var TRAIL_CFG={on:false,color:'#111111',dash:false,life:1.6,fade:true,width:2.5};
+var TRAIL_MIN_SEG=2;      // 采样阈值(px)：与上一点的距离小于它就丢弃
+var TRAIL_MAX_PTS=900;    // 每个实体的点数上限
+var TRAIL_DASH_ON=9,TRAIL_DASH_OFF=7;   // ★R133f：虚线的 on/off 段长（**唯一真源**）——
+                          //   下面的 `lineDashOffset` 续相位必须用同一个周期，别各写一份。
+var TRAIL_SEG_MIN_PTS=10; // ★★R133g：**每段最少点数**（取代 R133f 的 `TRAIL_NA=96` 透明度档数）。
+                          //   为什么必须换（2026-10-07 用户：「还是一段一段的，还有很多个点
+                          //   在轨迹中，你就不能就搞成那种线条轨迹吗」）：按透明度档断 path 时，
+                          //   一条 200 点的轨迹被切成 30~90 段、**每段只剩 1~2 个点**，而每段
+                          //   两端各画一个 round 半圆帽 ⇒ 叠出一串「圆点 / 短杠」
+                          //   （`_diag_r133g_multi.py` D2 的 3× 近景实拍）。
+                          //   ⇒ 改成按「每段最少点数」分段：段内是**长折线**，透明度由段内
+                          //     **线性渐变**连续过渡，段间接缝 alpha 天然相等。
+var TRAIL_SEG_MAX=24;     // 段数上限：再长的轨迹也不超过这么多段（每帧 stroke 次数有界）。
+                          //   ★为什么不用「固定档数」：固定 96 档会把短轨迹也切碎；按点数分段
+                          //     才让「段」永远是一条有长度的线，而不是一个点。
+var trailTime=0;          // 轨迹自己的时间轴（秒），只由 stepTrails 推进
+/* 固定体判据 —— ★★唯一真源：采样（stepTrails）、绘制（drawTrails）、面板「整行不出」
+   （renderTrailPanel）三处都调它，避免「两处各写一份 isStatic 判断」那种口径漂移。
+   ★★R133d 收窄（2026-10-07，由 `_verify_r66.py` 6c 判红追出来）：原判据把 `mb.isStatic`
+   直接当「冻结」，注释给的理由是「引擎常驻的地面/墙/顶墙也是 isStatic，一并被挡住」——
+   **这条理由经查不成立**：ground/wl/wr/wt 只 `Composite.add(E.world,…)`，**从来不进 `bodies[]`**
+   （见 ensureMatter 尾部），永远走不到本函数；它们也另有 `makeGround` 器件（那条是 `fixed`）。
+   而这条判据**真的会误伤弹簧**：弹簧的 `B.mb` 是 `springMirror` 造的**位置驱动**静态薄板
+   （每帧 setPosition/setAngle 跟着两端走）⇒ 明明会动的弹簧被判冻结 ⇒ 面板里「运动轨迹」
+   整行消失（点也不采），`_verify_r66.py` 6c 当场红。
+   ⇒ 现在的口径：`fixed`（产品级「钉住」唯一真源：右键固定 / 传送带 / 地面器件 / 圆轨 / 复制继承）
+     ＋ **静态且非位置驱动的壳**（`mb._kinShell`，见 springMirror 创建处）。
+     `mb.isStatic` 这一条**保留**（不删）作兜底网 —— 它拦的是「没有 fixed 却被置成静态」的体，
+     目前这一路不存在，但删掉它属于「删看起来多余的代码」，纪律上要先问它拦的是什么。 */
+function trailFrozen(ent){
+  if(!ent||ent.dead)return true;
+  if(ent.fixed)return true;                   // 右键固定过的物体 / 传送带 / 地面器件 / 圆轨
+  if(ent.mb&&ent.mb.isStatic&&!ent.mb._kinShell)return true;   // 静态且**不是**位置驱动的壳
+  return false;
+}
+function trailEnabled(ent){
+  var s=ent?ent.trailOn:0;
+  if(s===1)return true;
+  if(s===2)return false;
+  return !!TRAIL_CFG.on;
+}
+/* ★★R133d：轨迹控件的**作用对象归一** —— 贴在体上的字母（`inBody && body`）由**宿主的轨迹代表**它。
+   与 `stepTrails` 的采样口径**同源**：那里对贴体字母 `if(d.inBody||d.body)continue`（两边都记会画出
+   两条重叠的线）。没有这一层的话，「公式示例 / 名字字母」这类**符号物体**的轨迹开关会是个**死开关**：
+   右键符号物体命中的是**字母**（`menuLetter`）⇒ `trailTarget()` 返回字母 ⇒ `trailOn=1` 写在字母上，
+   而字母永远不被采样、宿主又还是关的 ⇒ **开关是开的、一个点都出不来**。
+   ★2026-10-07 实测（用户：「为什么我打开了轨迹开关，但是那个的运动还是没有轨迹呢？」）：
+     面板挂在**字母**上 ⇒ 点数 0 → 0；面板挂在**同一个物体的本体**上 ⇒ 9 → 56。 */
+function trailOwner(ent){
+  if(!ent)return null;
+  return (ent.inBody&&ent.body)?ent.body:ent;
+}
+function trailCfgOf(ent){
+  var o=(ent&&ent.trailCfg)||{}, g=TRAIL_CFG;
+  return {
+    color:(o.color!=null)?o.color:g.color,
+    dash:(o.dash!=null)?o.dash:g.dash,
+    life:(o.life!=null)?o.life:g.life,
+    fade:(o.fade!=null)?o.fade:g.fade,
+    width:(o.width!=null)?o.width:g.width
+  };
+}
+function trailRGB(hex){
+  hex=String(hex==null?'#111111':hex).replace('#','');
+  if(hex.length===3)hex=hex.charAt(0)+hex.charAt(0)+hex.charAt(1)+hex.charAt(1)+hex.charAt(2)+hex.charAt(2);
+  var n=parseInt(hex,16);
+  if(isNaN(n))return [17,17,17];
+  return [(n>>16)&255,(n>>8)&255,n&255];
+}
+function trailPush(ent,x,y){
+  if(!trailEnabled(ent))return;
+  var L=ent.trail;if(!L)L=ent.trail=[];
+  var lp=ent.trailLast;
+  if(lp&&Math.abs(x-lp.x)<TRAIL_MIN_SEG&&Math.abs(y-lp.y)<TRAIL_MIN_SEG)return;
+  ent.trailLast={x:x,y:y};
+  L.push({x:x,y:y,t:trailTime});
+  if(L.length>TRAIL_MAX_PTS)L.splice(0,L.length-TRAIL_MAX_PTS);
+}
+/* ★★R133：关掉轨迹时**必须把已采的点一起清掉**，不能只停画。
+   否则再打开时（尤其「一直保持不消失」档）旧路径会整条冒回来，且与关闭期间物体实际走过的
+   位移连成一条横跨画面的「瞬移直线」——那是看得见的假轨迹。
+   ★R133b：全局开关取消后，清点只剩两处触发 —— 参数面板那颗胶囊的「关」，以及探针的
+     `__trailReset()`。原 `trailDropHidden()`（"只清因全局关闭而不再显示的实体"）已随之删除：
+     它存在的唯一理由就是"全局关掉时别误伤实体自己的强制开启"，而那个场景已不存在。 */
+function trailClearOne(ent){if(!ent)return;ent.trail=null;ent.trailLast=null;}
+/* ★★R133e（用户 2026-10-07）：「对于**字符组合体**的轨迹，只追踪其**中心**的，而不追踪其
+   某一个字符，**解散后则自动回到默认没有轨迹的状态**」。
+   前半句 = **现状本来就成立**，不是要改的：实测（`_diag_r133e_split_trail.py`）组合体位移 6 次
+   采到 7 点、**末点与体中心偏差 dx=0 dy=0**；贴体字母的 `trail` 恒为 undefined（`stepTrails`
+   里 `if(d.inBody||d.body)continue;` 一个字都不采）。
+   后半句 = **当时的缺陷**：两条解散入口都**不碰**轨迹状态 ——
+     · `splitOne`（双击拆分）**体留着**（只 `refresh(B)`）：实测 `trailOn` 仍是 1、点数 7→23→28
+       ⇒ 组合体已经散架了，轨迹还在画、还在采；
+     · `shatter(B,'split')`（撞碎）体被移除、但**字母留下**：字母一旦脱体就不再被 `stepTrails`
+       跳过（那里只跳 `inBody||body`），若它合并前被单独开过轨迹就会当场冒回来 —— 还带着合并前
+       的旧点，于是与"解散后实际走过的位移"连成一条横跨画面的假轨迹（同 R133 那条坑的另一面）。
+   ⇒ 复位口径 = **回到「从没设过」**：`trailOn` 写 0（`trailEnabled` 里 0 走"回落默认值"那一支，
+     与 undefined 完全等价）＋ **把已采的点一起清掉**（同 R133 口径：只停画不清点，再打开会整条冒回来）。
+   ★**只复位轨迹，不动 `trailCfg`（外观）**：外观是用户亲手调过的偏好，「解散」没有理由把它抹掉。
+   ★不放进 `freeLetter` 里统一做：那个函数还被 `gravFieldToG`（新建字母）、`dissolveSpring`
+     （`GD()` 新建）等"本来就没有轨迹"的路径调用，`GD` 每次都是新对象 ⇒ 在那里做只是白跑；
+     真正需要复位的是**从体上摘下来/被拆散**的那两类（本函数的两处调用点）。 */
+function trailResetOn(ent){
+  if(!ent)return;
+  ent.trailOn=0;
+  trailClearOne(ent);
+}
+/* ★★R133g（用户 2026-10-07：「这个字符为什么用力撞到墙壁后，轨迹会自动关闭？」）：
+   **继承**宿主的轨迹设置 —— 撞碎时给碎出来的字符用。
+   ★与 `trailResetOn` 的唯一区别就是「用户有没有主动解散」：
+     · `splitOne`（双击拆分）＝ 用户**主动**操作 ⇒ `trailResetOn` 回默认（R133e 的明确要求）；
+     · `shatter`（撞墙碎）＝ **物理事件**，用户没关过 ⇒ 本函数继承，轨迹接着往下画。
+   ★`trailCfg` 走**浅拷贝**而不是共享引用：宿主此刻可能已被登记进 `retiredTrails[]`
+     （`shatter` 开头的 `trailRetire(B)` 就干了这事），共享引用会让「之后改碎块的线色」
+     把那条还在淡出的残影一起改掉 —— 残影应当保持它被撞那一刻的样子。
+   ★`trailOn` 直接搬（含 `undefined`）⇒ 没设过的宿主不会凭空给字符一个「开」，
+     仍然走 `trailEnabled` 的回落默认，语义与「从没设过」一致。 */
+function trailInherit(dst,src){
+  if(!dst||!src)return;
+  dst.trailOn=src.trailOn;
+  if(src.trailCfg){
+    var c={},k;for(k in src.trailCfg)if(src.trailCfg.hasOwnProperty(k))c[k]=src.trailCfg[k];
+    dst.trailCfg=c;
+  }else dst.trailCfg=undefined;
+  trailClearOne(dst);        // 新放生的字符从零开始记（只清点，不动刚继承来的设置）
+}
+/* ★★R133h（用户 2026-10-07：「这个字符为什么用力撞到墙壁后，轨迹会自动关闭？」—— **真因在这里**）：
+   **自由字母原地提升成体**（拖动松手 / 右键 promote）＝ **宿主切换**。
+   R133f 修的是「撞碎当帧体被摘出 bodies[] ⇒ 轨迹停画」（→ `trailRetire` 残影池），
+   R133g 修的是「碎出的字符不继承宿主的轨迹设置」（→ `trailInherit`）—— 两条都对，但都只管
+   **撞碎那一刻**。真正让用户看到「自动关闭」的是**撞碎之后的下一步**：
+     · 撞碎 ⇒ 字母 L 得到 `trailOn=1` 与那条已采的点（R133g 生效，轨迹正常继续画）；
+     · 用户**接着拖动这个字母松手** ⇒ `pointerup` 走 `else if(isMass(L)||L.type==='G')`
+       ⇒ `L.body=nb; L.inBody=true;` 把它**原地提升成一个新体 nb**；
+     · 轨迹的采样（`stepTrails` 的 `if(d.inBody||d.body)continue`）与绘制（`drawTrails`）
+       都按 `trailOwner()` **归一**（贴体字母由宿主体代表）⇒ 归一后读的是 `nb.trailOn`
+       ＝ `undefined` ⇒ `trailEnabled` 回落 `TRAIL_CFG.on`（默认 **false**）
+       ⇒ **轨迹当场关闭**；而 L 身上那条点再也没人画（L 成了贴体字母，被直接 continue）。
+   ★实测（`_diag_r133i_lettersplit_trail.py`，真实手势链：拖出 m → 开轨迹 → 甩碎 → 拖字母松手）：
+     提升前后「这一帧真正会被画出来的点数」**28 → 0**，而 `L.trail` 里那 28 个点**一个没少**
+     —— 与用户描述（"轨迹自动关闭"）逐字吻合。
+   ⇒ 提升成体时把轨迹**过户**给新宿主：开关 + 外观 + **已采的点**。
+   ★点必须**搬**、不能清：新宿主就建在字母**当前**位置（`BODY(L.wx,L.wy)`），搬过去轨迹天然连续；
+     清掉就是肉眼可见的断点。（所以这里用不了 `trailInherit` —— 它只搬设置、且会 `trailClearOne`。）
+   ★源只清点、**不动它的 `trailCfg`/`trailOn`**：它从此是贴体字母、永不被采样；留着设置没有副作用，
+     而"解散后回默认"那条由 `trailResetOn`（`splitOne`/`shatter` 两处调用点）显式负责，口径不重叠。
+   ★`host` 自己**没设过**才接受源的设置：提升出来的宿主必然是新建的（`trailOn` 恒 undefined）⇒ 照搬；
+     而 `attach()`（把字母并进**已存在**的物体）那条走 `dropPts=true` 且**不覆盖**宿主已有的开关
+     —— 否则「拖一个带轨迹的字母并到开着轨迹的物体上」会把物体的轨迹**反向关掉**。
+   ★`dropPts=true`（并入已有物体）：只过户开关，**不倒点** —— 宿主位置与字母历史不重合，
+     倒进去会凭空连出一条假线（同 R133e 那条坑的另一面）。
+   ★`_trailAdoptedTo` 一次性守卫：同一对只搬一次。没有它的话，第二次调用时 `src.trail` 已是 null，
+     会把**宿主刚采的点**一起清掉（清点动作是幂等的，但"搬"不是）。 */
+function trailAdopt(host,src,dropPts){
+  if(!host||!src||host===src)return;
+  if(src._trailAdoptedTo===host)return;
+  src._trailAdoptedTo=host;
+  if(typeof host.trailOn==='undefined')host.trailOn=src.trailOn;
+  if(host.trailCfg==null&&src.trailCfg){
+    var c={},k;for(k in src.trailCfg)if(src.trailCfg.hasOwnProperty(k))c[k]=src.trailCfg[k];
+    host.trailCfg=c;
+  }
+  if(!dropPts&&host.trail==null&&src.trail){
+    host.trail=src.trail;host.trailLast=src.trailLast;
+  }
+  trailClearOne(src);
+}
+function trailClearAll(){
+  var i;for(i=0;i<bodies.length;i++)trailClearOne(bodies[i]);
+  for(i=0;i<freeL.length;i++)trailClearOne(freeL[i]);
+}
+/* ★★R133f（用户 2026-10-07）：「这个字符为什么用力撞到墙壁后，轨迹会自动关闭？」
+   实测（`_diag_r133f_shattertrail.py`，A/B 对照）：撞碎**当帧**「这一帧真正会被画出来的点数」
+   从 7 → 0，而 `B.trail` 里那 7 个点**一个没少** —— 真因是 `shatter` 把体从 `bodies[]` 里
+   摘掉了，而 `drawTrails` 只遍历 `bodies[]` + 非贴体 `freeL[]` ⇒ **再也遍历不到它**、
+   轨迹当帧停画（视觉瞬失）；**不是**被 `trailResetOn` 关掉的（那行只把字母的字段从
+   `undefined`/「没设过」写成 `0`/`null`，`trailEnabled` 对这两种表示判定完全相同 ⇒ 对可见性零影响）。
+   ⇒ 体被**物理消灭**时，把**这个实体**登记进一个旁路表 `retiredTrails[]`：它不进 `bodies[]`、
+     不参与采样，只由 `drawTrails` 继续画它身上那条轨迹，直到按**它自己的 life** 淡尽。
+   ★★为什么登记「**实体**」而不是「轨迹数组的快照」（初版写成快照，实测打红了两把尺子）：
+     ① **别把 `ent.trail` 置 null**。初版把点数搬进伪实体、把 `ent.trail=null`，看着等价，
+        其实是一条**看不见的语义变更**：旧尺子 `_verify_r133_trail.py` 的 C/G/I 读的就是
+        `__W.trail`（=「谁持有这些点」这个内部表示），当场被打红（点数 38 → 0），
+        而**画布上的像素差一模一样**（575 → 575）⇒ 红的是表示，不是可见行为。
+        而且 `shatter` / `explodeBody` **都先 `bodies.splice` 再调本函数** ⇒ 实体此刻早已
+        既采不到也画不到，置 null 纯属多余。⇒ 保留 `ent.trail` 原样，只登记实体。
+     ② 外观继续走**活的**回落链 `trailCfgOf(ent)`（实体 `trailCfg` → 全局 `TRAIL_CFG`），
+        **不做快照**。初版把 cfg 冻在登记那一刻、还把寿命写成 `max(life,2.0)`，后果是
+        用户改「多久消失」对残影**当场失效**（实测 `_verify_r133_trail.py` 的 G：
+        设 life=0.3 等 0.9s 后残影仍在 ⇒ 差异 810，应 ≤80）。
+   ★只在**物理消灭**这条路接（`shatter` 撞墙碎/撞出公式、`explodeBody` 膨胀自毁）；
+     用户**主动**删除（`killBody` 那一路：垃圾桶、双击解散弹簧）不接 —— 主动操作轨迹该立刻消失。 */
+var retiredTrails=[];          // 已被物理消灭、但轨迹还要继续淡出的**实体**
+var RETIRED_MAX=12;            // 条数上限（兜底；正常路径靠下面的 life 过期清理）
+function trailRetire(ent){
+  if(!ent||ent.trailRetired)return;       // 幂等：同一实体只登记一次，否则会被画两遍（颜色叠深）
+  ent.trailRetired=true;
+  if(!ent.trail||ent.trail.length<2)return;   // 本来就没画过轨迹 ⇒ 不用登记
+  retiredTrails.push(ent);
+  if(retiredTrails.length>RETIRED_MAX)retiredTrails.splice(0,retiredTrails.length-RETIRED_MAX);
+}
+/* 取「画这条轨迹该用哪套外观」。★唯一的特殊分支：已退役的实体强制 `fade=true` ——
+   实体已经不存在 ⇒ 面板也没了 ⇒ 若它生前被设成「一直保持不消失」，残影会以满不透明
+   永久钉在画布上而用户无从清除。`fade` 之外（颜色/线宽/虚线/寿命）**一律沿用活的设置**。 */
+function trailCfgForDraw(ent){
+  var c=trailCfgOf(ent);
+  if(ent&&ent.trailRetired)c.fade=true;
+  return c;
+}
+function stepTrails(dt){
+  trailTime+=dt;
+  var i;
+  for(i=0;i<bodies.length;i++){
+    var B=bodies[i];
+    if(!B||B.dead)continue;
+    if(trailFrozen(B))continue;               // ★「固定物体不显示」：连点都不采
+    trailPush(B,B.x,B.y);
+  }
+  /* 自由字母单独采（它是 DOM，坐标在 wx/wy）；**贴在体上的字母跳过** ——
+     它跟着体走，体的轨迹已经代表它了，两边都记会画出两条重叠的线。 */
+  for(i=0;i<freeL.length;i++){
+    var d=freeL[i];
+    if(!d||d.dead)continue;
+    if(d.inBody||d.body)continue;
+    if(d.state!=='free'&&d.state!=='grab')continue;
+    trailPush(d,d.wx||0,d.wy||0);
+  }
+  /* ★R133f 残影过期清理：判**最后一个点**（索引最大的 = 时间最新的那个）—— 它都过了寿命
+     ⇒ 整条已经看不到任何一段了，才丢掉。
+     ★★别拿 `trail[0].t`（最老的点）来判：那是「轨迹开始变淡」的时刻，不是「淡尽」的时刻。
+       按最老点判会把**还没淡完的后半段一起扔掉**，残影当场被截断（撞碎时轨迹往往已存在
+       1s 多 ⇒ 会只剩 0.1~0.2s 的尾巴，等于没修）。
+     ★寿命取**活链** `trailCfgForDraw(rt).life`（不是登记时的快照）⇒ 用户改「多久消失」
+       对残影当场生效；顺带这条清理也是 `retiredTrails` 的**唯一**出栈口（列表不会无限长）。 */
+  for(i=retiredTrails.length-1;i>=0;i--){
+    var rt=retiredTrails[i], rL=rt.trail;
+    var rLife=+trailCfgForDraw(rt).life;if(!(rLife>0))rLife=1.6;
+    if(!rL||rL.length<2||(trailTime-rL[rL.length-1].t)>rLife)retiredTrails.splice(i,1);
+  }
+}
+/* 画一条轨迹。★★R133g 现行口径（取代 R133f 的「透明度细档」方案）：
+   · 断 path 的规则 = **每段最少点数**（`TRAIL_SEG_MIN_PTS`）⇒ 段内是一条**长折线**；
+   · 段内 alpha 用 `createLinearGradient` **连续过渡**，两个 stop 取段首/段尾两点自己的 alpha
+     ⇒ 下一段的起点 alpha 正好等于本段的终点 ⇒ **接缝处透明度天然相等**，无色阶跳变；
+   · `lineCap='butt'` ⇒ **接缝零叠加**（round 会在每个接缝处叠出两个半圆帽 = 一串圆点）；
+   · 虚线相位用累计弧长 `cum[]` **跨段接着排**（否则每段都从「实」的头 9px 重来 ⇒ 虚线
+     退化成实线 —— `_verify_r133_trail.py` 的 F 判据量的正是这个）。 */
+function trailStrokeOne(ent){
+  var L=ent.trail;
+  if(!L||L.length<2)return;
+  var cfg=trailCfgForDraw(ent);          // ★R133f：退役实体会在这里被强制 fade=true
+  var life=+cfg.life;if(!(life>0))life=1.6;
+  var rgb=trailRGB(cfg.color);
+  var now=trailTime, i, n=L.length;
+  var dPer=TRAIL_DASH_ON+TRAIL_DASH_OFF;
+  /* ★★R133g（用户 2026-10-07：「还是一段一段的，还有很多个点在轨迹中，你就不能就搞成那种
+     线条轨迹吗」）：`lineCap` 从 **round 改成 butt**。
+     旧实现按透明度档断 path（`TRAIL_NA`=96），每段两端各画一个 round 半圆帽 ⇒ 接缝处两个
+     半圆叠在一起 ⇒ 画面上出现一串明显更亮的**圆点 / 短杠**（`_diag_r133g_multi.py` D2 的
+     3× 近景实拍：一条连续渐隐线上均匀散布着一串深色圆点）。
+     butt 端面彼此对齐 ⇒ 接缝**零叠加** ⇒ 真正连续的一条线。
+     ★轨迹两端为什么也敢用 butt：起点（最老的点）alpha 已≈0，**看不见**；终点就压在物体
+       身上、**被物体挡住** —— 两端都不需要圆头。`lineJoin` 保持 round（那是段**内部**的
+       折角，与接缝无关）。 */
+  cvx.lineCap='butt';cvx.lineJoin='round';
+  cvx.lineWidth=(+cfg.width>0)?+cfg.width:2.5;
+  cvx.setLineDash(cfg.dash?[TRAIL_DASH_ON,TRAIL_DASH_OFF]:[]);
+  /* 每个点自己的**连续**透明度（不再是「档位」）。 */
+  function alphaAt(idx){
+    if(!cfg.fade)return 1;
+    var a=1-(now-L[idx].t)/life;
+    if(a<0)a=0;else if(a>1)a=1;
+    return a;
+  }
+  /* 虚线相位要**跨段接着排**（否则每段都从「实」的头 9px 重新开始 ⇒ 虚线退化成实线 ——
+     `_verify_r133_trail.py` 的 F 判据量的就是这个）。预计算累计弧长，只在走虚线时算。 */
+  var cum=null;
+  if(cfg.dash){
+    cum=[0];
+    for(i=1;i<n;i++){
+      var dx=L[i].x-L[i-1].x, dy=L[i].y-L[i-1].y;
+      cum[i]=cum[i-1]+Math.sqrt(dx*dx+dy*dy);
+    }
+  }
+  /* ★★R133g：分段规则从「按透明度档」改成「**按每段最少点数**」——
+     段内是一条**长折线**（≥ `TRAIL_SEG_MIN_PTS` 个点），段数不超过 `TRAIL_SEG_MAX`。
+     段内描边用**线性渐变**：stop(0)=首点 alpha、stop(1)=末点 alpha ⇒ 下一段的 stop(0)
+     正好等于本段的 stop(1) ⇒ **接缝处透明度天然相等** ⇒ 既没有色阶跳变、也没有断点。
+     ★「一直保持不消失」档（fade=false）没有渐变需求 ⇒ 整条一段画完（零接缝、还更省）。 */
+  var segN=cfg.fade?Math.max(1,Math.min(TRAIL_SEG_MAX,Math.round((n-1)/TRAIL_SEG_MIN_PTS))):1;
+  var per=segN>1?((n-1)/segN):(n-1);
+  for(var s=0;s<segN;s++){
+    var i0=(s===0)?0:Math.round(s*per);
+    var i1=(s===segN-1)?(n-1):Math.round((s+1)*per);
+    if(i1<=i0)continue;
+    var a0=alphaAt(i0), a1=alphaAt(i1);
+    if(a0<=0.004&&a1<=0.004)continue;          // 整段都已淡尽 ⇒ 连 path 都不开
+    var pA=L[i0], pB=L[i1];
+    var ddx=pB.x-pA.x, ddy=pB.y-pA.y;
+    if(cfg.fade&&(ddx*ddx+ddy*ddy)>0.25){
+      var g=cvx.createLinearGradient(pA.x,pA.y,pB.x,pB.y);
+      g.addColorStop(0,'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+','+a0.toFixed(4)+')');
+      g.addColorStop(1,'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+','+a1.toFixed(4)+')');
+      cvx.strokeStyle=g;
+    }else{
+      var am=(a0+a1)/2;
+      cvx.strokeStyle='rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+','+am.toFixed(4)+')';
+    }
+    if(cfg.dash)cvx.lineDashOffset=-(cum[i0]%dPer);   // 接着上一段的虚线相位
+    cvx.beginPath();
+    cvx.moveTo(pA.x,pA.y);
+    for(i=i0+1;i<=i1;i++)cvx.lineTo(L[i].x,L[i].y);
+    cvx.stroke();
+  }
+}
+function drawTrails(){
+  /* ★保存/恢复 ctx 状态：本函数排在 render() 最前，后面还有一大堆绘制代码，
+     它们多数假设 lineCap/lineJoin/setLineDash 是默认值（虚线残留尤其致命）。 */
+  var _lc=cvx.lineCap,_lj=cvx.lineJoin,_lw=cvx.lineWidth,_ss=cvx.strokeStyle,_ld=null,_ldo=0;
+  try{_ld=cvx.getLineDash();_ldo=cvx.lineDashOffset;}catch(e){}
+  var i,B,d;
+  for(i=0;i<bodies.length;i++){
+    B=bodies[i];
+    if(!B||B.dead)continue;
+    if(trailFrozen(B))continue;
+    if(trailEnabled(B))trailStrokeOne(B);
+  }
+  for(i=0;i<freeL.length;i++){
+    d=freeL[i];
+    if(!d||d.dead)continue;
+    if(d.inBody||d.body)continue;
+    if(trailEnabled(d))trailStrokeOne(d);
+  }
+  /* ★R133f 残影：体已被物理消灭（撞碎 / 膨胀自毁），轨迹接着淡出，不再当帧瞬失。
+     ★★必须**同样过 `trailEnabled`**（初版漏了这一步，被 `_verify_r133_trail.py` 的 G 判红）：
+       否则「关掉轨迹」只关得住活体，残影照画 —— 实测**把轨迹整个关掉**，画布上仍留着
+       一条完整的竖直下落轨迹（2222 像素差），用户看到的就是「关了还亮着」。
+       语义上也正是对的：残影画的仍是**这个物体自己的**轨迹，它的开关当然还算数。 */
+  for(i=0;i<retiredTrails.length;i++){
+    if(trailEnabled(retiredTrails[i]))trailStrokeOne(retiredTrails[i]);
+  }
+  cvx.lineCap=_lc;cvx.lineJoin=_lj;cvx.lineWidth=_lw;cvx.strokeStyle=_ss;
+  cvx.setLineDash(_ld||[]);
+  cvx.lineDashOffset=_ldo||0;
+}
 function render(){
   cvx.clearRect(0,0,W,H);
+  /* ★★R133：轨迹必须**最先画**（在 clearRect 之后、任何实体之前）——
+     这就是用户说的「在后面显示一条轨迹」：物体画在 canvas 上、字母是 z-index:5 的
+     DOM，两者都盖在轨迹之上。 */
+  drawTrails();
   rodSnapPreviewScan();
   if(ROD_SNAP_PREVIEW){
     /* 实心红点 = 杆端（一直跟着杆动，用户才知道自己杆端在哪） */
@@ -16824,8 +17664,11 @@ var REC_MS=30000;                 // ★时长上限 30s（用户指定）
 var REC_MAX=3600;                 // 帧数硬兜底 = 120fps × 30s
 var REC_EVMAX=4000;
 /* ★手工维护：每次给产品做完有意义的改动就改这里，导出的 JSON 里带它 ⇒ 一眼看出录屏出自哪一版
- *  （历次定位最费时的第一件事就是「用户跑的是本地新版还是线上旧版」）。 */
-var REC_APP_VER='R132-10u-export';
+ *  （历次定位最费时的第一件事就是「用户跑的是本地新版还是线上旧版」）。
+ *  ★R133c：采纳 PR #8 时顺手补上 —— 本地这一版累计了 R133 轨迹 + R133b 轨迹 UI + PR#8 录制导出，
+ *    而这一行当时还停在 'R132-10u'（R133/R133b 都漏改了，导出 JSON 里一直谎报版本）。
+ *  ★R133d：修「轨迹开关在符号物体上是死开关」（`trailOwner` 归一）+ 冻结体不出轨迹那一行。 */
+var REC_APP_VER='R133e';
 function recNow(){return +(performance.now()).toFixed(1);}
 function recSnap(full){
   /* ★R132-10u：`full=true` 只用于 `REC.init`（录制起点的完整快照）。同一体的「物理语义」字段
@@ -16847,7 +17690,18 @@ function recSnap(full){
      *   原来这里 `if(!mb&&!_isRod)continue;` 把**整类静默跳过** ⇒ 录屏里从来看不见用户放在
      *   画布上的 q 场源体，几轮定位都被它骗了。现在：无 mb 的**场源体也要记**（用 B.x/B.y）。 */
     var _isField=!!(B&&(B.kind==='B'||B.kind==='E'||B.kind==='q'||B.kind==='I'));
-    if(!mb&&!_isRod&&!_isField)continue;
+    /* ★★R133h：**无 Matter 镜像的「字母体」也必须记**。R131-47 补过杆/铰链、R132-9ze 补过
+     *   场源体 B/E/q/I，但**通用这一类（从调色板拖到画布上的字符落成的体）一直漏着** ——
+     *   它 `kind:null`、有 `massG/glyphs`、`mb` 不存在，正好落进这个 `continue`。
+     *   下面的 `else` 分支本来就按自身 `B.x/B.y/vx/vy/om/th` 记，放开判据零成本。
+     *   ★实测后果（用户录屏 `rec_2026-10-07-08-20-38.json`）：3075 帧里 `bs` **没有一帧非空**，
+     *     而用户在那 21 秒里做了 **6 段实质拖拽**（含一次 560ms / 529px 的猛甩撞顶墙）——
+     *     主角全程不可见：我因此两轮把它当成"自由字母"查错了对象；回放时画布空无一物，
+     *     右键菜单弹不出来、参数面板打不开，命中率被压到 20/37。
+     *   ⇒ 判据改成「场上只要有**字形**（质量字母 / glyphs / mem）就记，不论有没有 Matter 镜像」。
+     *   ★`B` 可能为空（`bodies[]` 里的洞）：`_isRod`/`_isField` 本来就带 `B&&` 保护，这里也要带。 */
+    if(!mb&&!_isRod&&!_isField
+       &&!(B&&(B.massG||(B.glyphs&&B.glyphs.length)||(B.mem&&B.mem.length))))continue;
     var o={i:i,k:B.kind};
     if(B.wshape)o.s=B.wshape;
     if(mb){
@@ -17051,7 +17905,7 @@ function recStart(){
                                 +'（最多 30 秒，满 30 秒自动停止；右上角有红点提示）';
 }
 function recStop(){
-  if(REC.on)REC.ready=true; // 保留这一段，直到用户明确选择清空并重录。
+  if(REC.on)REC.ready=true; // ★R133c(PR#8)：这一段留着，直到用户明确选「清空并重录」。
   REC.on=false;recHook(false);
   if(REC.raf)cancelAnimationFrame(REC.raf);
   REC.raf=0;recEv('stop',null);recUI();
@@ -17122,9 +17976,13 @@ if(recbtn)recbtn.addEventListener('click',function(){
    *   编辑文字说明，提交就可以将 json 文件和文字说明一起提交到后端」。
    *   ⇒ 停止后走 openBugDlg()；下载降级为弹框里的「仅下载文件」备选。 */
   if(REC.on){recStop();openBugDlg();}
+  /* ★R133c(PR#8)：有待导出的记录时，按钮是「导出记录」⇒ 直接开导出窗口，
+     绝不能再掉进 `else{recStart()}` —— 那会把刚录好的一段（帧/事件/起点快照）全清掉。 */
   else if(REC.ready){openBugDlg();}
   else{recStart();}
 });
+/* ★R133c(PR#8)：只有「有待导出记录」时这颗按钮才可见（`recUI` 里 `hidden=!REC.ready`）。
+   点它 = 明确放弃这一段 ⇒ 先关掉可能还开着的提交框，再重新开录。 */
 if(recnew)recnew.addEventListener('click',function(){
   if(!REC.on&&REC.ready){closeBugDlg();recStart();}
 });
@@ -17189,24 +18047,30 @@ window.openBugDlg=openBugDlg;window.bugSubmit=bugSubmit;window.closeBugDlg=close
    提交时间 名称 状态 备注（就是已修复，待修复，待提交）。先只放目前才归纳的那些，
    其他的下一批提交」）。
    ★R132-10v 已并入回收站第二批 42 条（用户 2026-10-06「可以，一并并入」）；
-     该批录屏尚未下载分析 ⇒ 状态一律「未判定」+备注「录屏待分析」，**不写「待修复」**
-     （写「待修复」等于凭空断言 bug 存在）。合计 86 条（第二批 42 + 第一批 44）。
+     该批录屏已全部下载并跑过 `_an_bugs.py` ⇒ 状态一律「未判定」+备注＝**机器预筛档位**
+     （机检:检出异常 20 / 机检:未检出异常 18 / 机检:无画面 4），**不写「待修复」**
+     （机器预筛 ≠ 人工判定，写「待修复」等于凭空断言 bug 存在）。合计 86 条（第二批 42 + 第一批 44）。
+   ★★R132-11（2026-10-06，用户「批量查看 bug 列表，优先修复容易修的」）：第二批里**实测复现并修好 8 条**，
+     状态「未判定」→「已修复」，备注＝`机检:<原档位>｜R132-11 已修复：<依据>`（**只追加、不覆盖**档位原文，
+     因为「机器预筛」是当初入册的理由）。★这是**人工判定**（逐条真跑探针量过），与上面那条禁「凭空断言」的
+     纪律不冲突。修完状态分布 = 未判定 34 / 已修复 10 / 待修复 40 / 待提交 2。
+     ★★「已修复」只代表**本地这份 index.html** 修好了 —— 线上仍是旧版，push 之后才对用户生效。
    ★★时间**不硬编码**：编号本身就是「毫秒时间戳(UTC)」，显示时 +8h 得北京时间
      —— 单一真源，避免清单与表两处时间打架（已用 `_gen_bugfix.py` 交叉校验过 86 条）。
    每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
 var BUGFIX_LIST=[
   ['1791273176929','「Mmv?」无有效信息','未判定','机检:未检出异常'],
-  ['1791272101066','黑洞消失后被抓的字母变透明','未判定','机检:检出异常'],
+  ['1791272101066','黑洞消失后被抓的字母变透明','已修复','机检:检出异常｜R132-11 已修复：离开淡出半径/黑洞消失后透明度复位'],
   ['1791267272540','两根弹簧连一根棍后持续抽搐并单向飘移','未判定','机检:检出异常'],
   ['1791264904385','「黑洞」无有效信息','未判定','机检:检出异常'],
   ['1791264593293','μg+g 无法组合出 M','未判定','机检:未检出异常'],
-  ['1791263035366','复制传送带出神秘方框、球在墙角不停跳（与 1791263032193 重复）','未判定','机检:检出异常'],
-  ['1791263032193','复制传送带出神秘方框、球在墙角不停跳（与 1791263035366 重复）','未判定','机检:检出异常'],
-  ['1791262537162','复制 r 得到 m（与 1791262536181 重复）','未判定','机检:未检出异常'],
-  ['1791262536181','复制 r 得到 m（与 1791262537162 重复）','未判定','机检:未检出异常'],
+  ['1791263035366','复制传送带出神秘方框、球在墙角不停跳（与 1791263032193 重复）','已修复','机检:检出异常｜R132-11 已修复：副本保留传送带身份（净增 1 体、不冒小球）'],
+  ['1791263032193','复制传送带出神秘方框、球在墙角不停跳（与 1791263035366 重复）','已修复','机检:检出异常｜R132-11 已修复：副本保留传送带身份（净增 1 体、不冒小球）'],
+  ['1791262537162','复制 r 得到 m（与 1791262536181 重复）','已修复','机检:未检出异常｜R132-11 已修复：复制不再凭空造 m（12 字母逐个实测）'],
+  ['1791262536181','复制 r 得到 m（与 1791262537162 重复）','已修复','机检:未检出异常｜R132-11 已修复：复制不再凭空造 m（12 字母逐个实测）'],
   ['1791261812114','「不知道」无有效信息','未判定','机检:未检出异常'],
   ['1791261597128','点公式区域弹出墙面','未判定','机检:检出异常'],
-  ['1791258453287','复制 Gcc 得到 Gmcc','未判定','机检:未检出异常'],
+  ['1791258453287','复制 Gcc 得到 Gmcc','已修复','机检:未检出异常｜R132-11 已修复：复制不再凭空造 m（副本 mem 与原体一致）'],
   ['1791254327391','滑动公式和不出来','未判定','机检:未检出异常'],
   ['1791252917866','两个黑洞后全部消失、回收站也回收不了','未判定','机检:检出异常'],
   ['1791249757474','「刚才是玩」无有效信息','未判定','机检:检出异常'],
@@ -17232,8 +18096,8 @@ var BUGFIX_LIST=[
   ['1791160844560','按 t+u 组合再加线组合并拖动若干下后异常','未判定','机检:检出异常'],
   ['1791140680703','动能方程加入 a 后异常、2 可与 mv 融合','未判定','机检:未检出异常'],
   ['1791140295847','动能方程加入 a 后异常','未判定','机检:未检出异常'],
-  ['1791138871622','r 复制成 m、一调参数 r 就消失','未判定','机检:检出异常'],
-  ['1791134563665','传送带复制后变成矩形','未判定','机检:未检出异常'],
+  ['1791138871622','r 复制成 m、一调参数 r 就消失','已修复','机检:检出异常｜R132-11 已修复：①不再造 m ②调 scale 不再隐藏 r（两处独立根因）'],
+  ['1791134563665','传送带复制后变成矩形','已修复','机检:未检出异常｜R132-11 已修复：副本保留传送带身份（逐字段等于原带）'],
   ['1791130089297','「这应该是bug吧」无有效信息','未判定','机检:检出异常'],
   ['1791129950404','「这是bug吧」无有效信息','未判定','机检:未检出异常'],
   ['1791129742262','深色模式下公式字母完全不可见','未判定','机检:未检出异常'],
@@ -17257,7 +18121,7 @@ var BUGFIX_LIST=[
   ['1791087650098','v 可堆叠在 G、M 后面','待修复',''],
   ['1791087524346','铰链+弹簧+矩形拖动时剧烈抖动','待修复',''],
   ['1791086731524','史瓦西黑洞无轮廓、只吸不显示','待修复',''],
-  ['1791086366554','杆+弹簧组合体抽搐并飞出','待修复',''],
+  ['1791086366554','杆+弹簧组合体抽搐并飞出','待提交','未记录到有效信息，等待重新提交'],
   ['1791084661295','一次造两个黑洞后物品不刷新','待修复',''],
   ['1791084340867','「我也不知道发生了什么」','待修复',''],
   ['1791084206636','M 乱飞','待修复',''],
@@ -17323,6 +18187,217 @@ if(fixmask)fixmask.addEventListener('click',closeBugFixList);
 if(fixclose)fixclose.addEventListener('click',closeBugFixList);
 window.openBugFixList=openBugFixList;window.closeBugFixList=closeBugFixList;
 window.BUGFIX_LIST=BUGFIX_LIST;
+/* ★★R133b：运动轨迹的 UI（**逐物体**外观次级菜单 + 探针读数口）。
+ *  ★用户 2026-10-07：「我不是要在设置里面加那个总按钮，就是每个符号物体单独一个，只控制
+ *    那个物体……」⇒ 全局开关（原 `#trailbtn` / `#trailappear` 那一行）**整条删除**；
+ *    入口只剩参数面板底部那块（`renderTrailPanel`），这里只负责**它弹出来的次级菜单**。
+ *  ★★R133f（用户 2026-10-07：「轨迹外观点击后…我要的就是**原来参数面板打开次级菜单**」）：
+ *    外观**不再弹屏幕中央的框**（原 `#tmask`/`#tbox` 已整块删除），改成参数面板「运动轨迹」
+ *    那一行**就地展开**的一块（`.tpane`），交互照搬面板里既有的「配对 ▾」（`.pdd`/`.ppairs`）。
+ *    ⇒ 本段只保留三件事：**展开态** `trailPaneOpen`、**作用对象** `TRAIL_TGT`、
+ *      以及给展开块挂控件的 `buildTrailPane`。控件不再用 `.sbtn/.sseg`（那一族与设置面板的
+ *      `data-mode` 委托绑得太近），改用面板自己的 `.tbtn`。 */
+/* ★R133f：模块级的**展开态**（对应 `.ppairs` 的 `pairOpenField`）—— `renderParamPanel`
+   每次重建后按它还原，否则用户改一个参数、展开块就当场塌掉。 */
+var trailPaneOpen=false;
+/* 展开时钉住的**作用对象**。★每个控件都写它的 `trailCfg`，不在回调里现调 `trailTarget()`：
+   用户把参数面板换到别的物体上之后这块若还开着，现调就会把改动写到**另一个物体**身上
+   （看起来像"改 A 结果 B 变了"）。 */
+var TRAIL_TGT=null;
+/* 本次写入该落到谁身上：优先钉住的对象；它已经死了（解体 / 被删）就退回当前面板的对象。 */
+function trailTgtOf(){
+  var t=TRAIL_TGT;
+  if(!t||t.dead)t=trailOwner(trailTarget());
+  return t;
+}
+function trailCfgWrite(k,v){
+  var ent=trailTgtOf();if(!ent)return;
+  if(!ent.trailCfg)ent.trailCfg={};
+  ent.trailCfg[k]=v;
+  syncTrailPane();   // ★就地同步，**不重画面板**（重画会打断拖动与输入、滑块会跳回）
+}
+/* 控件态一律按 `trailCfgOf(作用对象)` 的**生效值**渲染（缺项回落到 `TRAIL_CFG` 默认外观），
+   这样用户看到的才是"现在真的是什么样"。就地改 value/class，不重建 DOM。 */
+function syncTrailPane(paneArg){
+  /* ★★R133f 修复（`_diag_r133f_fadebtn.py` 实测打红）：控件一律从**传进来的那个 pane** 里找，
+     不再从整篇文档按 id 找。原因在 `buildTrailPane` 末尾调本函数时，那个 pane **还没挂进
+     DOM**（`renderTrailPanel` 里 `row.appendChild(pane)` 在 `buildTrailPane` **之后**）
+     ⇒ `DD.getElementById('tpane')` 取到 null 就 `return` ⇒ 本函数唯一写的动态文案
+     （`#tfade` 的「逐渐变淡消失 / 一直保持不消失」）**空着**（按钮是个空盒子）；而
+     `1.6` / 实线 / 颜色 之所以看着正常，只是**创建时写死过默认值**（`rng.value='1.6'` 等）
+     ⇒ 展开一个「已经被单独调过外观」的物体时，控件显示的是**默认值而不是它自己的设置**
+     （陈旧面板）。把 pane 显式传进来 + 子控件按 pane 作用域找，两条路一起断掉。 */
+  var pane=paneArg||DD.getElementById('tpane');
+  if(!pane||!pane.classList.contains('on'))return;
+  var eff=trailCfgOf(trailTgtOf());
+  var q=function(id){return pane.querySelector('#'+id);};
+  var c=q('tcolor'),s=q('tlineSolid'),
+      d=q('tlineDash'),r=q('tlife'),
+      n=q('tlifen'),f=q('tfade');
+  if(s)s.className='tbtn'+(eff.dash?'':' act');
+  if(d)d.className='tbtn'+(eff.dash?' act':'');
+  if(c)c.value=eff.color;
+  if(r)r.value=Math.min(8,eff.life);
+  if(n)n.value=eff.life;
+  if(f){f.className='tbtn'+(eff.fade?' act':'');f.textContent=eff.fade?'逐渐变淡消失':'一直保持不消失';}
+}
+/* ★R133f：把「轨迹外观」的四件控件建进面板里的展开块。**每次重建都重新挂监听** ——
+   这块 DOM 是 `renderParamPanel` 每次重建出来的，模块级抓一次元素引用会立刻变陈旧
+   （`.ppairs` 的逐行输入框也是这个手法）。 */
+function buildTrailPane(pane,ent){
+  pane.innerHTML='';
+  function srow(label){
+    var r=document.createElement('div');r.className='tsrow';
+    var l=document.createElement('span');l.className='tlbl';l.textContent=label;
+    r.appendChild(l);return r;
+  }
+  /* ① 线型：实线 / 虚线（互斥，选中态 = `.act`） */
+  var r1=srow('线型'),seg=document.createElement('div');seg.className='tseg';
+  var bS=document.createElement('button');
+  bS.type='button';bS.className='tbtn';bS.id='tlineSolid';bS.textContent='实线';
+  bS.title='轨迹画成实线';
+  var bD=document.createElement('button');
+  bD.type='button';bD.className='tbtn';bD.id='tlineDash';bD.textContent='虚线';
+  bD.title='轨迹画成虚线';
+  bS.addEventListener('click',function(e){e.stopPropagation();trailCfgWrite('dash',false);});
+  bD.addEventListener('click',function(e){e.stopPropagation();trailCfgWrite('dash',true);});
+  seg.appendChild(bS);seg.appendChild(bD);r1.appendChild(seg);
+  /* ② 颜色 */
+  var r2=srow('颜色');
+  var col=document.createElement('input');
+  col.type='color';col.className='tcol';col.id='tcolor';col.value=TRAIL_CFG.color;
+  col.addEventListener('input',function(e){
+    e.stopPropagation();
+    var v=col.value;
+    if(/^#[0-9a-fA-F]{6}$/.test(v))trailCfgWrite('color',v);
+  });
+  r2.appendChild(col);
+  /* ③ 多久消失：滑块 + 数字框。数字框**不受滑块量程约束**（同「输入框可以输入大数」的口径），
+        但轨迹寿命是纯视觉量 ⇒ 给 0.2~30s 的硬边界防手滑输成天文数字（不是物理边界，
+        所以不写进 applyParam）。 */
+  var r3=srow('多久消失');
+  var rng=document.createElement('input');
+  rng.type='range';rng.className='trange';rng.id='tlife';
+  rng.min='0.2';rng.max='8';rng.step='0.1';rng.value='1.6';
+  var num=document.createElement('input');
+  num.type='number';num.className='tnum';num.id='tlifen';
+  num.min='0.2';num.max='30';num.step='0.1';num.value='1.6';
+  rng.addEventListener('input',function(e){
+    e.stopPropagation();
+    var v=parseFloat(rng.value);
+    if(isFinite(v)&&v>0){trailCfgWrite('life',v);num.value=v;}
+  });
+  num.addEventListener('change',function(e){
+    e.stopPropagation();
+    var v=parseFloat(num.value);
+    if(!isFinite(v)||v<=0)v=1.6;
+    v=Math.max(0.2,Math.min(30,v));
+    trailCfgWrite('life',v);num.value=v;rng.value=Math.min(8,v);
+  });
+  r3.appendChild(rng);r3.appendChild(num);
+  /* ④ 是否消失 */
+  var r4=srow('是否消失');
+  var fd=document.createElement('button');
+  fd.type='button';fd.className='tbtn';fd.id='tfade';
+  fd.addEventListener('click',function(e){
+    e.stopPropagation();
+    trailCfgWrite('fade',!trailCfgOf(trailTgtOf()).fade);
+  });
+  r4.appendChild(fd);
+  /* ★★R133f 收尾：这里原来跟着一条说明文案（`div.ptip`「只对当前这个物体生效…」）。
+     按 L051 ★★「**没被要求的说明性文案一律不加**（用户两次点名）」删掉 —— 血统实测：
+     它在 R133e 及以前是设置面板里的一个静态 `.snote`（`R133_pre-trailui` 里 0 处、
+     `R133b_pre-pr8` 起 1 处 ⇒ **我们自己加的**），R133f 本轮把它从设置面板删除的同时
+     又在展开块里重建了一份，净效果是「搬到更显眼处 + 多一条工具提示」⇒ 一并收掉。
+     ★展开块只留**控件本身**（线型 / 颜色 / 多久消失 / 是否消失），不复述行为语义。 */
+  pane.appendChild(r1);pane.appendChild(r2);pane.appendChild(r3);pane.appendChild(r4);
+  /* ★★必须把**刚建的这个** pane 传进去：此刻它还没进 DOM（`renderTrailPanel` 先建后挂），
+     从文档里找 `#tpane` 会扑空 ⇒ 见 `syncTrailPane` 头注。 */
+  syncTrailPane(pane);
+}
+function openTrailBox(ent){
+  /* ★★R133g：语义 = **把整块参数面板切进「运动轨迹」次级页**（用户 2026-10-07：
+     「不是说展开，而是整个这个参数面板进入次级菜单，不然太冗长了」）。
+     本函数是**唯一入口**：面板上的「外观 ›」按钮、以及 `window` 上暴露的探针入口，
+     两条路都走它 —— 口径只有一份。
+     ★作用对象在这里**再归一一次**（贴体字母 → 宿主体）：探针可能不经 `renderTrailPanel`
+       直接调用，归一放在最里层，两条路径才一致。 */
+  TRAIL_TGT=trailOwner(ent||trailTarget());
+  if(!TRAIL_TGT)return;               // 没有作用对象就不进（宁可不开，也别写到野对象上）
+  trailPaneOpen=true;
+  if(paramBody){renderParamPanel();if(typeof clampParamPanel==='function')clampParamPanel();}
+}
+function closeTrailBox(){
+  /* 退回参数页（与次级页里「‹ 返回参数」同效，方便探针直接调用）。 */
+  trailPaneOpen=false;
+  TRAIL_TGT=null;
+  if(paramBody)renderParamPanel();
+}
+/* ★★R133b：更新记录（设置 → 「更新记录」标题 → 「历史记录」按钮 → 次级菜单）。
+   用户 2026-10-07：「在设置界面最下面增加一个更新记录标题，下面有一个历史记录按钮，点击
+   进入次级菜单，里面展示多久时间更新的内容，比如等会儿就是什么时间，新增了轨迹显示功能，
+   可以在参数面板自由调节轨迹和外观，从这个开始」。
+   ★**倒序**展示（新的在最上面）；`t` 写人类可读的本地时间（用户要看的就是"什么时候更新的"）。
+   ★★维护口径（用户 2026-10-07 两次明确提出，**第二次比第一次更严**）：
+     ① 「在那个设置里面的更新记录，关于 bug 的更新不要记录了，都删掉，以后只记录新增功能」；
+     ② 「更新记录里面的更新**你不要自己去加，只有我说明了你再加**」（当日反馈原话）。
+     ⇒ **只有用户点名要求写入时才加**，AI **不得**自行登记（R133e / R133f 两条正是因为违反
+        这一条被删掉的）；只写用户能感知的**新增功能 / 行为变化**，不写内部缺陷修复流水
+        （缺陷过程留在 `BUGFIX_LIST` 与开发文档里）；按时间倒序、往**数组最前面**加。 */
+var UPDATE_LOG=[
+  {t:'2026-10-07 01:42', v:'R133b',
+   items:['新增运动轨迹显示功能：可以在参数面板自由调节轨迹和外观'
+         +'（实线/虚线、颜色、多久消失、是否消失），每个物体单独开关、互不影响。']}
+];
+function renderHistList(){
+  var el=DD.getElementById('histlist');if(!el)return;
+  var h='';
+  for(var i=0;i<UPDATE_LOG.length;i++){
+    var u=UPDATE_LOG[i];
+    h+='<div class="histit"><div><span class="ht">'+bugFixEsc(u.t)+'</span>'
+      +(u.v?'<span class="hv">'+bugFixEsc(u.v)+'</span>':'')+'</div><ul>';
+    for(var j=0;j<u.items.length;j++)h+='<li>'+bugFixEsc(u.items[j])+'</li>';
+    h+='</ul></div>';
+  }
+  el.innerHTML=h;
+}
+var histmask=DD.getElementById('histmask'),histbox=DD.getElementById('histbox'),
+    histclose=DD.getElementById('histclose'),histbtn=DD.getElementById('histbtn');
+function openHistList(){
+  renderHistList();
+  if(histmask)histmask.classList.add('on');
+  if(histbox)histbox.classList.add('on');
+}
+function closeHistList(){
+  if(histmask)histmask.classList.remove('on');
+  if(histbox)histbox.classList.remove('on');
+}
+if(histbtn)histbtn.addEventListener('click',openHistList);
+if(histmask)histmask.addEventListener('click',closeHistList);
+if(histclose)histclose.addEventListener('click',closeHistList);
+window.openHistList=openHistList;window.closeHistList=closeHistList;window.UPDATE_LOG=UPDATE_LOG;
+/* 探针只读读数口：给验收脚本一个稳定的观测面，不必猜内部字段名。 */
+window.TRAIL_CFG=TRAIL_CFG;
+window.openTrailBox=openTrailBox;window.closeTrailBox=closeTrailBox;
+window.__trailStats=function(){
+  var out={on:!!TRAIL_CFG.on,
+    cfg:{color:TRAIL_CFG.color,dash:!!TRAIL_CFG.dash,life:TRAIL_CFG.life,fade:!!TRAIL_CFG.fade},
+    time:trailTime,ents:[]};
+  function one(tag,ent){
+    out.ents.push({tag:tag,enabled:!!trailEnabled(ent),frozen:!!trailFrozen(ent),
+      on:(ent.trailOn==null?0:ent.trailOn),
+      pts:(ent.trail?ent.trail.length:0),
+      cfg:(ent.trailCfg?{color:ent.trailCfg.color,dash:ent.trailCfg.dash,
+        life:ent.trailCfg.life,fade:ent.trailCfg.fade}:null)});
+  }
+  for(var i=0;i<bodies.length;i++){var B=bodies[i];if(B&&!B.dead)one('body'+i+':'+(B.kind||''),B);}
+  for(var k=0;k<freeL.length;k++){var d=freeL[k];if(d&&!d.dead)one('letter'+k+':'+(d.ch||''),d);}
+  return out;
+};
+window.__trailReset=function(){          // 探针用：清空所有轨迹点（不影响开关与外观配置）
+  trailClearAll();
+  return true;
+};
 smask.addEventListener('click',closeSettings);
 sclose.addEventListener('click',closeSettings);
 /* ★R131-27b：触屏面板把手（点按展开/收起符号面板） */
@@ -19349,6 +20424,10 @@ function frame(now){
   if(typeof drawChargeMark==='function')drawChargeMark();
   if(typeof drawPendingHint==='function')drawPendingHint();
   /* —— 以下始终执行（交互与渲染，时间静止时用户仍可拖动/合并/召唤/画图）—— */
+  /* ★R133：轨迹采样必须放在**始终执行**这一段，且用 `lastDt`（交互层 dt，最小 1/240s）
+     而不是上面那个 `dt`：Δt 时间倍率 = 0 时物体不动、但用户仍能拖动，拖动也该留痕；
+     同时 `lastDt` 让「多久消失」按真实秒数走（不受时间倍率影响），更符合直觉。 */
+  stepTrails(lastDt);
   refreshHover();
   updateParamContacts();
   syncGlyphs();
