@@ -887,24 +887,14 @@ input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
   <div class="fmhead"><span class="fmtitle">公式示例</span><button class="fmclose" id="fmclose">✕</button></div>
   <div class="fmgrid" id="fmgrid"></div>
 </div>
-<!-- R74-D：设置面板（左上角工具下拉 → 设置）。高中/大学物理模式切换，默认大学 = 现状。 -->
+<!-- R74-D：设置面板（左上角工具下拉 → 设置）。
+     ★★R138-E④（用户 2026-10-08 原话）：「删除模式中的高中模式，把那个模式切换的设置项删了，
+     大学模式就是现在唯一的模式，反正通过调节参数也都能达到相应效果」⇒ 原来这一整行
+     「物理模式」（两颗 `.sbtn[data-mode]` + `#qphys` 问号按钮）**已删**。 -->
 <div class="fmask" id="smask"></div>
 <div class="smenu" id="smenu">
   <div class="fmhead"><span class="fmtitle">设置</span><button class="fmclose" id="sclose">✕</button></div>
   <div class="srow">
-    <div class="srow"><span class="slab">物理模式</span>
-      <div class="sseg">
-        <button class="sbtn" data-mode="uni">大学</button>
-        <button class="sbtn" data-mode="high">高中</button>
-      </div>
-      <!-- ★★R132-8（用户 2026-10-01：「在物理模式那个控制的右边加一个问号的按钮，
-           鼠标悬浮显示那些解释性文字，手机版是点击显示」）：
-           原来两段小字（高中说明 + Bug 记录说明）钉在面板里，占掉半屏、手机上尤其挤。
-           改成**问号按钮 + 气泡**：桌面 hover 显示、触屏 click 显示（`uiTouch()` 分流）。
-           ★文案**一字不改**地搬进 `#qpop`，只是换个载体 —— 用户要删的是「一直占着面板
-           的小字」，不是解释本身（他要的是「悬浮才出现」）。 -->
-      <button class="qbtn" id="qphys" title="高中模式说明">?</button>
-    </div>
     <div class="srow"><span class="slab">交互模式</span>
       <div class="sseg">
         <button class="ubtn" data-ui="auto">自动</button>
@@ -2326,6 +2316,15 @@ var RING_DBG={tok:0,dedup:0,emit:0,wrap:false,tokWrapPass:0,off:false};
 //   ③ 不算空气阻力（frictionAir 恒 0，忽略显式 wair 设置）
 // 默认大学 = 现状。三处作用点分别是 springForceOn / springDamp / applyWAir·wAirDef。
 var PHYS_MODE='uni';
+/* ★★R138-E④（用户 2026-10-08 原话）：「删除模式中的高中模式，把那个模式切换的设置项删了，
+   大学模式就是现在唯一的模式，反正通过调节参数也都能达到相应效果」。
+   ⇒ 设置面板里的「物理模式」整行（两颗 `.sbtn[data-mode]` + `#qphys`）与 `#smenu` 的
+   `data-mode` 切换委托**都已删除**，本常量从此**恒为 'uni'**、没有任何写入点。
+   ★下面那些 `PHYS_MODE==='high'` 分支**刻意保留**：它们全部是不可达的死路径（值恒 'uni'），
+   删掉要逐个重写默认值（`wAirDef` / `wEffMu` / `wEffE` / `springDamp` / `springRotTargetHigh` /
+   `applyEffRest` …），改动面大且极易改变现有行为；保留 = 产品行为与删之前**逐位一致**。
+   ★保留它们还有第二个用处：回归套件可以用「直接赋 `PHYS_MODE='high'`」继续覆盖这些分支
+   （`_verify_r129.py` / `_verify_r130_rec.py` 已按此法改），UI 入口没了但代码覆盖不损失。 */
 // R66（用户：「根据拖动物体的哪一部分……中间有一大部分都是平衡区，拖着不会转的」）：
 // 拖拽悬摆的死区系数 —— 抓点的**水平力臂**（抓点到质心的世界偏移的 x 分量）小于
 // DRAG_ROT_DEADBAND×max(hw,hh) 时是平衡区，悬空提着也不转。方块 90px 宽时平衡带 ±27px，
@@ -3352,6 +3351,16 @@ function rodTryAnchor(B){
       //   刚体，而且实测里该铰链正拴着这根杆自己（hAnc0='R'）⇒ 杆端锚它 = 成环
       //   （杆→铰链→杆），过约束照样发生（hit 先于 C 命中 H，hin3 守卫拦的是 C 拦不到它）。
       if(h.kind==='S'&&h.hinge)continue;
+      /* ★★R138-E②（用户 2026-10-08，bug 1791275665251）：杆端不许锚到**弹簧**上 ——
+         用户口径是「禁止**弹簧**连接到轻绳/杆/光滑铰链/传送带/弹簧本身」，而「杆端吸到
+         弹簧上」正是「弹簧连到杆」的另一条路径（不堵这里，拖着杆往弹簧上靠照样能连上，
+         另两个入口的 `h.kind==='T'` 守卫就白写了）。
+         ★**只堵弹簧**（`kind==='S'` 且非绳非铰链）：杆端吸到**轻绳**（如杆被绳吊着当
+           摆）与吸到**传送带**都不在用户那五条里，属于既有可用摆位，一律不动 ——
+           上一段 R138 首版写成 `h.kind==='S'||h.belt` 属于**越界改动**，已收窄。
+         上一行 R103-6 的铰链守卫单独保留（不动它的既有锚点）；`h.kind==='T'`（杆-杆）
+         由下面那条守卫继续负责。 */
+      if(h.kind==='S'&&!h.hinge&&!h.rope)continue;
       // ★R103-6：第三入口同款守卫（springTryAnchor / springTryAnchorByHost 已有）——
       //   本端已通过铰链连着候选宿主 ⇒ 不许再直接锚（铰链+直锚 = 过约束互推爬行）。
       //   拖杆松手时自由端正贴着铰链另一端的宿主，没有这条守卫必中。
@@ -3455,6 +3464,15 @@ function springSyncEnds(B){
 // 走 springForceOn（作用点 = 真实锚点）：R63 的水平/竖直限幅与力矩上限自动生效，不会掀翻宿主。
 // 必须放在 stepSprings（有 dt）而不是 springSyncEnds（它被拖拽/复制等无 dt 的路径调用）。
 function springGuideForce(B,dt){
+  /* ★★R138-E③（bug 1791279286977）：**单端锚定（含完全自由）不施加导向力** ——
+     与 stepSprings 里 `freeEndOnly` 同一个物理：导向力是「把偏离导轨的锚点用一根横向小
+     弹簧拽回导轨」，它同样要靠弹簧内力传给宿主；自由端无物体附着 ⇒ 自由端外力恒为 0
+     ⇒ 无质量弹簧的内力恒为 0 ⇒ 这根横向弹簧也不能例外。否则用户看到的现象与轴向力那条
+     一模一样：「另一端没接东西，弹簧却在拽物体」（bug 原文）。
+     双端锚定（≥2）不受影响；本函数只在 dirLock 时被调用（前提由调用方保证）。 */
+  var _na=0;
+  for(var _nk=0;_nk<2;_nk++){var _nx=B.anc[_nk];if(_nx&&_nx.B&&!_nx.B.dead)_na++;}
+  if(_na<2)return;
   var Lk=B.dirLock;
   for(var i=0;i<2;i++){
     var a=B.anc[i];
@@ -4726,6 +4744,9 @@ function stepSprings(dt){
     if(B.kind!=='S'||B.dead)continue;
     springSyncEnds(B);
     var freeEndOnly=false;               // R71③：只有一端拴住 = 自由端无载荷 → 内力恒为 0
+                                         // ★★R138-E③：正式赋值移到下方 hinge 之后那一行
+                                         // （原赋值寄生在「自由端跟随」块里、带 !B.dirLock
+                                         //   前提 ⇒ 方向锁定的弹簧漏判，bug 1791279286977）
     if(B.dirLock)springRailFollow(B);    // R65：垂直方向导轨跟随（整体一起平移）
     // R95：放松态（高中 + 水平导轨 + 非拖拽）里**只能**跳过导向力 —— springGuideForce 的作用
     //   是把「偏离导轨的锚点」用一根横向小弹簧拽回导轨，而水平导轨的法向就是竖直方向：
@@ -4776,7 +4797,10 @@ function stepSprings(dt){
       refreshSpringGeom(B);
       dx=B.e1.x-B.e0.x;dy=B.e1.y-B.e0.y;d=Math.hypot(dx,dy)||1e-6;
       if(d>1e-6){ux=dx/d;uy=dy/d;}
-      freeEndOnly=true;
+      /* ★★R138-E③（bug 1791279286977）：「单端锚定」的判定已**移出本块** ——
+         原在这里顺手置 `freeEndOnly=true`，但它带着本块的 `!B.dirLock` 前提 ⇒
+         方向锁定（导轨）的弹簧漏判：一端锚在物体上、另一端悬空，却照旧施力。
+         新位置见下方 `if(B.hinge)` 之后那一行（与「自由端跟随」彻底解耦）。 */
     }
     // R101⑦：轻绳 / 光滑铰链走**各自的约束求解**（位置 + 冲量投影），与弹簧力律完全分开。
     // continue 同时跳过本函数尾部的 springMirror(B) —— 两者都不该有 Matter 镜像（见上方语义段）。
@@ -4788,6 +4812,16 @@ function stepSprings(dt){
       ropeSolve(B,dt,h0,h1);continue;
     }
     if(B.hinge){hingeSolve(B,dt,h0,h1);continue;}
+    /* ★★R138-E③（用户 2026-10-08，bug 1791279286977）：**单端锚定的轻质弹簧不施力**。
+       物理：无质量（轻质）弹簧两端内力必须相等；自由端没有任何物体附着 ⇒ 自由端外力恒为 0
+       ⇒ 锚端内力也必须是 0。旧实现把这条判定寄生在上面那个「自由端跟随」块里
+       （`freeEndOnly=true`），而那个块带 `!B.dirLock` 前提 ⇒ **方向锁定（导轨）的弹簧漏判**：
+       另一端悬空，却照旧按 `keff·(d−len) + damp·v_rel` 施力 —— 摆位由 `springRailFollow`
+       保证 d≡自然长度，于是残下的阻尼项就成了对宿主的**轴向阻力**（用户看到的正是
+       「弹簧拉住了物体」）。
+       ⇒ 判定独立出来：只要**只有一端有宿主**就成立（dirLock 与否无关；两端锚在同一体上的
+       情形由 `!(h0&&h1)` 排除）。下方力律的 `if(freeEndOnly)f=0;` 与触底反射共用本标志。 */
+    freeEndOnly=((h0||h1)&&!(h0&&h1));
     // G（用户：「弹簧压缩到一定程度后不能继续压缩，相当于直接碰撞」）：弹簧有最小工作长度
     // （线圈不可重叠 = 物理弹簧压到底）。两道保险防止"反向压缩"：
     // ① 稳定轴 B._ax/_ay：端点近重合时 (dx,dy)≈0，u 漂移；端点一旦交叉，u 反向，斥力变成
@@ -5255,6 +5289,22 @@ function springTryAnchor(B){
       //   从候选里剔除。绳子自己（B.rope）落点吸附时也不许吸到绳/铰链上（同为幽灵互吸）。
       if(B.hinge&&h.rope)continue;
       if(B.rope&&(h.rope||h.hinge))continue;
+      /* ★★R138-E②（用户 2026-10-08，bug 1791275665251）：**普通弹簧只认「物体」做宿主**，
+         且**无论弹簧在哪一侧**（对称口径 —— 用户原话是「禁止弹簧连接到轻绳、杆、光滑
+         铰链、传送带和弹簧本身上」，这是一个「配对」约束，不是「谁主动」的约束）。
+         S 族（弹簧 / 轻绳 / 光滑铰链）、杆（T）、传送带都是**器件**而不是可锚的物体：
+         · 轻绳 / 光滑铰链 / 弹簧本身 —— 与弹簧同为「幽灵」连接件（约束推不动它们），
+           互吸只会自激；
+         · 杆 —— 锚上去等于把两根连接件的动力学耦合在一起（与用户 bug 1791267272540
+           「两根弹簧连一根棍后持续抽搐并单向飘移」同族）；
+         · 传送带 —— 钉死的地面机器（static），锚上去 = 把物体钉在带面上。
+         ★本入口（拖 S 族松手）的 B 可能是**弹簧、轻绳或光滑铰链**（三者同为 kind==='S'）
+           ⇒ 只堵「弹簧主动」那一半会留下反向漏洞（拖轻绳把它的自由端搭到弹簧上）。
+           下面两个方向一起判。
+         注：上面三条既有守卫（铰链不连带 / 铰链不连绳 / 绳不连绳与铰链）**逐字保留**。 */
+      var _pcB=(B.kind==='S'&&!B.hinge&&!B.rope),_pcH=(h.kind==='S'&&!h.hinge&&!h.rope);
+      if((_pcB&&(h.kind==='S'||h.kind==='T'||h.belt))
+       ||(_pcH&&(B.kind==='S'||B.kind==='T'||B.belt)))continue;
       // ★R103-6：与 springTryAnchorByHost 里那条**逐字同款**（同一份语义的两个入口）——
       //   本端已通过铰链连着候选宿主 ⇒ 不许再直接锚（过约束互推，见那边注释）。
       var hin2=false;
@@ -5345,6 +5395,14 @@ function springTryAnchorByHost(host){
       // ★R131：与 springTryAnchor 逐字同款 —— 铰链不吸绳；绳不吸绳/铰链（幽灵互吸）。
       if(S.hinge&&host.rope)continue;
       if(S.rope&&(host.rope||host.hinge))continue;
+      /* ★★R138-E②：与 springTryAnchor 里那条**逐字同款**（同一份语义的两个入口，缺一处
+         就只堵一半）—— 普通弹簧不许把自由端锚到**连接件族**（弹簧 / 轻绳 / 光滑铰链）
+         或传送带上；**反向同样不许**（S 是轻绳/铰链、host 是弹簧时也拦）。
+         本入口还要覆盖「松手的是杆」那一路（见本函数开头
+         `if(host.kind==='T')rodTryAnchor(host)` 与下面 `S.kind==='T'` 分支）。 */
+      var _pcS=(S.kind==='S'&&!S.hinge&&!S.rope),_pcH2=(host.kind==='S'&&!host.hinge&&!host.rope);
+      if((_pcS&&(host.kind==='S'||host.kind==='T'||host.belt))
+       ||(_pcH2&&(S.kind==='S'||S.kind==='T'||S.belt)))continue;
       // ★R103-6（_diag_r103b B 组实测）：这个自由端若已经**通过铰链**连着 host（某铰链
       //   一端吸本器件、另一端吸 host），就不许再**直接**锚到 host —— 铰链（双边约束，
       //   两锚点钉死重合）+ 直接锚定 = 同一个物理点两重约束，过约束互推 ⇒ 装配体爬行
@@ -17800,13 +17858,13 @@ var smenu=document.getElementById('smenu'),smask=document.getElementById('smask'
     sclose=document.getElementById('sclose');
 function syncModeUI(){
   if(!smenu)return;
-  var bs=smenu.querySelectorAll('.sbtn');
-  for(var i=0;i<bs.length;i++){
-    bs[i].classList.toggle('act',bs[i].getAttribute('data-mode')===PHYS_MODE);
-  }
+  /* ★★R138-E④（用户 2026-10-08）：原来这里有一段 `.sbtn` 高亮遍历
+     （`data-mode===PHYS_MODE`），随「高中模式」那颗按钮一起删掉。
+     `PHYS_MODE` 常量与它的各处分支**保留**（值恒为 'uni'）—— 见 `var PHYS_MODE='uni';`
+     处的说明：切换入口没了，这些分支就是不可达的死路径，产品行为零变化。 */
   /* ★R131-27：交互模式（自动/电脑版/触屏版）按钮高亮 */
   var us=smenu.querySelectorAll('.ubtn');
-  for(i=0;i<us.length;i++){
+  for(var i=0;i<us.length;i++){
     us[i].classList.toggle('act',us[i].getAttribute('data-ui')===UI_MODE);
   }
   var tip=smenu.querySelector('#uitip');
@@ -17886,8 +17944,27 @@ var REC_EVMAX=4000;
  *  ★★R137D：R137D 一天内又漏改（导出 JSON 仍写 'R137C'）⇒ 本次补到当前代。
  *    R137D 两处 UI 改动（用户 2026-10-08 逐字要求）：①「截图」按钮改成**剪刀图标**（去掉文字，
  *    见 `#shotbtn`）；② 点提交框里的缩略图 → **完整显示原图**（全屏遮罩预览）。
- *    ★提交体结构**未变**（仍是 R137C 起的可选 `shots`），R137D 只动外观与预览交互。 */
-var REC_APP_VER='R137D';
+ *    ★提交体结构**未变**（仍是 R137C 起的可选 `shots`），R137D 只动外观与预览交互。
+ *  ★★R138：R137D 又漏改（导出 JSON 仍写 'R137D'）⇒ 本次补到当前代。R138 = 用户一天内的四条要求：
+ *    ① 「删除模式中的高中模式」⇒ 设置里那项**整条删除**，大学（`'uni'`）成唯一模式。
+ *       ★口径：`var PHYS_MODE='uni'` 常量与 38 处 `high` 分支**刻意保留**为不可达死路径 ——
+ *         删 UI 入口的目的是「用户看不到这个选项」，而删死分支会牵动弹簧/绳/铰链的既有行为，
+ *         收益为零、风险非零。⇒ **产品行为与删前逐位一致**（两把受影响的 CORE 尺子
+ *         `_verify_r129.py` / `_verify_r130_rec.py` 已同步改，实跑 5/5 与 13/13 全绿）。
+ *    ② 「禁止弹簧连接到轻绳，杆，光滑铰链，传送带和弹簧本身上」（bug 1791275665251）；
+ *    ③ 「弹簧一端连接一个物体…不应该对物体施加力」（bug 1791279286977，单端锚定的轻质弹簧）；
+ *    ④ 清单加 1 条**聊天登记**条目（`1791470490935`，无录屏 ⇒ 不进 `bug_list.md` 档案）。
+ *    ★提交体结构**未变**（仍是 R137C 起的可选 `shots`），R138 只动上述三处行为 + 一个 `BUGFIX_LIST`。 */
+/* ★★R139（2026-10-09，用户逐字四条）：
+ *   ① **需求（不是 bug）**：黑洞出现时，右上角托盘的**下拉按钮锁死**（点了没反应、托盘保持展开），
+ *      **且托盘若没开启要强制开启**；黑洞消失后恢复可点。⇒ `syncTrayLock()`（每帧判「场上有没有
+ *      活黑洞」= `B.bh && !B.bh.dead`，与出生处门控同一真源），把手 click 里加 `if(trayLocked)return;`。
+ *   ② 撤回 R138-④ 那条**聊天登记**：用户明确「我口头复述的 bug 不要加进 bug 列表」⇒
+ *      `1791470490935` 从 `BUGFIX_LIST` 删除，`CHAT_ONLY` 机制一并退役（清单回到 101 条）。
+ *   ③ 从线上回收站并入 **4 条**新提交（状态一律「未判定」——机器预筛 ≠ 人工判定）。
+ *   ④ 后端 `/submit` 起，KV metadata 增加 `tbj`（**北京时间**可读串）⇒ 回收站的时间列改显北京时间。
+ *   ★提交体结构**未变**（仍是 R137C 起的可选 `shots`）。 */
+var REC_APP_VER='R139';
 function recNow(){return +(performance.now()).toFixed(1);}
 function recSnap(full){
   /* ★R132-10u：`full=true` 只用于 `REC.init`（录制起点的完整快照）。同一体的「物理语义」字段
@@ -18628,8 +18705,29 @@ window.openBugDlg=openBugDlg;window.bugSubmit=bugSubmit;window.closeBugDlg=close
        一一对应），删行会破坏「档案 ≡ 录屏语料」这条对齐 ⇒ 被清的 17 个 id 记在
        `_gen_bugfix.py` 的 `PURGED`，交叉校验走「md 去掉 PURGED == ROWS」。
      ★删除前已把 17 条原文逐条导出到 `backups/bugrecs_deleted_20261008.jsonl`。
+   ★★R138（2026-10-08）—— E②/E③ 两条「未判定」→「**已修复**」（备注**只追加**，`机检:` 前缀仍在行首）：
+     `1791275665251`（禁止弹簧锚到 轻绳/杆/光滑铰链/传送带/弹簧本身）、
+     `1791279286977`（单端锚定的轻质弹簧不施加任何力）。★该代还曾临时加入 1 条「聊天登记」，
+     **R139 已按用户指示撤回**（见下）。
+   ★★R139（2026-10-09，用户同一条消息共四条）：
+     · **撤回**上代那条「聊天登记」（`1791470490935`，黑洞×托盘）—— 用户拍板「我在这里口头和你
+       复述的 bug 你不要加进 bug 列表里面」⇒ 从本列表**删除**，`_gen_bugfix.py` 的 `CHAT_ONLY`
+       通道**整体退役**（只留墓碑 `CHAT_RETRACTED`，带三条**反向**自检）。★同一句话还把它**改判为
+       需求**（黑洞期间锁托盘 + 托盘没开启也强制展开），已按需求实现在产品里（`syncTrayLock()`，
+       见上面 R139-E① 注释）—— 需求与 bug 是两条通道，不该混进这张表。
+     · 从线上回收站同步**第四批 4 条**（2026-10-08 提交，状态一律「未判定」+ 备注＝机检档位）：
+       `1791472362668` / `1791467018244` / `1791456334563` / `1791456327651`
+       （后两条相差 7 秒、用户原话完全相同 ⇒ 互为重复提交）。录屏已下载（4/4，0 失败）并跑过 `_an_bugs.py`。
+     ⇒ **本表回到 101 的底座后并入 ⇒ 105 条**，状态分布 **未判定 51 / 已修复 19 / 待修复 33 / 待提交 2**；
+       机检档位 28/30/6 → **29/33/6**（第四批 检出 +1 / 未检出 +3）；空备注仍 **32**。
+     ★★这条撤回同时把 `bug_reports/bug_list.md` 的档案不变式从「118 行 ≡ 118 录屏」改成
+       「**122 行 ≡ 122 录屏**」—— 第四批 4 条是**真提交**（走表单、有录屏、有档位），本就该进档案。
    每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
 var BUGFIX_LIST=[
+  ['1791472362668','平面和线段重合放拖动时出现故障','未判定','机检:未检出异常'],
+  ['1791467018244','电脑版弹簧无法旋转，鼠标移到旋转按钮时按钮就消失','未判定','机检:检出异常'],
+  ['1791456334563','复制倒 h 会出现 m 倒 h','未判定','机检:未检出异常'],
+  ['1791456327651','复制倒 h 会出现 m 倒 h（与 1791456334563 重复）','未判定','机检:未检出异常'],
   ['1791377428163','爆炸时复制出的 m 再组成 mc² 不再爆炸','未判定','机检:未检出异常'],
   ['1791361389776','两个弹簧接在光滑平面左右两端，左边那根会被挤压','未判定','机检:未检出异常'],
   ['1791361155101','两个弹簧连一根棍后能整体平移','未判定','机检:未检出异常'],
@@ -18657,8 +18755,8 @@ var BUGFIX_LIST=[
   ['1791295184655','给球电荷后与弹簧相连，大量物件飞出画面','未判定','机检:检出异常'],
   ['1791280171429','地面挂 mg 弹簧后拖地面，地面向右位移且拖不动','未判定','机检:检出异常'],
   ['1791279970830','地面挂 mg 弹簧后拖地面，地面向右位移且拖不动（与 1791280171429 重复）','未判定','机检:检出异常'],
-  ['1791279286977','给球电荷后与弹簧相连','未判定','机检:检出异常'],
-  ['1791275665251','「我将三样物品连接起来，就出现了这样」说明不足','未判定','机检:未检出异常'],
+  ['1791279286977','给球电荷后与弹簧相连','已修复','机检:检出异常｜R138 已修复：单端锚定的轻质弹簧不施加任何力 —— `freeEndOnly` 判定移出「自由端跟随」块（原带 `!dirLock` 前提，漏判方向锁定/导轨弹簧，高中模式必补 dirLock ⇒ 必中），并对 `springGuideForce` 加单端门控（锚点存活数 <2 直接 return）'],
+  ['1791275665251','「我将三样物品连接起来，就出现了这样」说明不足','已修复','机检:未检出异常｜R138 已修复：普通弹簧只认「物体」做宿主 —— 禁止弹簧锚到 轻绳/杆/光滑铰链/传送带/弹簧本身；三处锚定入口（`springTryAnchor`/`springTryAnchorByHost`/`rodTryAnchor`）全部收口，且口径为「配对」双向判（防「拖绳搭到弹簧上」的反向漏洞）；杆端 → 绳/传送带 刻意不堵'],
   ['1791273176929','「Mmv?」无有效信息','已修复','机检:未检出异常｜R137 已修复：并入点末态闸门（并入后字母多重集须是某预设子集）——Mm 后真拖 v 不再并入；词汇表内非法态 221→0；真鼠标 e2e 改前 5/10 → 改后 10/10'],
   ['1791272101066','黑洞消失后被抓的字母变透明','已修复','机检:检出异常｜R132-11 已修复：离开淡出半径/黑洞消失后透明度复位'],
   ['1791267272540','两根弹簧连一根棍后持续抽搐并单向飘移','已修复','机检:检出异常｜正常运动状态'],
@@ -18986,10 +19084,47 @@ window.__trailReset=function(){          // 探针用：清空所有轨迹点（
 };
 smask.addEventListener('click',closeSettings);
 sclose.addEventListener('click',closeSettings);
+/* ★★R139-E①（用户 2026-10-09 需求：「黑洞出现时，右上角托盘的下拉按钮无法点击，保持展开，
+ *   黑洞消失后[才能点击]」＋拍板补充「托盘没开启也要强制开启」）：
+ *   黑洞在场期间 ⇒ ① 托盘**强制展开**（折叠态就摘掉折叠类）；② 把手**锁死**（点击无效）。
+ *   黑洞消失 ⇒ 自动解锁、恢复可点。
+ *   ★判据 = 「场上有没有**活着的**黑洞」= `B.bh && !B.bh.dead` —— 与出生处门控（「场上已有
+ *     黑洞就不再坍缩出第二个」）用**同一条**真相来源，不另造标志位。
+ *   ★为什么**每帧**判、而不是挂在黑洞的创建/销毁处：黑洞消失的路径有三条以上
+ *     （被吞掉 / 双击垃圾桶清屏 / 分裂回普通公式 / 终局收走），逐个挂钩必漏；
+ *     而「场上还有没有活黑洞」本身就是唯一真源。
+ *   ★★只在**真的折叠着**时才碰 DOM —— 锁定期每帧无条件写 class 会白白触发布局。 */
+var trayLocked=false;
+function syncTrayLock(){
+  var has=false;
+  for(var i=0;i<bodies.length;i++){
+    var b=bodies[i];
+    if(b&&!b.dead&&b.bh&&!b.bh.dead){has=true;break;}
+  }
+  var bt=DD.body;
+  if(has){
+    /* 锁定期每一帧都检查（不是「仅翻转时」）：用户中途切 UI 模式会走
+       setUIMode/applyUIModeClasses 重新把折叠类加上，必须拉回来。 */
+    if(bt&&bt.classList.contains('touch-panel-folded')){
+      bt.classList.remove('touch-panel-folded');
+      var pv0=DD.getElementById('panelToggle');
+      if(pv0)pv0.classList.add('open');
+    }
+    trayLocked=true;
+    return;
+  }
+  if(trayLocked){          // 黑洞刚消失 ⇒ 解锁（面板维持当前展开态，把手恢复可点）
+    trayLocked=false;
+    var pv1=DD.getElementById('panelToggle');
+    if(pv1&&bt)pv1.classList.toggle('open',!bt.classList.contains('touch-panel-folded'));
+  }
+}
 /* ★R131-27b：触屏面板把手（点按展开/收起符号面板） */
 if(DD.getElementById('panelToggle')){
   DD.getElementById('panelToggle').addEventListener('click',function(ev){
     ev.stopPropagation();
+    /* ★★R139-E①：黑洞在场期间把手**锁死** —— 连点都不许改变折叠态（用户需求原文「无法点击」）。 */
+    if(trayLocked)return;
     DD.body.classList.toggle('touch-panel-folded');
     /* ★R131-29：图标用 .ttoggle 同款 SVG——展开/收起用旋转表达（不再换文字） */
     var sv=DD.getElementById('panelToggle');
@@ -19005,7 +19140,9 @@ syncFullscreenUI();
 ['fullscreenchange','webkitfullscreenchange'].forEach(function(ev){
   DD.addEventListener(ev,function(){syncFullscreenUI();});
 });
-bindQBtn('qphys');
+/* ★★R138-E④：原来这里还有 `bindQBtn('qphys')`（「物理模式」那一行右侧的问号按钮）——
+   随该行一起删除。`bindQBtn` 自带 `if(!b)return;` 守卫，留着也不会报错；删掉是为了不留
+   孤立调用。 */
 bindQBtn('quitipbtn');
 /* 设置面板关闭 / 点遮罩 ⇒ 气泡一起收（它挂在 body 上，不跟着面板走） */
 setTimeout(fixPanelSlot,600);
@@ -19016,57 +19153,14 @@ smenu.addEventListener('click',function(e){
   /* ★R131-27：交互模式按钮（自动/电脑版/触屏版） */
   var ub=e.target.closest('.ubtn');
   if(ub){setUIMode(ub.getAttribute('data-ui')||'auto');touchClearSel();syncModeUI();return;}
-  var b=e.target.closest('.sbtn');if(!b)return;
-  PHYS_MODE=b.getAttribute('data-mode');
-  syncModeUI();
-  // R74-D/J：切换模式后扫场上 W 体重刷 mb.restitution（effRest 读 PHYS_MODE）
-  // R76：改成调 applyWFrict —— 高中模式的**默认 μ=0** 同样只是「读 PHYS_MODE 的显示值」，
-  //   不主动扫一遍的话场上旧体的 mb.friction 还是 0.08（applyWFrict 内部会连带刷 effRest/air）。
-  // R89（用户⑥）：**还必须**逐体调 applyWBounc —— 旧版只调 applyWFrict，e 链只被
-  //   applyWFrict 的连带调用覆盖；applyWFrict 现在对未调过的体在大学模式也真写默认，
-  //   但它**只管 μ 通道**；圆的 mb.restitution=BALL_REST 这类 e 默认必须 applyWBounc 亲自写
-  //   （且 applyWBounc 内部带 parts/pair 刷新）。两个都调 = μ 与 e 两条链在切换时全部同源。
-  for(var ji=0;ji<bodies.length;ji++){
-    if(bodies[ji].kind!=='W')continue;
-    applyWFrict(bodies[ji]);
-    applyWBounc(bodies[ji]);
-  }
-  // ★R118（用户：「这个问题（大学摇晃 → 切高中）这样修吧，如果切换模式的话，就把转动量强制归零」）：
-  //   切换模式的那一刻把场上所有**可动** W 体的角速度清零。
-  //   为什么（_diag_r116i.py 实测）：大学摇晃攒下的 ω，切到高中后**没有任何衰减通道**
-  //   （力矩通道被 springForceOn 的 px=null 掐掉 + 锚点被 _noRot 冻结 + 无空气阻力）
-  //   ⇒ 方形带着切换时刻的 ω 永远匀速转下去（实测 Δθ=+200°、dEdge 漂移 17.3px）。
-  //   切模式 = 换一套物理定律，旧模式攒下的自旋在新模式里没有合法语义 ⇒ 用户拍板归零。
-  //   两个方向都清（uni→high / high→uni 同一个处理器）；静态体跳过（isStatic 的 ω 本就无意义）。
-  for(var jw=0;jw<bodies.length;jw++){
-    var BW2=bodies[jw];
-    if(BW2.kind!=='W'||!BW2.mb||BW2.dead||BW2.mb.isStatic)continue;
-    Matter.Body.setAngularVelocity(BW2.mb,0);
-  }
-  // R77（用户④ 配套）：切换模式后**按当前几何重算**所有弹簧锚点的本地偏移 —— 高中模式记的是
-  //   「相对质心的世界分量」（不随自转），大学模式记的是「R(θ)·local」。就在此刻重算，新约定下
-  //   算出来的偏移恰好让端点停在它现在所在的位置 ⇒ 切换瞬间零跳变，之后才按新约定跟随。
-  //   漏了这一步的后果：球已经滚到某个角度时切模式，端点会按新约定突然跳到另一个位置。
-  for(var js=0;js<bodies.length;js++){
-    var S78=bodies[js];
-    if(S78.kind!=='S'||S78.dead)continue;
-    for(var je=0;je<2;je++){if(S78.anc[je]&&S78.anc[je].B)springAnchorOffset(S78,je);}
-    // R83：切进高中模式时给**已有**弹簧补上自动轴锁，让「没有斜弹簧」立刻对全场生效。
-    //   用**当前**方向而不是「吸到最近的轴」：吸附要把端点搬动最多 |垂向分量|（近 45° 时可到
-    //   len/√2 ≈ 200px），画面上一根弹簧会突然跳位；而用户要的是「方向从此不再变化」，
-    //   用当前方向同样满足，且零跳变。**新画**的弹簧仍走 makeSpring 的吸附路径。
-    //   切回大学模式时把 auto 锁摘掉（手动「固定方向」的锁不摘 —— 那是用户显式设的）。
-    if(PHYS_MODE==='high'){
-      if(!S78.dirLock){
-        var sdx=S78.e1.x-S78.e0.x,sdy=S78.e1.y-S78.e0.y,sd=Math.hypot(sdx,sdy)||1e-6;
-        S78.dirLock={mx:S78.x,my:S78.y,ux:sdx/sd,uy:sdy/sd,auto:true};
-        refreshSpringGeom(S78);
-      }
-    }else if(S78.dirLock&&S78.dirLock.auto){
-      S78.dirLock=null;
-      refreshSpringGeom(S78);
-    }
-  }
+  /* ★★R138-E④（用户 2026-10-08 原话）：「删除模式中的高中模式，把那个模式切换的设置项删了，
+     大学模式就是现在唯一的模式」⇒ 原来这里是「物理模式」两颗 `.sbtn` 的切换分支 ——
+     读 `data-mode` 写 `PHYS_MODE`，再扫全场重刷 μ/e、清零 ω、按当前几何重算弹簧锚点偏移、
+     并按模式补/摘 `dirLock.auto`。高中模式删除后它**再无触发者**（`#smenu` 里已没有任何
+     `.sbtn`）⇒ 整段删掉。
+     留着不只是死代码，还是记忆里那条坑：`#smenu` 内**必须**禁止 `.sbtn` —— 本委托按
+     `data-mode` 读值，无该属性的按钮会把 `null` 写进 `PHYS_MODE`。删掉这一段 = 从根上
+     消除这个隐患；`PHYS_MODE` 恒为 'uni'。 */
 });
 /* ---- ② ③ drawing modes ---------------------------------------------------------------- */
 function setToolMode(m){
@@ -19261,9 +19355,8 @@ function syncFullscreenUI(){
 /* ★★R132-8：问号按钮的两条显示路径 —— 桌面 hover / 触屏 click（用户原话分得明白）。
  *  气泡定位用**按钮自身的 rect**（面板随屏幕高度居中，写死坐标在手机上必然错位）。 */
 var QPOP_TEXT={
-  qphys:'<b>高中模式</b><br>① 弹簧不算力矩（拉任何部位效果相同）<br>'
-      + '② 不算弹簧阻尼<br>③ 不算空气阻力<br>④ 默认弹性系数全为 0<br>'
-      + '⑤ 默认摩擦系数为 0<br>⑥ 弹簧只有水平与竖直两个方向（画出来即吸附到最近的轴）',
+  /* ★★R138-E④：原来这里第一条是 `qphys`（「高中模式说明」），随「物理模式」整行一起删除 ——
+     现在唯一的问号按钮是「交互模式」。 */
   quitipbtn:'<b>交互模式</b><br>· <b>自动</b>：按设备自动判断（有触摸屏就用触屏版）<br>'
       + '· <b>电脑版</b>：鼠标操作（右键弹参数菜单）<br>'
       + '· <b>触屏版</b>：手指操作（长按 = 右键菜单 · 点选符号后再点画布放置 · 点画布拖动）'
@@ -21014,6 +21107,9 @@ function frame(now){
      而不是上面那个 `dt`：Δt 时间倍率 = 0 时物体不动、但用户仍能拖动，拖动也该留痕；
      同时 `lastDt` 让「多久消失」按真实秒数走（不受时间倍率影响），更符合直觉。 */
   stepTrails(lastDt);
+  /* ★★R139-E①（用户 2026-10-09 需求）：黑洞在场 ⇒ 托盘强制展开 + 把手锁死。
+     ★放在**始终执行**这一段：Δt 时间倍率 = 0 时黑洞仍在场，托盘同样必须锁着。 */
+  syncTrayLock();
   refreshHover();
   updateParamContacts();
   syncGlyphs();
