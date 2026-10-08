@@ -363,6 +363,38 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
   font-family:inherit;font-style:normal;font-size:14px;line-height:1.6;color:#26221C;resize:vertical}
 .bta:focus{outline:none;border-color:rgba(38,34,28,.5)}
 .binfo{font-size:12.5px;color:rgba(38,34,28,.55);margin:9px 0 2px;line-height:1.6}
+/* ★★R137C：提交框里的截图区（用户 2026-10-08：「在输入框那里可以预览截图和增加删减」）。
+   缩略图自带编号角标与右上角 ✕（增删），空列表时整块 `:empty{display:none}` 收成 0 高。 */
+.bshots{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0}
+.bshots:empty{display:none}
+.bshot{position:relative;width:104px;height:74px;border-radius:10px;overflow:hidden;
+  border:1px solid rgba(38,34,28,.22);background:rgba(38,34,28,.05)}
+.bshot img{width:100%;height:100%;object-fit:cover;display:block}
+.bshot .bx{position:absolute;right:3px;top:3px;width:19px;height:19px;line-height:16px;
+  border:none;border-radius:50%;background:rgba(38,34,28,.62);color:#FCFAF5;
+  font-family:inherit;font-size:12px;padding:0;cursor:pointer}
+.bshot .bx:hover{background:#B23A2E}
+.bshot .bn{position:absolute;left:4px;bottom:3px;font-size:10.5px;font-style:normal;
+  color:#FCFAF5;background:rgba(38,34,28,.55);border-radius:6px;padding:0 5px}
+/* ★★R137D（用户 2026-10-08：「截图按钮你改成那个剪刀的图标，而不是这个文字」）：
+   「截图」变**纯图标**按钮 ⇒ 收窄内边距成方形、图标与文字基线居中对齐。
+   同一排的「上传截图」仍是文字按钮，这颗靠左对齐即可（不是图标族的一排）。 */
+#bugshotgrab{display:inline-flex;align-items:center;justify-content:center;padding:8px 11px}
+#bugshotgrab svg{display:block}
+/* ★★R137D（用户 2026-10-08：「预览截图的时候，点击那个图片要能完整的显示那个图片」）：
+   缩略图是 `object-fit:cover`（会裁），点开走这个**等比完整**的看图浮层。
+   z-index 78/79 压过 #bugmask(19)/#bugbox(20)，也压过 #fixmask，故看图时框照旧开着。 */
+.svmask{position:fixed;inset:0;z-index:78;display:none;background:rgba(28,24,19,.74)}
+.svbox{position:fixed;inset:0;z-index:79;display:none;align-items:center;justify-content:center;
+  padding:40px 34px}
+.svmask.on{display:block}
+.svbox.on{display:flex}
+.svbox img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
+  border-radius:8px;background:#F4F1EA;box-shadow:0 20px 56px rgba(0,0,0,.5);display:block}
+.svx{position:absolute;right:16px;top:14px;width:36px;height:36px;border-radius:50%;
+  background:rgba(244,241,234,.94);color:#26221C;font-size:17px;line-height:1.2;
+  border:none;cursor:pointer;padding:0}
+.svx:hover{background:#B23A2E;color:#FCFAF5}
 .bbtns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
 .rbtn[disabled]{opacity:.5;cursor:default}
 /* ★★R132-10o：设置面板「Bug 修复列表」按钮 + 它的次级菜单（用户 2026-10-05）。
@@ -929,12 +961,40 @@ input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
 <div class="bbox" id="bugbox">
   <div class="fmhead"><span class="fmtitle">提交 Bug 记录</span><button class="fmclose" id="bugclose">✕</button></div>
   <textarea class="bta" id="bugdesc" placeholder="描述一下你刚才是怎么操作的、期望看到什么、实际发生了什么……"></textarea>
+  <!-- ★★R137C（用户 2026-10-08：「增加一个上传截图和截图的按钮，可以上传提交截图，后者可以直接
+       退到那个界面截一张图然后提交到这里，在输入框那里可以预览截图和增加删减」）：
+       缩略图区在输入框正下方（空时 CSS `:empty` 收成 0 高），两颗按钮紧随其后。
+       ★「截图」拍的**不是弹框**，而是画布画面 —— 合成口径见 `bugShotCompose()`。 -->
+  <div class="bshots" id="bugshots"></div>
+  <div class="bbtns">
+    <button class="rbtn" id="bugshotup">上传截图</button>
+    <!-- ★R137D：这颗改成**剪刀图标**（用户原话：「改成那个剪刀的图标，而不是这个文字」）。
+         图标语言沿用全站（viewBox 0 0 24 24 / fill:none / stroke 2.2 / 圆头圆角），
+         与 #panelToggle、#handle 同一族。纯图标 ⇒ 靠 title 提示语义。 -->
+    <button class="rbtn" id="bugshotgrab" title="截图（退到界面截一张图，再回到这里）"
+      aria-label="截图"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+      stroke="#26221C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle>
+      <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
+      <line x1="14.47" y1="14.48" x2="20" y2="20"></line>
+      <line x1="8.12" y1="8.12" x2="12" y2="12"></line></svg></button>
+  </div>
+  <input type="file" id="bugshotfile" accept="image/*" multiple hidden>
   <div class="binfo" id="buginfo"></div>
   <div class="bbtns">
     <button class="rbtn" id="bugsubmit">提交</button>
     <button class="rbtn" id="bugdl">仅下载文件</button>
   </div>
   <div class="snote" id="bugstatus"></div>
+</div>
+<!-- ★★R137D（用户 2026-10-08：「预览截图的时候，点击那个图片要能完整的显示那个图片」）：
+     点缩略图 → 这个覆盖层按**等比完整**显示原图（缩略图本身是 cover 裁过的）。
+     挂在 #bugbox **外面**（body 级）—— 避免被 .bbox 的 `overflow-y:auto` 裁切。
+     关闭：点任意处 / 点 ✕ / 按 Esc（三路都绑）。 -->
+<div class="svmask" id="shotmask"></div>
+<div class="svbox" id="shotview">
+  <img id="shotimg" alt="截图">
+  <button class="svx" id="shotclose" title="关闭">✕</button>
 </div>
 <!-- ★★R132-10o：Bug 修复列表（设置 → Bug 记录 → Bug 修复列表 → 次级菜单）。
      与 #bugbox 同款弹层（.bmask/.bbox），加 .fixbox 放宽；内容是**只读**状态表，
@@ -4250,14 +4310,20 @@ function isTouchDevice(){
 function uiTouch(){return UI_MODE==='touch'||(UI_MODE==='auto'&&isTouchDevice());}
 function setUIMode(m){
   UI_MODE=m;try{localStorage.setItem('sandbox_ui_mode',m);}catch(e){}
-  /* ★R131-27b：触屏模式的 body 级样式（面板收起把手显示） */
-  if(uiTouch()){DD.body.classList.add('touch-ui');DD.body.classList.add('touch-panel-folded');}
-  else{DD.body.classList.remove('touch-ui');DD.body.classList.remove('touch-panel-folded');}
+  /* ★R131-27b：触屏模式的 body 级样式（面板收起把手显示）
+   * ★★R136（用户 2026-10-08：「把电脑版的右上角托盘折叠事件改成和手机版一样」，拍板
+   *   「电脑版也默认收起」）：折叠类 `touch-panel-folded` **不再与 `touch-ui` 同进同退**。
+   *   「面板收起 / 把手露出」是**这一对控件自己的状态**，与「哪个版本」无关 —— 两版**初始
+   *   都收起**（点把手展开），行为完全一致。`touch-ui` 仍保留为触屏专属（它管的是点选放置
+   *   等另一族样式，与折叠无关）。 */
+  if(uiTouch())DD.body.classList.add('touch-ui');else DD.body.classList.remove('touch-ui');
+  DD.body.classList.add('touch-panel-folded');
 }
 /* ★R131-27b：初始化时按当前模式挂 body 类（面板把手/折叠） */
 function applyUIModeClasses(){
-  if(uiTouch()){DD.body.classList.add('touch-ui');DD.body.classList.add('touch-panel-folded');}
-  else{DD.body.classList.remove('touch-ui');DD.body.classList.remove('touch-panel-folded');}
+  /* ★★R136：同上 —— 两版**初始都收起**面板（折叠类与 `touch-ui` 解耦）。 */
+  if(uiTouch())DD.body.classList.add('touch-ui');else DD.body.classList.remove('touch-ui');
+  DD.body.classList.add('touch-panel-folded');
   /* ★R133f：把手改成两版都显示 ⇒ 它的「已展开」视觉（`.open` = 反白 + 箭头翻转，见 R132-8
      那一族控件的统一语言）必须与**真实的折叠状态**对齐，否则电脑版一进来就是
      「面板明明展开着、箭头却朝下说要展开」的矛盾状态。 */
@@ -6618,13 +6684,13 @@ function attach(B,d){
   /* ★★R132 BOSS 召唤：**光速 v** 落到 ½mv² 公式体上 ⇒ 转 bossPlace（前两次排斥、第三次融合）。
    *  必须抢在下面所有分支之前 —— ½mv² 是「由字符组成的表达式」，会走到 mem 并入分支，
    *  一进去公式就毁了。判据用 bossIsEk()（精确判型），不是"有 v 就拦"。 */
-  if(d&&d.ch==='v'&&d.vLight&&typeof bossTryPlace==='function'&&bossTryPlace(B,d))return;
+  if(d&&d.ch==='v'&&d.vLight&&typeof bossTryPlace==='function'&&bossTryPlace(B,d))return true;
   /* ★★R132-9（用户：「当用户试图将参数调成 c 的 v 赋予给物体融合时，这时 v 不融合，
    *  且被弹开，并在放置处弹出一个 error 的错误提示」）：**光速 v 的其它落点一律拒绝**。
    *  排在 bossTryPlace 之后 ⇒ ½mv² 那条召唤通道先接，接不住的（普通物体 / 别的公式）
    *  在这里被拒：不并入 mem、不赋予速度、把 v 弹开、落点冒一行 error。
    *  ★普通 v（vLight=false）不受影响 —— 判定条件里带 vLight，不是"见到 v 就拦"。 */
-  if(d&&d.ch==='v'&&d.vLight){if(vLightReject(B,d))return;}
+  if(d&&d.ch==='v'&&d.vLight){if(vLightReject(B,d))return true;}
   /* ★R131-34：v / q 是「赋予型」字符——不并入物体，赋予完就回面板（播消失动画）。 */
   /* ★★R131-50b（自测发现：a 落到字母 m 上也被"赋予"了、组合不了）：真因=下面
    *  giveFromLetter **在 attach 最开头抢先执行**，组合分支永远走不到。
@@ -6637,15 +6703,24 @@ function attach(B,d){
       d.pop=0;
       var mi2=freeL.indexOf(d);if(mi2>=0)freeL.splice(mi2,1);
       dockLetter(d);
-      return;
+      return true;
     }
     /* ★★R132-9zm：q 落在**不在白名单**的形状上时**必须在这里中止** ——
        原来 `giveFromLetter` 返回 false 会一路 fall through 到下面的 `B.mem.push(d)`
        ⇒ **q 被并进物体的 mem**（正是用户报的「那个符号 E 被融合进去了」那个现象）。
        ⇒ 非白名单形状一律**不 merge**，交回上层走「场源体」兜底。 */
-    if((d.type||d.ch)==='q'&&!qGiveable(B))return;
+    /* ★R137：返回 false ⇒ 上游（如 `_sb` 那条实心命中通道）会**继续往下走**，
+       把字符落成自由字母 / 场源体，而不是把它卡在半路。 */
+    if((d.type||d.ch)==='q'&&!qGiveable(B))return false;
   }
-  if(B.mem.indexOf(d)>=0)return;
+  if(B.mem.indexOf(d)>=0)return true;
+  /* ★★R137：**并入的正本闸门** —— 所有「把字母并进 mem」的路都必须过这里。
+     为什么不能只靠 `canMerge`：R131-36 给「赋予型字符（v/q/a）拖到实心物体上就生效」
+     加了一条**直接 `attach` 的通道**（pointerup 里 `_sb` 那支，见下方注释），它**不看
+     canMerge** ⇒ 用户报的 `Mmv` 正是从那里进来的（实测：`Mm` 体 + 真拖 `v` ⇒
+     `canMerge=false`，但 v 照样进了 mem）。闸门装在**并入点**上，通道再多也漏不掉。
+     ★口径与理由同 `mergeStaysInExpr` 的注释（合法集合真源 = `WHOLE_PRESETS`）。 */
+  if(!mergeStaysInExpr(B,d))return false;
   var mi=freeL.indexOf(d);if(mi>=0)freeL.splice(mi,1);
   var pv=null;
   if(B.massG&&B.massG.sx!=null)pv={sx:B.massG.sx,sy:B.massG.sy};
@@ -6668,7 +6743,10 @@ function attach(B,d){
    *  整个表达式化成一个 g 字符（用户：「拼出这个后，整体变成 g」）。
    *  ★必须在 keepMass / ringGo **之后**：那两步要读 B.massG / B.x/y，
    *    而 gravFieldToG 会把 B 整个删掉（顺序颠倒会读到已死的体）。 */
-  if(gravFieldShape(B)){gravFieldToG(B);return;}
+  if(gravFieldShape(B)){gravFieldToG(B);return true;}
+  /* ★R137：布尔语义补全 —— 走到这里就是「并进 mem 成功」的常规出口。
+     上游（`_sb` 实心命中通道 / 场源体通道）按返回值分流，缺这一句会读到 `undefined`。 */
+  return true;
 }
 function keepMass(B,pv){
   var m=B.massG;if(!m)return;
@@ -6715,7 +6793,80 @@ function splitOne(B,d){
   trailResetOn(B);
   for(var m2=0;m2<out.length;m2++)trailResetOn(out[m2]);
 }
+/* ★★R137（用户 2026-10-08 原话：「雀食我发现能拼成 Mmv 这个整体，拼成 Mm 后，应该不能再
+ *  加入 v 了，因为表达式中没有这个，你同步检查一下其他的表达式是否有这种串路径的错误路径」）
+ *  —— **表达式并入的「末态闸门」**。
+ *
+ *  口径：**并入之后，这个体的字母多重集必须是某个合法表达式（唯一真源 = `WHOLE_PRESETS`）的
+ *  子多重集**。产品只认识那 10 个表达式；一个体只有当它是其中某个的「未拼完前缀」时才算有意义
+ *  的中间态（拼装顺序必须自由 ⇒ 任意前缀都得能存在），除此之外多出来的字母就是**串错了**。
+ *   · 为什么是「子多重集」而不是「相等」：`m→M→G→r→r` 这种自由顺序要求 `mG`/`mGM`/`mGMr`
+ *     这些中间态本身可存在 —— 子集关系天然满足（S ⊆ P ⇒ S 的任意子集也 ⊆ P）⇒
+ *     **闸门不可能砍掉任何原本合法的拼装路径**（只减不增：被接受 ⇒ 末态 ⊆ 某预设 ⇒
+ *     路径上每个中间态也 ⊆ 该预设 ⇒ 仍然被接受）。
+ *     ★实测（`_diag_r137_merge_audit.py` 同尺子跑两版）：10 个预设里 **6 个可达**
+ *     （`mg`/`ma`/`mv`/`mv²`/`GMm/r²`/`2GM/c²`），另 4 个（`mv²/r`/`½mv²`/`mc²`/`m(g+gμ)`）
+ *     **改前就不可达** —— 拿 `backups/index_20261008_R137_pre-mergegate.html` 当负对照复量，
+ *     两边一模一样 ⇒ 是**既存缺口，不是本次引入**（本次只减不增，不可能新增缺口）。
+ *   · ★★为什么做成**闸门**而不是重写上面那些分支：那些分支各自背着历史修复的**局部语义**
+ *     （R131-42/43 的「GM 不能串 c」、R60c 的「裸 v²/r 不算向心力」…）⇒ 一条都不动，
+ *     闸门只负责**额外剔除「跨族串字母」**。而且闸门**只减不增** ⇒ 不可能凭空放开任何
+ *     原本被拒绝的拼接（那才是最容易回归的地方）。
+ *   · ★作用域**只限「表达式词汇表内」的字母**（词汇表 = 所有预设字母的并集）。
+ *     B/E/I/q（场源）、t（组合）、k/x（弹簧）都不在词汇表里 ⇒ 本闸门**完全不管** ⇒
+ *     不误伤这些字符各自的历史行为（赋予电荷 / k·x 弹簧 / t 组合 / 场源体…）。
+ *   · 真源拿不到（`WHOLE_PRESETS` 未定义）⇒ **放行**（宁可放过，不要误伤）。
+ *  依据：`_diag_r137_merge_audit.py`（BFS 枚举「底座 ∈ {m,M,G} + 逐字母 canMerge→attach」的
+ *  全部可达态，MAXN=6，与 `WHOLE_PRESETS` 对照）。同尺子两版读数：
+ *   · 改前（`backups/index_20261008_R137_pre-mergegate.html`）：可达 **483** 态，其中
+ *     **词汇表内 271 态里有 221 个非法态**；`Mmv` 可达，路径 `['m+M+v','m+v+M','M+m+v','M+v+m']`。
+ *   · 改后：可达 **262** 态，**词汇表内 154 态，非法 0**；`Mmv` 可达 = False、路径 = []。
+ *  用户报的 `Mmv` 就在那 221 个里（同类还有 `Mvv`/`mvvM`/`Mgm`/`mGv` 等）—— 一次全部关掉。
+ *  ★词汇表外的态（含 B/E/I/q/t/k/x 的）**不在闸门管辖范围**（见上「作用域」），
+ *    所以两版的 `illegalN` 总数（417 → 196）不归零是**预期**，不是漏网。 */
+var _EXPR_MS = null, _EXPR_VOC = null;
+function exprRules(){
+  if(_EXPR_MS) return;
+  if(typeof WHOLE_PRESETS === 'undefined') return;      // 真源还没定义 ⇒ 让调用方放行
+  var list = [], voc = {};
+  for(var i=0;i<WHOLE_PRESETS.length;i++){
+    var p = WHOLE_PRESETS[i]; if(!p || !p.mass) continue;
+    var m = {}; m[p.mass] = (m[p.mass]||0) + 1; voc[p.mass] = 1;
+    var mm = p.mem || [];
+    for(var j=0;j<mm.length;j++){ var c = mm[j]; m[c] = (m[c]||0) + 1; voc[c] = 1; }
+    list.push(m);
+  }
+  _EXPR_MS = list; _EXPR_VOC = voc;
+}
+function exprSubset(a,b){
+  for(var k in a){ if(a.hasOwnProperty(k) && (b[k]||0) < a[k]) return false; }
+  return true;
+}
+/* 并入 d 之后这个体的字母多重集是否仍落在某个合法表达式之内。
+   ★按**对象身份**去重：`promoteFreeLetter` 造的体里 massG 同时也在 mem 里（会重复计数）。 */
+function mergeStaysInExpr(B,d){
+  exprRules();
+  if(!_EXPR_MS || !_EXPR_MS.length) return true;        // 真源不可用 ⇒ 放行
+  var ms = {}, seen = [];
+  function add(g){
+    if(!g || g.dead) return;
+    if(seen.indexOf(g) >= 0) return;
+    seen.push(g);
+    var t = g.type || g.ch; ms[t] = (ms[t]||0) + 1;
+  }
+  add(B.massG);
+  if(B.mem) for(var i=0;i<B.mem.length;i++) add(B.mem[i]);
+  add(d);
+  for(var k in ms){ if(ms.hasOwnProperty(k) && !_EXPR_VOC[k]) return true; }  // 含非表达式字母 ⇒ 不管
+  for(var q=0;q<_EXPR_MS.length;q++) if(exprSubset(ms,_EXPR_MS[q])) return true;
+  return false;
+}
 function canMerge(B,d){
+  /* 原判定（R131-42/43、R60c 等历史语义）**一字不动**，只在放行的基础上加末态闸门。 */
+  if(!canMergeRaw(B,d)) return false;
+  return mergeStaysInExpr(B,d);
+}
+function canMergeRaw(B,d){
   /* ★★R131-42（用户：「G 和 m 连接后，为什么还能连接字符 c 组成 Gmc？这个不应该能组合」）：
    *  **已成表达式（mem ≥ 2）之后，禁止再并入"常量/符号类"字母**（c/G/t/q/k/x 等）——
    *  它们只能作为表达式的**起点**（如 mc²、GMm），不能追加到一个已经成形的表达式里。 */
@@ -8154,9 +8305,18 @@ DD.addEventListener('pointerup',function(e){
     /* ★R131-36：**赋予型字符（v/q）**拖到实心物体上就生效——纯形状（没有质量字母的
      *  方块/圆）在 canMerge 规则下不接收参数字母（实测 canMerge=false ⇒ 拖上去毫无反应），
      *  但「赋予」不需要并入物体 ⇒ 单独按**实心区域命中**判定。 */
+    /* ★★R137：`attach` 现在返回布尔 ⇒ 这条通道**必须按返回值分流**。
+       用户报的 `Mmv`（bug1791273176929）正是从这里进来的：这条通道**故意不看 `canMerge`**
+       （纯形状没有质量字母、在 canMerge 规则下不接收参数字母，但「赋予」不需要并入物体）。
+       可它同样要受**并入闸门**约束 —— attach 返回 false ⇒ 「并进去就不再是任何表达式」
+       ⇒ 这里**不能 return**（return 会把字符卡在半路），要落到下面 `findMergeTarget` /
+       自由字母路径，让字符照常被放下。
+       ★实测（`Mm` 体 + 真拖 `v`）：canMerge=false ∧ attach=false ⇒ 继续往下
+         ⇒ findMergeTarget=null ⇒ findFreeMassTarget=null ⇒ 自由字母路径
+         ⇒ `v` 就地放下、宿主 mem 仍是 `[m,M]`。 */
     if((L.ch==='v'||L.ch==='q'||L.ch==='a')&&typeof findSolidBodyAt==='function'){
       var _sb=findSolidBodyAt(pointer.x,pointer.y);
-      if(_sb){attach(_sb,L);grab.kind=null;grab.obj=null;return;}
+      if(_sb&&attach(_sb,L)){grab.kind=null;grab.obj=null;return;}
     }
     var B2=findMergeTarget(L);
     if(B2){
@@ -17687,7 +17847,15 @@ function closeSettings(){
 //    记下目标元素的 tag#id.class 与文字 ⇒ 事后能把「哪一帧的读数」和「用户按了什么」对上。
 //  · **只读**：整个通道不写任何物理量，只是看 —— 记录模式不该改变被测行为。
 //  · 导出 = Blob 下载 + 一份写进 localStorage（download 被浏览器挡住时还有退路）。
-var REC={on:false,ready:false,t0:0,frames:[],events:[],raf:0,lastMove:0,tickUI:0,init:null,drop:0};
+/* ★★R137C（用户 2026-10-08）：新增两个**本段记录的使用状态**，只服务于「Bug 记录」那两颗按钮的
+   文案/显隐（不参与导出，不进 recPayload）：
+     · `submitted`  —— 这一段已经**成功提交到后端**（`bugSubmit` 拿到 `{ok:true}`）；
+     · `downloaded` —— 这一段已经**下载过文件**（`recDump` 被调过）。
+   含义：只要本段记录「已经交付出去了」，就没必要再显示「继续提交 / 重新录制」——
+   用户原话「如果用户之前点击提交了或者下载了文件就不用显示这两个按钮，就显示之前一样的开始录制按钮即可」。
+   ★两者都在 `recStart()` 里复位：新一段记录从「未使用」开始。 */
+var REC={on:false,ready:false,submitted:false,downloaded:false,
+         t0:0,frames:[],events:[],raf:0,lastMove:0,tickUI:0,init:null,drop:0};
 /* ★★R132-10u（用户原话：「那个 bug 记录的功能是不是现在没有详细记录整个事件的快照？补齐一下，
  *   免得以后这边又放不了，导出的文件要能精确定位问题，并且能直接重放整个过程，
  *   并且对快照时间增加限时，只能录 30 秒的内容」）：
@@ -17710,8 +17878,16 @@ var REC_EVMAX=4000;
  *  ★R133d：修「轨迹开关在符号物体上是死开关」（`trailOwner` 归一）+ 冻结体不出轨迹那一行。
  *  ★R133i：R133e 之后 R133f/g/h 三代又漏改（导出 JSON 一直写 'R133e'）⇒ 本次补到当前代。
  *  ★R135b：R135 / R135b 两代又漏改（导出 JSON 仍写 'R133i'）⇒ 本次补到当前代
- *    （本轮改动 = 公式体并入字母的排布口径统一，见 `tokenSeq` / `layoutBody` 的 R135 / R135b 注释）。 */
-var REC_APP_VER='R135b';
+ *    （本轮改动 = 公式体并入字母的排布口径统一，见 `tokenSeq` / `layoutBody` 的 R135 / R135b 注释）。
+ *  ★R137C：R136 / R137 / R137C 三代又漏改（导出 JSON 仍写 'R135b'）⇒ 本次补到当前代
+ *    （R136 = 托盘折叠与 touch-ui 解耦；R137 = 并入末态闸门 `mergeStaysInExpr`；
+ *      R137C = 「继续提交 / 重新录制」+ 提交框截图）。★这四代**同批未推送**，
+ *      提交体结构从 R137C 起新增可选 `shots`（见 `bugSubmit`）。
+ *  ★★R137D：R137D 一天内又漏改（导出 JSON 仍写 'R137C'）⇒ 本次补到当前代。
+ *    R137D 两处 UI 改动（用户 2026-10-08 逐字要求）：①「截图」按钮改成**剪刀图标**（去掉文字，
+ *    见 `#shotbtn`）；② 点提交框里的缩略图 → **完整显示原图**（全屏遮罩预览）。
+ *    ★提交体结构**未变**（仍是 R137C 起的可选 `shots`），R137D 只动外观与预览交互。 */
+var REC_APP_VER='R137D';
 function recNow(){return +(performance.now()).toFixed(1);}
 function recSnap(full){
   /* ★R132-10u：`full=true` 只用于 `REC.init`（录制起点的完整快照）。同一体的「物理语义」字段
@@ -17928,17 +18104,43 @@ function recHook(on){
 var recbtn=document.getElementById('recbtn'),recnote=document.getElementById('recnote'),
     recnew=document.getElementById('recnew'),
     recbadge=document.getElementById('recbadge');
+/* ★★R137C（用户 2026-10-08）：「Bug 记录」两颗按钮改为**按用途命名 + 状态驱动显隐**。
+   四种状态（`ready` = 这一段已录好、还没被丢弃）：
+     · 录制中        ⇒ 主按钮「停止并导出（Xs / 30s · N帧）」，第二颗隐藏；
+     · 待提交        ⇒ 主按钮「**继续提交**」+ 第二颗「**重新录制**」；
+     · 已提交/已下载 ⇒ 只留一颗「开始记录」（这一段已交付出去了，不再重复提交）；
+     · 空闲          ⇒ 只留一颗「开始记录」。
+   ★「继续提交」= 打开提交框，提交**当前这段仍未提交的**记录（`openBugDlg`）；
+   ★「重新录制」= 丢掉这一段、开新一轮（`recStart`）—— 名字与处理逻辑一致。 */
+function recPending(){return !REC.on&&REC.ready;}
+function recSpent(){return !!(REC.submitted||REC.downloaded);}
 function recUI(){
+  var pend=recPending(), spent=recSpent();
   if(recbtn){
     recbtn.classList.toggle('on',REC.on);
-    recbtn.textContent=REC.on?('停止并导出（'+(Math.min(REC_MS,recNow()-REC.t0)/1000).toFixed(1)
-                               +'s / 30s · '+REC.frames.length+'帧）'):(REC.ready?'导出记录':'开始记录');
+    recbtn.textContent=REC.on
+      ?('停止并导出（'+(Math.min(REC_MS,recNow()-REC.t0)/1000).toFixed(1)
+        +'s / 30s · '+REC.frames.length+'帧）')
+      :((pend&&!spent)?'继续提交':'开始记录');
   }
-  if(recnew)recnew.hidden=!REC.ready;
+  if(recnew){
+    var show=pend&&!spent;
+    recnew.hidden=!show;
+    if(show)recnew.textContent='重新录制';
+  }
   if(recbadge)recbadge.classList.toggle('on',REC.on);
 }
 function recStart(){
-  REC.on=true;REC.ready=false;REC.t0=recNow();REC.frames.length=0;REC.events.length=0;
+  REC.on=true;REC.ready=false;
+  /* ★R137C：新一段记录从「未使用」开始 —— 上一段的已提交/已下载状态**必须**在这里清掉，
+     否则新录的这段一停下来就会被当成「已交出去」而只剩一颗「开始记录」（用户要的是
+     「重新录制 = 开始新一轮录制」，录完仍要能提交）。 */
+  REC.submitted=false;REC.downloaded=false;
+  /* ★R137C：开新一段 ⇒ 上一段的截图**不能**带过来（否则会跟着新记录一起提交）。
+     `BUG_SHOTS`/`bugShotRender` 声明在本函数之后，但都是同一段脚本且此处只在交互时执行
+     ⇒ 运行时已初始化（`var` 提升 + 函数声明提升）。 */
+  if(BUG_SHOTS){BUG_SHOTS.length=0;bugShotRender();}
+  REC.t0=recNow();REC.frames.length=0;REC.events.length=0;
   /* ★R132-10u：起点的**完整快照**（`full=true` 带公式记忆/质量倍率/μ/全量顶点）+ 丢弃计数清零。
    *  它是环形缓冲里永远不会被丢掉的那一份 ⇒ 哪怕录到一半开始丢帧，也总能从起点重放。 */
   REC.init=recSnap(true);REC.drop=0;
@@ -17959,7 +18161,7 @@ function recStop(){
 function recAutoStop(){
   recStop();
   if(recnote)recnote.textContent='已录满 30 秒并自动停止（'+REC.frames.length+' 帧 / '
-    +REC.events.length+' 个操作）。点「导出记录」保存这一段，或点「清空并重录」开始新记录。';
+    +REC.events.length+' 个操作）。点「继续提交」提交这一段，或点「重新录制」开始新记录。';
 }
 // ★★R132-10n：把 payload 的构建从 recDump 里抽出来 —— 「提交到后端」也要用它，
 //   但**不能**走 recDump（那个会触发下载）。两处共用同一个 recPayload()，口径不会分叉。
@@ -18012,20 +18214,27 @@ function recDump(){
     +(REC.drop?('（★已丢弃最前 '+REC.drop+' 帧）'):'（含起点完整快照，可从头重放）')
     +'。文件在浏览器的下载目录里，'
     +'把它给我（或让我读 localStorage 的 __LAST_REC__）就能直接判断。';
+  /* ★R137C：下载过 = 这一段已经交付出去了 ⇒ 「Bug 记录」回到只留一颗「开始记录」
+     （用户原话：「如果用户之前点击提交了或者下载了文件就不用显示这两个按钮」）。 */
+  REC.downloaded=true;recUI();
   return {name:name,frames:REC.frames.length,events:REC.events.length,bytes:s.length};
 }
 if(recbtn)recbtn.addEventListener('click',function(){
   /* ★★R132-10n（用户 2026-10-03）：「点击结束后，**不下载**那个文件，而是弹出提交框，
    *   编辑文字说明，提交就可以将 json 文件和文字说明一起提交到后端」。
-   *   ⇒ 停止后走 openBugDlg()；下载降级为弹框里的「仅下载文件」备选。 */
+   *   ⇒ 停止后走 openBugDlg()；下载降级为弹框里的「仅下载文件」备选。
+   * ★★R137C（用户 2026-10-08）：按钮文案改成「继续提交 / 开始记录」后，分派**必须**与名字同义：
+   *   · 录制中          ⇒ 停止并打开提交框；
+   *   · 待提交且未用过  ⇒ 「继续提交」= 打开提交框，提交当前这段仍未提交的记录；
+   *   · 其余（空闲 / 已提交过 / 已下载过）⇒ 「开始记录」= recStart() 开新一轮。
+   *   ★原来这里是 `else if(REC.ready){openBugDlg();}` —— 在「已提交/已下载」时也开提交框，
+   *     与用户要的「只显示开始录制按钮」矛盾（那会允许把同一段重复提交）。 */
   if(REC.on){recStop();openBugDlg();}
-  /* ★R133c(PR#8)：有待导出的记录时，按钮是「导出记录」⇒ 直接开导出窗口，
-     绝不能再掉进 `else{recStart()}` —— 那会把刚录好的一段（帧/事件/起点快照）全清掉。 */
-  else if(REC.ready){openBugDlg();}
+  else if(recPending()&&!recSpent()){openBugDlg();}
   else{recStart();}
 });
-/* ★R133c(PR#8)：只有「有待导出记录」时这颗按钮才可见（`recUI` 里 `hidden=!REC.ready`）。
-   点它 = 明确放弃这一段 ⇒ 先关掉可能还开着的提交框，再重新开录。 */
+/* ★R133c(PR#8)：只有「待提交且这一段还没交出去」时这颗按钮才可见（`recUI` 里 `hidden`）。
+   ★R137C：文案改为「重新录制」—— 点它 = 明确放弃这一段 ⇒ 先关掉可能还开着的提交框，再重新开录。 */
 if(recnew)recnew.addEventListener('click',function(){
   if(!REC.on&&REC.ready){closeBugDlg();recStart();}
 });
@@ -18040,18 +18249,193 @@ var BUG_ENDPOINT='https://sandbox-bug-api.pages.dev/submit';
 var bugmask=DD.getElementById('bugmask'),bugbox=DD.getElementById('bugbox'),
     bugdesc=DD.getElementById('bugdesc'),buginfo=DD.getElementById('buginfo'),
     bugsubmit=DD.getElementById('bugsubmit'),bugdl=DD.getElementById('bugdl'),
-    bugstatus=DD.getElementById('bugstatus'),bugclose=DD.getElementById('bugclose');
+    bugstatus=DD.getElementById('bugstatus'),bugclose=DD.getElementById('bugclose'),
+    /* ★R137C：截图区（缩略图容器 + 上传/截图两颗按钮 + 隐藏的 file input） */
+    bugshots=DD.getElementById('bugshots'),bugshotup=DD.getElementById('bugshotup'),
+    bugshotgrab=DD.getElementById('bugshotgrab'),bugshotfile=DD.getElementById('bugshotfile'),
+    /* ★R137D：看图浮层（等比完整显示缩略图对应的原图）。 */
+    shotmask=DD.getElementById('shotmask'),shotview=DD.getElementById('shotview'),
+    shotimg=DD.getElementById('shotimg'),shotclose=DD.getElementById('shotclose');
+
+/* ================= R137C 提交框里的截图（用户 2026-10-08） ==========================
+ * 原话：「在那个弹出窗那里增加一个上传截图和截图的按钮，可以上传提交截图，后者可以直接退到
+ *   那个界面截一张图然后提交到这里，在输入框那里可以预览截图和增加删减」。
+ *
+ * ★★「截图」为什么**必须自己合成**、不能直接 `cv.toDataURL()`：
+ *   这个产品是**两层**画面 —— ① canvas(`#cv`) 画 W 体/器件/墙/轨迹/场；② **字母全是 DOM**
+ *   （`.char`：`position:fixed` + `transform`；公式体、自由字母、面板字母都是它）。
+ *   实测（`_tmp_r137c_spawn_probe.py`）：场上只有公式体 `mg` 时 `#cv` 的**非透明像素 = 0**
+ *   —— 纯 canvas 截图得到一张空图；只有 W 体（传送带 6758px / 矩形 10630px）才画得上去。
+ *   ⇒ 必须「canvas 底图 + DOM 字母叠绘」，否则用户截的图里**主角（公式）根本不在**。
+ * ★同一次调查的另两条结论：
+ *   · `#cv` 是 2D context（`cvx=cv.getContext('2d')`，非 WebGL）⇒ `toDataURL` 可用、不被 taint；
+ *   · 地面线 `.ground` 是 **DOM**（`position:fixed;bottom:20%`）而不是 canvas 画的
+ *     ⇒ 底图里没有它，这里按它的 rect 补画一条（否则截图里看不到地面，高度关系全丢）。
+ *
+ * ★体积口径：单张限长边 `SHOT_EDGE`、转 JPEG `SHOT_Q`（1280×900 约 60~150 KB）；
+ *   最多 `SHOT_MAX` 张。后端 `/submit` 单条上限 20 MB（KV 单值 25 MiB），提交前另做一次预检。
+ * ================================================================================== */
+var SHOT_MAX=4, SHOT_EDGE=1400, SHOT_Q=0.82;
+var BUG_SHOTS=[];                        // [{d:dataURL, w, h, kb}]
+
+function bugShotStatus(t){if(bugstatus)bugstatus.textContent=t;}
+
+/* 把「当前画布画面」合成成 {d:jpegDataURL, w, h, kb}；失败返回 null（绝不抛）。 */
+function bugShotCompose(){
+  try{
+    var r=cv.getBoundingClientRect();
+    if(!r.width||!r.height)return null;
+    var cw=cv.width,ch=cv.height;
+    var out=document.createElement('canvas');
+    out.width=cw;out.height=ch;
+    var g=out.getContext('2d');
+    if(!g)return null;
+    /* ① 底色：canvas 本体是透明的 ⇒ 不铺底的话 JPEG 会把透明当黑，整张图变黑底。 */
+    g.fillStyle='#F4F1EA';g.fillRect(0,0,cw,ch);
+    /* ② canvas 层（W 体 / 器件 / 墙 / 轨迹 / 场） */
+    try{g.drawImage(cv,0,0,cw,ch);}catch(e){}
+    var sx=cw/r.width, sy=ch/r.height;
+    /* ③ 地面线（DOM `.ground`）—— 见文件头说明，底图里没有它 */
+    try{
+      var ge=DD.querySelector('.ground');
+      if(ge){
+        var gb=ge.getBoundingClientRect();
+        if(gb.width>0){
+          g.save();
+          g.strokeStyle='rgba(38,34,28,.65)';
+          g.lineWidth=Math.max(1,2*sy);
+          g.beginPath();
+          g.moveTo((gb.left-r.left)*sx,(gb.top+gb.height/2-r.top)*sy);
+          g.lineTo((gb.right-r.left)*sx,(gb.top+gb.height/2-r.top)*sy);
+          g.stroke();g.restore();
+        }
+      }
+    }catch(e){}
+    /* ④ DOM 字母层（画布上的；排除设置面板/参数面板里的那些） */
+    var els=DD.querySelectorAll('.char');
+    for(var i=0;i<els.length;i++){
+      var e=els[i];
+      try{
+        if(e.closest&&e.closest('.panel'))continue;
+        var cs=getComputedStyle(e);
+        if(cs.display==='none'||cs.visibility==='hidden')continue;
+        if(parseFloat(cs.opacity||'1')<0.05)continue;
+        var b=e.getBoundingClientRect();
+        if(!b.width||!b.height)continue;
+        if(b.right<r.left-8||b.left>r.right+8||b.bottom<r.top-8||b.top>r.bottom+8)continue;
+        var fs=parseFloat(cs.fontSize)||48;
+        g.save();
+        g.translate((b.left+b.width/2-r.left)*sx,(b.top+b.height/2-r.top)*sy);
+        var mt=/rotate\(([-0-9.eE]+)rad\)/.exec(e.style.transform||'');
+        if(mt)g.rotate(parseFloat(mt[1]));
+        g.fillStyle=cs.color||'#26221C';
+        g.textAlign='center';g.textBaseline='alphabetic';
+        g.font=(cs.fontStyle&&cs.fontStyle!=='normal'?(cs.fontStyle+' '):'')
+              +(cs.fontWeight||'normal')+' '+(fs*sy).toFixed(2)+'px '+cs.fontFamily;
+        var tx=e.textContent||'';
+        var m=g.measureText(tx);
+        var asc=(m.actualBoundingBoxAscent!=null?m.actualBoundingBoxAscent:(fs*sy)*0.5);
+        var dsc=(m.actualBoundingBoxDescent!=null?m.actualBoundingBoxDescent:0);
+        /* `.char` 是 line-height:1 的定宽盒 ⇒ 让「墨迹视觉中心」落在盒中心 */
+        g.fillText(tx,0,(asc-dsc)/2);
+        g.restore();
+      }catch(e){}
+    }
+    /* ⑤ 限长边 + JPEG */
+    var w=cw,h=ch;
+    if(Math.max(w,h)>SHOT_EDGE){
+      var k=SHOT_EDGE/Math.max(w,h);
+      w=Math.max(1,Math.round(w*k));h=Math.max(1,Math.round(h*k));
+      var o2=document.createElement('canvas');o2.width=w;o2.height=h;
+      var g2=o2.getContext('2d');
+      g2.fillStyle='#F4F1EA';g2.fillRect(0,0,w,h);
+      g2.drawImage(out,0,0,w,h);
+      out=o2;
+    }
+    var url=out.toDataURL('image/jpeg',SHOT_Q);
+    if(!url||url.length<128)return null;
+    return {d:url,w:w,h:h,kb:Math.round(url.length/1024)};
+  }catch(e){return null;}
+}
+
+/* 缩略图列表（预览 + 增删）：整块重建 + 事件委托，避免逐个绑/解监听。 */
+function bugShotRender(){
+  if(!bugshots)return;
+  var h='';
+  for(var i=0;i<BUG_SHOTS.length;i++){
+    var s=BUG_SHOTS[i];
+    h+='<div class="bshot"><img src="'+s.d+'" alt="截图'+(i+1)+'">'
+      +'<span class="bn">'+(i+1)+'</span>'
+      +'<button class="bx" data-i="'+i+'" title="删掉这张">✕</button></div>';
+  }
+  bugshots.innerHTML=h;
+}
+function bugShotAdd(s,src){
+  if(!s){bugShotStatus('截图失败：拿不到画面（可改用「上传截图」）。');return false;}
+  if(BUG_SHOTS.length>=SHOT_MAX){
+    bugShotStatus('最多 '+SHOT_MAX+' 张截图，先删掉一张再加吧。');return false;
+  }
+  BUG_SHOTS.push(s);bugShotRender();
+  bugShotStatus('已加入 '+(src||'')+'第 '+BUG_SHOTS.length+' 张截图（'+s.w+'×'+s.h+' / '+s.kb+' KB）。'
+    +'点缩略图右上角 ✕ 可以删掉。');
+  return true;
+}
+/* 上传的图片统一「限长边 + 转 JPEG」再入列 —— 否则手机截图动辄 3~8 MB，几张就把 20 MB 撑爆。 */
+function bugShotFromFile(file){
+  try{
+    var fr=new FileReader();
+    fr.onload=function(){
+      var img=new Image();
+      img.onload=function(){
+        try{
+          var k=Math.min(1,SHOT_EDGE/Math.max(img.width||1,img.height||1));
+          var w=Math.max(1,Math.round((img.width||1)*k)),h=Math.max(1,Math.round((img.height||1)*k));
+          var c=document.createElement('canvas');c.width=w;c.height=h;
+          var g=c.getContext('2d');
+          g.fillStyle='#F4F1EA';g.fillRect(0,0,w,h);
+          g.drawImage(img,0,0,w,h);
+          var u=c.toDataURL('image/jpeg',SHOT_Q);
+          bugShotAdd({d:u,w:w,h:h,kb:Math.round(u.length/1024)},'');
+        }catch(e){bugShotStatus('这张图读不出来（'+((e&&e.message)||e)+'）。');}
+      };
+      img.onerror=function(){bugShotStatus('这不是浏览器能识别的图片格式。');};
+      img.src=String(fr.result||'');
+    };
+    fr.onerror=function(){bugShotStatus('读取文件失败。');};
+    fr.readAsDataURL(file);
+  }catch(e){bugShotStatus('读取文件失败：'+((e&&e.message)||e));}
+}
+/* 「截图」：先**收起弹框退到界面**（用户原话「直接退到那个界面截一张图」），
+   等过渡结束再合成当前画面，然后自动回到弹框、把图加进预览（「然后提交到这里」）。
+   ★合成结果里**本来就没有弹框**（只画 canvas + `.char` + 地面线），收起弹框是为了让用户
+     亲眼确认「我拍的就是刚才那个画面」，不是技术必需。 */
+function bugShotGrab(){
+  if(BUG_SHOTS.length>=SHOT_MAX){bugShotStatus('最多 '+SHOT_MAX+' 张截图，先删掉一张再加吧。');return;}
+  var hadText=bugdesc?bugdesc.value:'';
+  closeBugDlg();
+  setTimeout(function(){
+    var s=bugShotCompose();
+    openBugDlg();
+    if(bugdesc)bugdesc.value=hadText;      // openBugDlg 不改 value，这里只是防御
+    if(s)bugShotAdd(s,'');
+    else bugShotStatus('截图失败：拿不到画面（可改用「上传截图」）。');
+  },240);
+}
 function openBugDlg(){
   var s='';
   try{s=JSON.stringify(recPayload());}catch(e){s='';}
   if(buginfo)buginfo.textContent='本次记录：'+REC.frames.length+' 帧 / '+REC.events.length
     +' 个操作 / '+Math.round(s.length/1024)+' KB';
   if(bugstatus)bugstatus.textContent='';
+  bugShotRender();          // ★R137C：把已有的截图缩略图重新挂上（本段记录中途开合弹框也要在）
   if(bugmask)bugmask.classList.add('on');
   if(bugbox)bugbox.classList.add('on');
   if(bugdesc)bugdesc.focus();
 }
 function closeBugDlg(){
+  /* ★R137D：看图浮层挂在 body 级（不在 #bugbox 里）⇒ 关框时必须**一并**收掉，
+     否则它会孤零零地盖在界面上，而且没有任何入口能再关掉它。 */
+  try{bugShotViewClose();}catch(e){}
   if(bugmask)bugmask.classList.remove('on');
   if(bugbox)bugbox.classList.remove('on');
 }
@@ -18064,16 +18448,50 @@ function bugSubmit(){
   try{s=JSON.stringify(recPayload());}catch(e){s='';}
   if(!s){if(bugstatus)bugstatus.textContent='录制内容为空，没什么可提交的。';return;}
   /* ★直接拼串而**不** JSON.parse 再 stringify —— 录制 JSON 可能有几 MB，
-   *   double-encode 既浪费内存也白白放大体积。 */
-  var body='{"desc":'+JSON.stringify(desc)+',"rec":'+s+'}';
-  if(bugstatus)bugstatus.textContent='提交中……（'+Math.round(body.length/1024)+' KB）';
+   *   double-encode 既浪费内存也白白放大体积。
+   * ★R137C：截图以 `shots:[{w,h,d}]` 内联在同一个 JSON 里（`d` = JPEG dataURL）。
+   *   ★后端（`bug_backend/worker.js`）只校验 `rec` 必须存在，再原样把整个请求体写进 KV
+   *     ⇒ **不需要改后端**就能收下 `shots`；硬上限是 `MAX_BYTES=20 MB`/条。 */
+  var shotsJson='';
+  if(BUG_SHOTS.length){
+    var arr=[];
+    for(var si=0;si<BUG_SHOTS.length;si++){
+      arr.push('{"w":'+BUG_SHOTS[si].w+',"h":'+BUG_SHOTS[si].h+',"d":'
+               +JSON.stringify(BUG_SHOTS[si].d)+'}');
+    }
+    shotsJson=',"shots":['+arr.join(',')+']';
+  }
+  var body='{"desc":'+JSON.stringify(desc)+',"rec":'+s+shotsJson+'}';
+  /* ★提交前预检：后端 20 MB 会直接 413，与其让用户等一次失败，不如在这里先说清楚。 */
+  if(body.length>19*1024*1024){
+    bugShotStatus('体积太大了（'+Math.round(body.length/1024/1024*10)/10+' MB，上限 20 MB）：'
+      +'删掉几张截图再提交，或改用「仅下载文件」。');
+    return;
+  }
+  if(bugstatus)bugstatus.textContent='提交中……（'+Math.round(body.length/1024)+' KB'
+    +(BUG_SHOTS.length?('，含 '+BUG_SHOTS.length+' 张截图'):'')+'）';
   if(bugsubmit)bugsubmit.disabled=true;
   fetch(BUG_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:body})
     .then(function(r){return r.json().catch(function(){return {ok:r.ok,err:'HTTP '+r.status};});})
     .then(function(j){
       if(bugsubmit)bugsubmit.disabled=false;
-      if(j&&j.ok){if(bugstatus)bugstatus.textContent='已提交（编号 '+(j.id||'?')+'）。可以关掉这个框了，谢谢！';}
-      else{if(bugstatus)bugstatus.textContent='提交失败：'+((j&&j.err)||'服务器返回异常')+'（可点「仅下载文件」）。';}
+      if(j&&j.ok){
+        if(bugstatus)bugstatus.textContent='已提交（编号 '+(j.id||'?')+'）。可以关掉这个框了，谢谢！';
+        /* ★R137C：这一段已交付出去了 ⇒ 「Bug 记录」回到只留一颗「开始记录」
+           （用户原话：「如果用户之前点击提交了…就不用显示这两个按钮」）。 */
+        REC.submitted=true;recUI();
+      }
+      else{
+        /* ★R137D（用户 2026-10-08：「限制一下单个用户的提交速率，一小时内只允许提交20次最多」）：
+           闸门在后端（按 IP，见 `bug_backend/worker.js` 的 `rateTake`），这里只把 429
+           翻译成人话 —— 并说明「这一段还留着」，否则用户会以为记录丢了。 */
+        if(j&&j.err==='rate_limited'){
+          var mins=Math.max(1,Math.ceil((j.retryAfter||0)/60));
+          if(bugstatus)bugstatus.textContent='提交太频繁了：一小时内最多 '+(j.limit||20)
+            +' 次，请约 '+mins+' 分钟后再试。这段记录还留着，不会丢。';
+        }
+        else if(bugstatus)bugstatus.textContent='提交失败：'+((j&&j.err)||'服务器返回异常')+'（可点「仅下载文件」）。';
+      }
     })
     .catch(function(e){
       if(bugsubmit)bugsubmit.disabled=false;
@@ -18084,6 +18502,65 @@ if(bugmask)bugmask.addEventListener('click',closeBugDlg);
 if(bugclose)bugclose.addEventListener('click',closeBugDlg);
 if(bugdl)bugdl.addEventListener('click',function(){recDump();});
 if(bugsubmit)bugsubmit.addEventListener('click',bugSubmit);
+/* ★★R137C（用户 2026-10-08）：截图区三处绑定 —— 缩略图用**事件委托**（整块 innerHTML 重建，
+   不逐个绑/解监听），上传走隐藏的 `<input type=file multiple>`，截图走 `bugShotGrab`。 */
+if(bugshots)bugshots.addEventListener('click',function(e){
+  var t=e.target;
+  if(!t)return;
+  /* ★R137D：点**图本身** ⇒ 开看图浮层（完整显示）；点右上角 ✕ ⇒ 删掉这张。
+     两者都在 `.bshot` 里，靠 tagName 分流 —— 别用 className（img 没有 class）。 */
+  if(t.tagName==='IMG'){
+    var p=t.parentNode,i0=p?parseInt(p.querySelector('.bx')&&p.querySelector('.bx').getAttribute('data-i'),10):-1;
+    bugShotView(i0);
+    return;
+  }
+  if(t.className!=='bx')return;
+  var i=parseInt(t.getAttribute('data-i'),10);
+  if(!(i>=0&&i<BUG_SHOTS.length))return;
+  BUG_SHOTS.splice(i,1);bugShotRender();
+  bugShotStatus(BUG_SHOTS.length?('还剩 '+BUG_SHOTS.length+' 张截图。'):'截图已全部删除。');
+});
+if(bugshotup)bugshotup.addEventListener('click',function(){
+  if(BUG_SHOTS.length>=SHOT_MAX){bugShotStatus('最多 '+SHOT_MAX+' 张截图，先删掉一张再加吧。');return;}
+  if(bugshotfile)bugshotfile.click();
+});
+if(bugshotfile)bugshotfile.addEventListener('change',function(){
+  var fs=bugshotfile.files||[];
+  for(var i=0;i<fs.length;i++)bugShotFromFile(fs[i]);
+  /* 清 value：同一个文件连选两次也要能再次触发 change（否则第二次毫无反应）。 */
+  bugshotfile.value='';
+});
+if(bugshotgrab)bugshotgrab.addEventListener('click',bugShotGrab);
+
+/* ★★R137D（用户 2026-10-08：「点击那个图片要能完整的显示那个图片」）：
+   缩略图是 `object-fit:cover`（为了排列整齐**裁**过），点开要看**完整**的那张。
+   ⇒ 用同一个 dataURL 挂到浮层的 <img> 上，靠 CSS `object-fit:contain` + max-width/height
+     等比缩放铺满可视区（不裁、不放大过 1:1 以外）。
+   ★关闭三路都绑（点遮罩 / 点 ✕ / Esc）—— 少一路就会「关不掉」。
+   ★浮层打开时 `#bugbox` **不关**（提交框还在底下），所以别去动 bugmask/bugbox 的状态。 */
+function bugShotView(i){
+  if(!shotview||!shotimg)return;
+  if(!(i>=0&&i<BUG_SHOTS.length))return;
+  shotimg.src=BUG_SHOTS[i].d;
+  if(shotclose)shotclose.focus();
+  if(shotmask)shotmask.classList.add('on');
+  shotview.classList.add('on');
+}
+function bugShotViewClose(){
+  if(shotmask)shotmask.classList.remove('on');
+  if(shotview)shotview.classList.remove('on');
+  /* 清 src：一是让浏览器尽快释放那张图，二是下次打开不会先闪上一张。 */
+  if(shotimg)shotimg.removeAttribute('src');
+}
+if(shotmask)shotmask.addEventListener('click',bugShotViewClose);
+if(shotclose)shotclose.addEventListener('click',bugShotViewClose);
+/* 点图像本体不关（用户要看图）；点图像以外的留白关掉。 */
+if(shotview)shotview.addEventListener('click',function(e){
+  if(e.target&&e.target.id==='shotview')bugShotViewClose();
+});
+if(typeof DD.addEventListener==='function')DD.addEventListener('keydown',function(e){
+  if(e.key==='Escape'&&shotview&&shotview.classList.contains('on'))bugShotViewClose();
+});
 window.openBugDlg=openBugDlg;window.bugSubmit=bugSubmit;window.closeBugDlg=closeBugDlg;
 /* ★★R132-10o：Bug 修复列表（用户 2026-10-05：「在设置按钮里面 bug 记录下面增加一个按钮，
    叫做 Bug 修复列表。点击后进入次级菜单，里面显示各个 bug 的状态。分别按照 Bug编号
@@ -18117,11 +18594,43 @@ window.openBugDlg=openBugDlg;window.bugSubmit=bugSubmit;window.closeBugDlg=close
        `_diag_r135_e2e.py`（**真鼠标拖放**，并拿改前备份当负对照并排量）、
        `_diag_r135_preset.py`（10 预设逐行与改前一致）、`bash _reg_all.sh fast`
        ⇒ pass=89 / flaky=0 / fail=0 / stale=0。
+   ★★R137（2026-10-08，用户逐条指示）—— 本轮**真改产品代码**（并入点末态闸门），三条状态变更，
+     备注一律**只追加**（机检档位原文必须仍在**行首** ⇒ 守卫一律 `startswith`）：
+     · 第二批 `1791267272540`（两根弹簧连一根棍后持续抽搐并单向飘移）「未判定」→「已修复」，
+       备注 = `机检:检出异常｜正常运动状态`（用户原话：「状态已修复，备注正常运动状态」）；
+     · 第二批 `1791264904385`（「黑洞」）「未判定」→「待提交」，备注 = `机检:检出异常｜描述不清晰`
+       ——★**不是**「待修复」（那等于凭空断言 bug 存在），也**不是**「已修复」（没有任何修复证据）；
+     · 第二批 `1791273176929`（「Mmv?」）「未判定」→「已修复」——本轮真正修好的那条。
+       根因两层：① 产品只认 10 个预设（`WHOLE_PRESETS`）但**并入时没有任何末态闸门** ⇒ 只要
+       `canMergeRaw` 放行就能拼出词汇表外的串（实测词汇表内 221 个非法态）；② ★★`attach` 有一条
+       **绕过 `canMerge` 的直通通道**（pointerup 里为「赋予型字符拖到实心物体上就生效」加的 `_sb`
+       /`findSolidBodyAt` 分支，R131-36 引入）⇒ `Mm` 体上拖 `v` 时 `canMerge=false` 却照样并入。
+       修法：`canMerge` 改名 `canMergeRaw`（逐字未动）外套 **`mergeStaysInExpr`**（并入后字母多重集
+       必须是某个预设的**子多重集**，真源 `WHOLE_PRESETS`；用「子集」而非「相等」保证拼装顺序自由）
+       + `attach` 全程返回布尔并在**并入点**加同闸门 + `_sb` 分支按返回值分流（`false` 则不掉进去）。
+       ★闸门**只减不增**：被接受 ⇒ 末态 ⊆ 某预设 ⇒ 路径上每个中间态也 ⊆ 该预设 ⇒ 仍被接受。
+       依据全是**量出来的**：`_diag_r137_merge_audit.py`（BFS 枚举可达态：词汇表内非法 221 → 0，
+       `Mmv` 改前 4 条路径可达、改后 0）、`_diag_r137_mmv_e2e.py`（**真鼠标拖放**，改后 10/10、
+       改前备份当负对照 5/10 —— 5 条「期望拒绝」全被串进去 ⇒ 尺子有牙）、
+       `_diag_r280.py` B1（重造：普通 v 落到 ½mv² 不再并成 ½mv³，双版本标定，改前红/改后绿）、
+       `bash _reg_all.sh fast` ⇒ pass=89 / flaky=0 / fail=0 / stale=0。
+       ★遗留（**既存缺口**，非本次引入）：`mv²/r` / `½mv²` / `mc²` / `m(g+gμ)` 4 个预设改前也拼不出，
+       拿备份同尺子复量两边一模一样 ⇒ 建议另开一轮定位。
+     ⇒ 修完状态分布 = 未判定 58 / 已修复 17 / 待修复 40 / 待提交 3（空备注 39 + 1 条 R135b 部分修复备注）。
+   ★★R137D（2026-10-08，用户「还有把那些只有无效信息的bug记录直接清除从列表里面」）——
+     范围经拍板 =「**两处一起清**」（本列表 + 后端 Bug 回收站 KV），保留口径 =「**只删未修复的**」。
+     18 条名称含「无有效信息」的提交里，**清掉 17 条**，唯一保留 `1791273176929`（它已是「已修复」）。
+     ⇒ **本表 118 → 101 条**，状态分布 **未判定 49 / 已修复 17 / 待修复 33 / 待提交 2**；
+       机检档位 检出 28 / 未检出 30 / 无画面 6；空备注 32。
+     ★删的 17 条 = 第三批 3 + 第二批 7 + 第一批 7（含此前被标「待提交」的 `1791264904385`
+       —— 「待重新提交」的内容同样不含可排查信息 ⇒ 一并清掉；★故**第二批此后无「待提交」行**）。
+     ★`bug_reports/bug_list.md` **刻意不动**：它是**提交档案**（与 `bug_reports/json/` 的 118 个录屏
+       一一对应），删行会破坏「档案 ≡ 录屏语料」这条对齐 ⇒ 被清的 17 个 id 记在
+       `_gen_bugfix.py` 的 `PURGED`，交叉校验走「md 去掉 PURGED == ROWS」。
+     ★删除前已把 17 条原文逐条导出到 `backups/bugrecs_deleted_20261008.jsonl`。
    每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
 var BUGFIX_LIST=[
-  ['1791382860938','「666不知道怎么了」无有效信息','未判定','机检:检出异常'],
   ['1791377428163','爆炸时复制出的 m 再组成 mc² 不再爆炸','未判定','机检:未检出异常'],
-  ['1791368905588','「......」无有效信息','未判定','机检:未检出异常'],
   ['1791361389776','两个弹簧接在光滑平面左右两端，左边那根会被挤压','未判定','机检:未检出异常'],
   ['1791361155101','两个弹簧连一根棍后能整体平移','未判定','机检:未检出异常'],
   ['1791360957673','右上角符号面板没有可用的收起按钮','已修复','机检:无画面｜R133f 已修复：右上角面板把手改为电脑版也显示'],
@@ -18143,7 +18652,6 @@ var BUGFIX_LIST=[
   ['1791305111884','字母框里的字母瞬间换位、随后全部消失','未判定','机检:检出异常'],
   ['1791304943366','动能方程里的 2 被抛下','未判定','机检:未检出异常'],
   ['1791304787274','q 可无限堆叠、会被字母吃掉、被吃的字母不能合成公式','未判定','机检:无画面'],
-  ['1791299136159','「？？？」无有效信息','未判定','机检:检出异常'],
   ['1791296885048','把 M、m、v 放在一起后互相重叠','已修复','机检:未检出异常｜R135 已修复：第二质量字母并入横向排列（改前 5 处重叠，改后 0）'],
   ['1791296117687','把公式拖进图像（拖到一半）公式会鬼畜','未判定','机检:未检出异常'],
   ['1791295184655','给球电荷后与弹簧相连，大量物件飞出画面','未判定','机检:检出异常'],
@@ -18151,21 +18659,18 @@ var BUGFIX_LIST=[
   ['1791279970830','地面挂 mg 弹簧后拖地面，地面向右位移且拖不动（与 1791280171429 重复）','未判定','机检:检出异常'],
   ['1791279286977','给球电荷后与弹簧相连','未判定','机检:检出异常'],
   ['1791275665251','「我将三样物品连接起来，就出现了这样」说明不足','未判定','机检:未检出异常'],
-  ['1791273176929','「Mmv?」无有效信息','未判定','机检:未检出异常'],
+  ['1791273176929','「Mmv?」无有效信息','已修复','机检:未检出异常｜R137 已修复：并入点末态闸门（并入后字母多重集须是某预设子集）——Mm 后真拖 v 不再并入；词汇表内非法态 221→0；真鼠标 e2e 改前 5/10 → 改后 10/10'],
   ['1791272101066','黑洞消失后被抓的字母变透明','已修复','机检:检出异常｜R132-11 已修复：离开淡出半径/黑洞消失后透明度复位'],
-  ['1791267272540','两根弹簧连一根棍后持续抽搐并单向飘移','未判定','机检:检出异常'],
-  ['1791264904385','「黑洞」无有效信息','未判定','机检:检出异常'],
+  ['1791267272540','两根弹簧连一根棍后持续抽搐并单向飘移','已修复','机检:检出异常｜正常运动状态'],
   ['1791264593293','μg+g 无法组合出 M','未判定','机检:未检出异常'],
   ['1791263035366','复制传送带出神秘方框、球在墙角不停跳（与 1791263032193 重复）','已修复','机检:检出异常｜R132-11 已修复：副本保留传送带身份（净增 1 体、不冒小球）'],
   ['1791263032193','复制传送带出神秘方框、球在墙角不停跳（与 1791263035366 重复）','已修复','机检:检出异常｜R132-11 已修复：副本保留传送带身份（净增 1 体、不冒小球）'],
   ['1791262537162','复制 r 得到 m（与 1791262536181 重复）','已修复','机检:未检出异常｜R132-11 已修复：复制不再凭空造 m（12 字母逐个实测）'],
   ['1791262536181','复制 r 得到 m（与 1791262537162 重复）','已修复','机检:未检出异常｜R132-11 已修复：复制不再凭空造 m（12 字母逐个实测）'],
-  ['1791261812114','「不知道」无有效信息','未判定','机检:未检出异常'],
   ['1791261597128','点公式区域弹出墙面','未判定','机检:检出异常'],
   ['1791258453287','复制 Gcc 得到 Gmcc','已修复','机检:未检出异常｜R132-11 已修复：复制不再凭空造 m（副本 mem 与原体一致）'],
   ['1791254327391','滑动公式和不出来','未判定','机检:未检出异常'],
   ['1791252917866','两个黑洞后全部消失、回收站也回收不了','未判定','机检:检出异常'],
-  ['1791249757474','「刚才是玩」无有效信息','未判定','机检:检出异常'],
   ['1791213916545','多个黑洞同时召唤后卡住','未判定','机检:无画面'],
   ['1791213754281','黑洞后凭空出现「2」','未判定','机检:检出异常'],
   ['1791209612744','圆+两根杆+绳崩溃、圆到处飞','未判定','机检:未检出异常'],
@@ -18174,11 +18679,9 @@ var BUGFIX_LIST=[
   ['1791206092341','三弹簧串联到长方形后持续抽搐','未判定','机检:检出异常'],
   ['1791180423381','询问「大小是否可调、小物块有吗」（与 1791180418603 重复）','未判定','机检:未检出异常'],
   ['1791180418603','询问「大小是否可调、小物块有吗」（与 1791180423381 重复）','未判定','机检:未检出异常'],
-  ['1791180321480','「公式错误」无有效信息','未判定','机检:无画面'],
   ['1791175773898','画面缺失、旁边符号框为空','未判定','机检:检出异常'],
   ['1791172601612','g 分裂','未判定','机检:检出异常'],
   ['1791172307796','轻绳悬在半空不落地','未判定','机检:检出异常'],
-  ['1791171949271','「I do not know」无有效信息','未判定','机检:检出异常'],
   ['1791171733349','小体积物体接触传送带时被弹飞','未判定','机检:检出异常'],
   ['1791170838525','M 脱离公式、反复叠加 V 却无速度加快','未判定','机检:未检出异常'],
   ['1791165370367','物体无法推动','未判定','机检:无画面'],
@@ -18190,24 +18693,17 @@ var BUGFIX_LIST=[
   ['1791140295847','动能方程加入 a 后异常','未判定','机检:未检出异常'],
   ['1791138871622','r 复制成 m、一调参数 r 就消失','已修复','机检:检出异常｜R132-11 已修复：①不再造 m ②调 scale 不再隐藏 r（两处独立根因）'],
   ['1791134563665','传送带复制后变成矩形','已修复','机检:未检出异常｜R132-11 已修复：副本保留传送带身份（逐字段等于原带）'],
-  ['1791130089297','「这应该是bug吧」无有效信息','未判定','机检:检出异常'],
-  ['1791129950404','「这是bug吧」无有效信息','未判定','机检:未检出异常'],
   ['1791129742262','深色模式下公式字母完全不可见','未判定','机检:未检出异常'],
   ['1791127892592','给矩形赋予 a 后图形重复回弹','待修复',''],
   ['1791121882475','杆/圆/环/弹簧组合体持续抽搐并飞出','待修复',''],
   ['1791119763192','弹簧与线条连接后组合体上飞','待修复',''],
   ['1791118680887','错位（说明不足）','待修复',''],
-  ['1791112660029','「kk」无有效信息','待修复',''],
   ['1791111647203','两个球互相碰撞没完没了','待修复',''],
   ['1791107280730','连拖 16 次字符不落地','待修复',''],
   ['1791107000992','连拖 23 次字符同点叠加不落地','待修复',''],
-  ['1791106362343','「1」无有效信息','待修复',''],
-  ['1791105732901','「6」无有效信息','待修复',''],
   ['1791105218810','Q 拖进公式会消失、公式不变','待修复','R135b 部分修复：family 0/2 非分数体不再吞字母（真拖放：q 由消失→并排）；分数/幂次形仍隐藏'],
-  ['1791099854237','「bug」无有效信息','待修复',''],
   ['1791097215886','同时创造两个后无法返回','待修复',''],
   ['1791091449885','向心力公式的 m 飞出画布','待修复',''],
-  ['1791091207019','「你」无有效信息（字母乱飞）','待修复',''],
   ['1791090033321','数值发散：坐标千万级、速率 25 万','待修复',''],
   ['1791088164137','弹簧数值爆炸（y 达 5.9 亿）','待修复',''],
   ['1791087650098','v 可堆叠在 G、M 后面','待修复',''],
@@ -18227,8 +18723,6 @@ var BUGFIX_LIST=[
   ['1791077788979','弹簧与墙体、方块连接异常','待修复',''],
   ['1791077178901','悬挂结构绘制层级（z-order）反了','待修复',''],
   ['1791077092470','两个黑洞时垃圾箱没被吸上去','待修复',''],
-  ['1791045490426','「6」无有效信息（与 1791045487342 重复）','待修复',''],
-  ['1791045487342','「6」无有效信息（与 1791045490426 重复）','待修复',''],
   ['1791043778086','离家出走的 m','待修复',''],
   ['1791043488266','E=mc² 炸后 G、c 粘在一块','待修复',''],
   ['1791043250702','公式渲染缺「+」','待修复',''],
