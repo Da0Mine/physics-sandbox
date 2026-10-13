@@ -89,9 +89,13 @@ body.touch-panel-folded #panelToggle{transform:translateY(0);}
 .menu-item{padding:5px 12px;border-radius:11px;white-space:nowrap}
 .menu-item:hover{background:rgba(244,241,234,.14)}
 .menu-item.hide{display:none}
-.params{position:fixed;display:none;z-index:10;background:#26221C;color:#F4F1EA;font-family:Georgia,'Times New Roman',serif;border-radius:16px;box-shadow:0 10px 28px rgba(38,34,28,.4);padding:16px 18px;width:240px}
+.params{position:fixed;display:none;z-index:10;background:#26221C;color:#F4F1EA;font-family:Georgia,'Times New Roman',serif;border-radius:16px;box-shadow:0 10px 28px rgba(38,34,28,.4);padding:16px 18px;width:240px;touch-action:none}
 .params.on{display:block}
-.phead{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+.phead{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;cursor:grab}
+/* ★R142：参数面板**空白处可拖动**（逻辑见 `PARAM PANEL` 段的 `pmDrag`）——只给**纯文字**元素加 `grab`
+   当提示。★`#pclose`(`.pclose{cursor:pointer}`) 与 `input[type=range]` 各有**直接规则**，
+   直接规则永远赢继承值 ⇒ 不受影响；数字框/颜色框刻意**不动**（它们本该是默认光标）。 */
+.ptitle,.pval,.plab,.pown,.prhead{cursor:grab}
 .pclose{cursor:pointer;background:none;border:none;color:#F4F1EA;font-size:18px;padding:0 4px;border-radius:8px;line-height:1}
 .pclose:hover{background:rgba(244,241,234,.14)}
 .plab{font-size:13px;font-style:italic;letter-spacing:.4px;color:#D8CBB0}
@@ -114,7 +118,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;appearance
 input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .prval{font-size:12px;color:#C9A86A;font-family:Consolas,Menlo,monospace;font-style:normal}
 /* R64：参数面板的「接触中」区 —— 只对 W 体显示，逐帧刷新，接触结束的行自动消失（临时显示） */
-.pcontacts{display:none;margin-top:9px;padding-top:7px;border-top:1px solid rgba(244,241,234,.14);font-size:11px;font-family:Consolas,Menlo,monospace;color:#D8CBB0;max-height:96px;overflow-y:auto}
+.pcontacts{display:none;margin-top:9px;padding-top:7px;border-top:1px solid rgba(244,241,234,.14);font-size:11px;font-family:Consolas,Menlo,monospace;color:#D8CBB0;max-height:96px;overflow-y:auto;touch-action:pan-y}
 .pcontacts.on{display:block}
 .pcontacts .pc-t{opacity:.55;margin-bottom:3px;font-style:italic;font-family:Georgia,serif;letter-spacing:.4px}
 .pcontacts .pc-r{display:flex;justify-content:space-between;gap:8px;padding:2.5px 0}
@@ -11167,6 +11171,44 @@ document.addEventListener('pointerdown',function(e){
   if(e.target.closest('#pbox')||e.target.closest('#menu'))return;
   closeParams();
 });
+/* ★★R142（2026-10-13，用户逐字：「增加一个功能，参数面板出来后，拖动空白区域可以拖动移动参数面板」）：
+   参数面板 `#pbox` 的**空白处**按住即可拖动整块面板。
+   · **「空白」的唯一判据** = `pointerdown` 的落点**不在控件上**：`input/button/select/textarea/svg`
+     以及可滚动的 `.pcontacts`。⇒ 滑杆、数字框、颜色框、✕、各「默认」按钮、轨迹胶囊、
+     旋钮（`.dial` 自己 `stopPropagation`，先于本监听器跑）**全都照旧**，只有背景/标题/读数/
+     行标签/内边距能拖。
+   · 位置仍写 `pbox.style.left/top` —— 与 `openParams()` / `clampParamPanel()` **同一真源**。
+     ★`clampParamPanel()` 只做**视口夹紧**、**不追踪物体**（物体掉落不会拖着面板跑）⇒ 与拖动
+     **不打架**：它每帧复收时只会在越界那一下把面板推回窗内，不会把面板弹回原位。
+     ★拖动中**也调用它**：手感 = "拖到边缘就停住"，回拖立刻跟手（`style` 是绝对位置，不回弹）。
+   · 指针捕获必须挂在 **`pbox` 自己**身上（不是内层）：`#prows` / `#pcontacts` 会被
+     `renderParamPanel()` / `updateParamContacts()` 用 `innerHTML` 重建，挂在子节点上的捕获
+     会随节点一起消失 ⇒ 一重建就断流（这是本功能最容易踩的坑）。
+   · `touch-action:none` 已在 CSS 里给 `.params` 声明（见 `.params` 规则）—— 否则真机上浏览器会把
+     这次拖动判成滚动手势、发 `pointercancel` 掐断整条 pointer 流（同 `.cv`/`.char`/`.trash` 的
+     `_tmp_r314` 根因）；`.pcontacts` 单独声明 `pan-y` 保住它自己的滚动。 */
+var pmDrag=null;
+pbox.addEventListener('pointerdown',function(e){
+  if(e.target.closest('input,button,select,textarea,svg,.pcontacts'))return;
+  var r=pbox.getBoundingClientRect();
+  pmDrag={id:e.pointerId,dx:e.clientX-r.left,dy:e.clientY-r.top};
+  if(pbox.setPointerCapture)pbox.setPointerCapture(e.pointerId);
+  e.preventDefault();
+});
+pbox.addEventListener('pointermove',function(e){
+  if(!pmDrag||e.pointerId!==pmDrag.id)return;
+  pbox.style.left=(e.clientX-pmDrag.dx)+'px';
+  pbox.style.top=(e.clientY-pmDrag.dy)+'px';
+  clampParamPanel();
+  e.preventDefault();
+});
+function pmDragEnd(e){
+  if(!pmDrag||e.pointerId!==pmDrag.id)return;
+  pmDrag=null;
+  if(pbox.releasePointerCapture)pbox.releasePointerCapture(e.pointerId);
+}
+pbox.addEventListener('pointerup',pmDragEnd);
+pbox.addEventListener('pointercancel',pmDragEnd);
 function inTrash(x,y){
   var r=trash.getBoundingClientRect();
   return x>r.left-10&&x<r.right+10&&y>r.top-10&&y<r.bottom+10;
@@ -18024,7 +18066,15 @@ var REC_EVMAX=4000;
  *   ⇒ 清单 **105 → 125 条**，分布 **未判定 0 / 待修复 104 / 已修复 19 / 待提交 2**。
  *   ★本条**只改清单数据**，不碰任何运行时行为；`UPDATE_LOG` **未加条目**（用户没有点名更新说明，
  *     登记口径不变 ⇒ 老用户的红点不会被这次推送无故点亮）。 */
-var REC_APP_VER='R141';
+/* ★★R142（2026-10-13，用户两句话）：
+ *   ① 「增加一个功能，参数面板出来后，拖动空白区域可以拖动移动参数面板」——
+ *      见 `PARAM PANEL` 段的 `pmDrag`；CSS 加 `.params{touch-action:none}`（+ `.pcontacts{pan-y}`）。
+ *      ★**指针捕获挂在 `pbox` 自己身上**（`#prows`/`#pcontacts` 每帧 `innerHTML` 重建，
+ *        挂子节点会随节点一起消失 ⇒ 拖动中途断流）。
+ *   ② 「在更新记录里面加一条：参数面板现在可以自由拖动」⇒ `UPDATE_LOG` **加了 1 条**
+ *      （用户点名才加；`UPDATE_LOG[0].v` 随之由 `R140` 变 `R142`）。
+ *   ⇒ 本条**唯一的运行时行为变化就是①**；②只改数据。 */
+var REC_APP_VER='R142';
 function recNow(){return +(performance.now()).toFixed(1);}
 function recSnap(full){
   /* ★R132-10u：`full=true` 只用于 `REC.init`（录制起点的完整快照）。同一体的「物理语义」字段
@@ -19130,6 +19180,15 @@ function closeTrailBox(){
         这一条被删掉的）；只写用户能感知的**新增功能 / 行为变化**，不写内部缺陷修复流水
         （缺陷过程留在 `BUGFIX_LIST` 与开发文档里）；按时间倒序、往**数组最前面**加。 */
 var UPDATE_LOG=[
+  /* ★★R142（用户 2026-10-13 逐字给定的文案：「参数面板现在可以自由拖动」；按上面维护口径
+     「只有我说明了你再加」登记 —— **这是 R142 唯一一条用户可感知的变化**）。
+     ★加上它 = `UPDATE_LOG[0].v` 由 `R140` 变 `R142` ⇒ 老用户下次打开**红点会自动复现**
+       （这正是用户要的「每次这里发生更新则红点出现，看过一次后消失」）。
+     ★★连带要同步的**尺子**（规格变更 ⇒ grep 找全旧尺子）：`_verify_r133_trail_ui.py` 的 U11
+       （条数/vers 列表）、`_tmp_live_check.py` 的判据 D（updN/updVers）、
+       `_tmp_upddot_verify.py` 的 R1b/R3b/R4b（钉的是"红点写哪个版本"）。 */
+  {t:'2026-10-13 15:14', v:'R142',
+   items:['参数面板现在可以自由拖动']},
   /* ★★R140（用户 2026-10-09 逐字给定这两条文案；按上面维护口径「只有我说明了你再加」登记）。
      对应本批推送的两件事：① R138-E④「删除模式中的高中模式，大学模式就是现在唯一的模式」；
      ② R137D / R139 的 bug 反馈通道重构（提交框 + 后端 `/submit` 校验 + 回收站与删除接口）。 */
