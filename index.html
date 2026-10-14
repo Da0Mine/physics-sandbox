@@ -540,6 +540,61 @@ input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
 .histit ul{margin:6px 0 0;padding-left:18px;font-size:14px;line-height:1.65}
 .histit li{margin:0 0 3px}
 .histit li:last-child{margin-bottom:0}
+/* ★★R143：存档界面（复用 `.bbox` 浅色弹层，只加这一族自己的排版）。
+   ★版式：标题行（含右上角 `?` 与 `✕`）→ 说明（点 `?` 才展开）→ 保存行（命名 + 保存当前界面）
+     → 全选/计数条 → 列表（每条 = 勾选框 + 名字 + 时间 + ✎ + 加载）→ 底部三颗动作钮。
+   ★列表单独 `overflow:auto` + `overscroll-behavior:contain`（同 `.histlist`）⇒ 长列表滚动到
+     边界不会把整页带着滚；`touch-action:pan-y` 保住触屏上的纵向滚动（与参数面板同一口径）。 */
+.scnbox{width:min(560px,94vw)}
+/* ★★R143：问号按钮**直接复用设置面板那套**（用户：「那个问号按钮的样式和触发不是这样的，
+   你参考设置里面的那个」）⇒ 用 `.qbtn`（正圆、与 `.sbtn/.ubtn` 同一视觉语言）+ 共享气泡
+   `#qpop` + `bindQBtn()`（桌面 hover / 触屏 click，文案登记在 `QPOP_TEXT`）。
+   ★本面板**不自己定义任何问号样式**，也不自己做展开收起 —— 那正是第一版做错的地方
+   （自造了 `.scnq` 圆角方钮 + 一行内联说明，与设置的观感、触发都不一致）。 */
+.scnrow{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.scnin{flex:1 1 auto;min-width:0;box-sizing:border-box;padding:8px 12px;border-radius:12px;
+  border:1px solid rgba(38,34,28,.24);background:rgba(255,255,255,.7);
+  font-family:inherit;font-style:normal;font-size:14px;color:#26221C;outline:none}
+.scnin:focus{border-color:rgba(38,34,28,.5)}
+.scnrow .rbtn{flex:none;font-size:13px;padding:8px 14px}
+.scnbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.scnall{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12.5px;
+  font-style:normal;color:rgba(38,34,28,.62)}
+.scnall input{cursor:pointer;margin:0}
+.scncnt{font-size:12.5px;font-style:normal;font-family:Consolas,Menlo,monospace;color:rgba(38,34,28,.45)}
+.scnlist{margin-top:2px;max-height:calc(100vh - 400px);overflow:auto;
+  overscroll-behavior:contain;touch-action:pan-y}
+/* ★★R143 版式（用户：「这个界面好像排版不是很美观，你再截图检查一遍」）：列表**溢出时**
+   底部会正好切在半行上（截图实测：`场景 01` 只剩上半截），看起来像坏了。
+   ⇒ 溢出且**没滚到底**时挂 `.scnmore`，用 `mask` 把底部 22px 渐隐掉 —— 视觉上读作"下面还有"，
+     而不是"这里被切断了"。★只在真的溢出时才挂类：不溢出时挂上会把最后一行的降部吃掉。
+   ★滚到底要**摘掉**遮罩（否则最后一行会被无端淡掉）—— 由 `scnMask()` 在渲染后与 `onscroll` 时切换。 */
+.scnlist.scnmore{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 22px),rgba(0,0,0,.06));
+  mask-image:linear-gradient(180deg,#000 calc(100% - 22px),rgba(0,0,0,.06))}
+.scnempty{font-size:13px;color:rgba(38,34,28,.45);padding:18px 2px;text-align:center}
+.scnit{display:flex;align-items:center;gap:9px;padding:9px 2px;border-bottom:1px solid rgba(38,34,28,.10);
+  border-radius:8px}
+.scnit:hover{background:rgba(38,34,28,.045)}
+.scnit:last-child{border-bottom:none}
+.scnit input[type=checkbox]{cursor:pointer;margin:0;flex:none}
+.scnnm{flex:1 1 auto;min-width:0;font-size:14px;font-style:normal;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scntm{flex:none;font-size:11.5px;font-style:normal;font-family:Consolas,Menlo,monospace;
+  color:rgba(38,34,28,.42)}
+.scnnin{flex:1 1 auto;min-width:0;box-sizing:border-box;padding:5px 9px;border-radius:9px;
+  border:1px solid rgba(38,34,28,.42);background:rgba(255,255,255,.85);
+  font-family:inherit;font-style:normal;font-size:14px;color:#26221C;outline:none}
+.scnib{background:none;border:none;border-radius:9px;font-family:inherit;font-style:italic;
+  font-size:13px;color:rgba(38,34,28,.72);padding:5px 10px;cursor:pointer;flex:none}
+.scnib:hover{background:rgba(38,34,28,.09)}
+/* ★★R143 版式：回执条原来 `margin-top:2px`，紧贴列表底部（列表还在滚动时几乎黏在一起）
+   ⇒ 拉开到 8px，与「列表 ↔ 按钮行」的 12px 形成一致的呼吸节奏。 */
+.scnimp{margin:8px 0 8px;font-size:12.5px;font-style:normal;color:rgba(38,34,28,.62);line-height:1.55}
+.scnfoot{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+.scnfoot .rbtn{font-size:13px;padding:7px 13px}
+.scndelr{color:#B23A2E;border-color:rgba(178,58,46,.5)}
+.scndelr:hover{background:rgba(178,58,46,.10)}
+.scndelr[disabled],.scnfoot .rbtn[disabled]{opacity:.45;cursor:default}
 .fixtabwrap{margin-top:4px;max-height:calc(100vh - 190px);overflow:auto;overscroll-behavior:contain;
   border:1px solid rgba(38,34,28,.14);border-radius:12px}
 .fixtab{width:100%;border-collapse:collapse;font-size:13.5px;font-style:normal}
@@ -566,8 +621,11 @@ input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
   cursor:pointer;transition:background .14s,border-color .14s,color .14s}
 .qbtn:hover{background:#26221C;border-color:#26221C;color:#F4F1EA}
 .qbtn.on{background:#26221C;border-color:#26221C;color:#F4F1EA}
-/* 问号气泡：定位由 JS 按按钮的 rect 给（面板会随屏幕高度移动，写死 top 会错位） */
-.qpop{position:fixed;z-index:18;display:none;max-width:min(320px,86vw);
+/* 问号气泡：定位由 JS 按按钮的 rect 给（面板会随屏幕高度移动，写死 top 会错位）。
+   ★★R143：z-index 由 18 提到 **21**。原来 18 只够压住 `#smenu`(16)，而**存档面板用的是 `.bbox`(20)**
+     —— 气泡是挂在 body 上的，于是被面板**盖住一截**（实测截图里「保存后仅保存在…」的「保存」两字
+     直接被面板吃掉）。气泡是"挂在面板内部那颗按钮上"的提示 ⇒ 必须浮在面板**之上**。 */
+.qpop{position:fixed;z-index:21;display:none;max-width:min(320px,86vw);
   padding:11px 13px;border-radius:13px;border:1px solid rgba(38,34,28,.20);
   background:rgba(38,34,28,.95);color:#F4F1EA;
   font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:13px;line-height:1.75;
@@ -748,6 +806,17 @@ input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
            线宽/圆角沿用工具行的 2.1 / round，视觉重量与相邻按钮一致（viewBox 24、渲染 22px）。 -->
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+    <!-- ★★R143（用户 2026-10-14：「在左上角的设置按钮右边增加一个保存的按钮，点击后打开存档界面」）：
+         紧贴「设置」右边（与 R132-8 加全屏同样的落点口径 —— 用户说「某按钮右边」就插在它后面）。
+         图标用 **Feather/Lucide 的 `save`（软盘）** 原路径：工具行里其余图标都是语义化的通用符号，
+         「软盘 = 保存」是最不会认错的那个；线宽/圆角沿用工具行的 2.1 / round，渲染 22px。 -->
+    <button class="tbtn" data-tool="save" title="保存">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#26221C" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+        <polyline points="17 21 17 13 7 13 7 21"/>
+        <polyline points="7 3 7 8 15 8"/>
       </svg>
     </button>
     <!-- ★★R132-8（用户 2026-10-01：「在左边下拉框里面设置按钮的右边增加一个按钮，
@@ -1053,6 +1122,37 @@ input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
 <div class="bbox" id="histbox">
   <div class="fmhead"><span class="fmtitle">历史记录</span><button class="fmclose" id="histclose">✕</button></div>
   <div class="histlist" id="histlist"></div>
+</div>
+<!-- ★★R143（2026-10-14，用户逐字）：「在左上角的设置按钮右边增加一个保存的按钮，点击后打开存档界面，
+     里面分别可以保存当前界面，加载以前保存的界面，导出数据，导入数据，保存的界面可以命名，
+     以前保存的也可以重命名，你看怎么排版美观简洁 / 在右上角有一个问号的解释，"
+     保存后仅保存在当前浏览器，切换浏览器请导出数据" / 每次导出数据可以选择导出哪几个，也可以全选，
+     导入数据会自动识别相同模板，避免重复，删除时也可以多选或者全选删除」。
+     ★版式：标题行右侧放 `?`（左）与 `✕`（右）；说明**默认收起**、点 `?` 展开（说明文案＝用户原文，
+       一字未改）。⇒ 既不占版面，又把用户要的解释放在他要的位置（右上角）。
+     ★四件事各占一处：保存当前 = 顶部输入框 + 「保存当前界面」；加载 = 每条行尾「加载」；
+       导出 = 底部「导出选中」（受勾选控制，支持全选）；导入 = 底部「导入数据」（隐藏的 file input）。 -->
+<div class="bmask" id="scnmask"></div>
+<div class="bbox scnbox" id="scnbox">
+  <div class="fmhead"><span class="fmtitle">存档</span><span>
+    <button class="qbtn" id="scnhelpq" title="保存说明">?</button><button class="fmclose" id="scnclose">✕</button>
+  </span></div>
+  <div class="scnrow">
+    <input class="scnin" id="scnin" type="text" maxlength="40" placeholder="给这个界面起个名字">
+    <button class="rbtn" id="scnsave">保存当前界面</button>
+  </div>
+  <div class="scnbar">
+    <label class="scnall"><input type="checkbox" id="scnall">全选</label>
+    <span class="scncnt" id="scncnt">0 项已选</span>
+  </div>
+  <div class="scnlist" id="scnlist"></div>
+  <div class="scnimp" id="scnimp"></div>
+  <div class="scnfoot">
+    <button class="rbtn" id="scnexp" disabled>导出选中</button>
+    <button class="rbtn" id="scnimpbtn">导入数据</button>
+    <button class="rbtn scndelr" id="scndel" disabled>删除选中</button>
+    <input type="file" id="scnfile" accept=".json,application/json" style="display:none">
+  </div>
 </div>
 <script>
 /* Matter.js v0.20.0 — 2D rigid-body physics engine (MIT, (c) Liam Brummitt / brm.io).
@@ -12995,6 +13095,11 @@ function drawPendingHint(){
 var TRAIL_CFG={on:false,color:'#111111',dash:false,life:1.6,fade:true,width:2.5};
 var TRAIL_MIN_SEG=2;      // 采样阈值(px)：与上一点的距离小于它就丢弃
 var TRAIL_MAX_PTS=900;    // 每个实体的点数上限
+/* ★★R143 第七轮：**存档**里每条轨迹只保留最近这么多点。
+   为什么必须截断：900 点 × 每点约 14 字节 ⇒ 单个体 ~12KB；场上二十个带轨迹的体就是 240KB，
+   `localStorage` 配额会被顶爆。240 点（≈ 物体按 2px 采样阈值走 ~480px 的密度）足以表达
+   「这条轨迹长什么样」—— **视觉近似、不丢整类**，与本存档对粒子（≤240）/ 残影（≤12）同一口径。 */
+var TRAIL_KEEP=240;
 var TRAIL_DASH_ON=9,TRAIL_DASH_OFF=7;   // ★R133f：虚线的 on/off 段长（**唯一真源**）——
                           //   下面的 `lineDashOffset` 续相位必须用同一个周期，别各写一份。
 var TRAIL_SEG_MIN_PTS=10; // ★★R133g：**每段最少点数**（取代 R133f 的 `TRAIL_NA=96` 透明度档数）。
@@ -18074,7 +18179,7 @@ var REC_EVMAX=4000;
  *   ② 「在更新记录里面加一条：参数面板现在可以自由拖动」⇒ `UPDATE_LOG` **加了 1 条**
  *      （用户点名才加；`UPDATE_LOG[0].v` 随之由 `R140` 变 `R142`）。
  *   ⇒ 本条**唯一的运行时行为变化就是①**；②只改数据。 */
-var REC_APP_VER='R142';
+var REC_APP_VER='R143';
 function recNow(){return +(performance.now()).toFixed(1);}
 function recSnap(full){
   /* ★R132-10u：`full=true` 只用于 `REC.init`（录制起点的完整快照）。同一体的「物理语义」字段
@@ -19180,6 +19285,15 @@ function closeTrailBox(){
         这一条被删掉的）；只写用户能感知的**新增功能 / 行为变化**，不写内部缺陷修复流水
         （缺陷过程留在 `BUGFIX_LIST` 与开发文档里）；按时间倒序、往**数组最前面**加。 */
 var UPDATE_LOG=[
+  /* ★★R143（用户 2026-10-14 逐字给定的文案：「新增存档保存功能，可以保存当前搭建的场景」；
+     仍按维护口径「只有我说明了你再加」登记 —— 这是 R143 整批唯一的用户可感知变化）。
+     ★加上它 = `UPDATE_LOG[0].v` 由 `R142` 变 `R143` ⇒ 老用户下次打开**红点自动复现**。
+     ★★连带要同步的**尺子**（规格变更 ⇒ grep 找全旧尺子）：`_verify_r133_trail_ui.py` 的 U11
+       （条数 3→4 / vers 加 'R143'）、`_tmp_live_check.py` 的判据 D（updN 3→4 / updVers 加 'R143'）
+       + `APP_VER_EXPECT`、`_tmp_upddot_verify.py` 的 R1b/R3b/R4b（钉的是「红点写哪个版本」）。
+       `_tmp_dot_diag.py` 读的是 `UPDATE_LOG[0].v`，**不用改**（R142 那轮已经去掉了硬编码）。 */
+  {t:'2026-10-14 16:10', v:'R143',
+   items:['新增存档保存功能，可以保存当前搭建的场景']},
   /* ★★R142（用户 2026-10-13 逐字给定的文案：「参数面板现在可以自由拖动」；按上面维护口径
      「只有我说明了你再加」登记 —— **这是 R142 唯一一条用户可感知的变化**）。
      ★加上它 = `UPDATE_LOG[0].v` 由 `R140` 变 `R142` ⇒ 老用户下次打开**红点会自动复现**
@@ -19262,6 +19376,1019 @@ if(histbtn)histbtn.addEventListener('click',openHistList);
 if(histmask)histmask.addEventListener('click',closeHistList);
 if(histclose)histclose.addEventListener('click',closeHistList);
 window.openHistList=openHistList;window.closeHistList=closeHistList;window.UPDATE_LOG=UPDATE_LOG;
+
+/* ==========================================================================================
+ * ★★R143 存档（2026-10-14，用户逐字）
+ * ------------------------------------------------------------------------------------------
+ * 「在左上角的设置按钮右边增加一个保存的按钮，点击后打开存档界面，里面分别可以保存当前界面，
+ *   加载以前保存的界面，导出数据，导入数据，保存的界面可以命名，以前保存的也可以重命名，
+ *   你看怎么排版美观简洁 / 在右上角有一个问号的解释，"保存后仅保存在当前浏览器，切换浏览器请
+ *   导出数据" / 每次导出数据可以选择导出哪几个，也可以全选，导入数据会自动识别相同模板，避免
+ *   重复，删除时也可以多选或者全选删除」
+ *
+ * ★★两条**设计决定**（用户没点名，但会影响手感，写在这里以免下一个人改错）：
+ *   ① ★★★**加载 = 忠实还原【那一刻】（含速度）**。用户 2026-10-14 明确推翻了我最初定的【速度归零】：
+ *      「**要保存保存的时候各物体的状态，也就是速度等类型**，不然用户如果使用 `t` 暂停了时间，
+ *      这时候保存很多就会没有保存上，检查那些中间态、过渡态有无正确保存，比如**黑洞召唤到一半，
+ *      mc² 爆炸到一半**等等之类的」。⇒ 位置、角度、速度与角速度、形状、公式、参数、过渡态 全部还原。
+ *      ★★★**写注释的坑（记在这里，别再犯）**：本行初版让加粗标记紧贴着一个斜杠，
+ *      于是「星号-星号-斜杠」三连直接把块注释**提前闭合**，后面的中文当场变成代码。
+ *      而 `形状/公式/参数` **恰好是合法的除法表达式**（双星号还是幂运算符）
+ *      ⇒ **语法检查完全测不出来**，只有真跑页面才报 `ReferenceError: 形状 is not defined`。
+ *      ⇒ 铁律：注释里**绝不要**让加粗标记紧贴斜杠。（静态检查见 `_syntax.py` 的 `TRIPLE` 规则。）
+ *      （`t` 是暂停键；暂停时速度是非零的【待发状态】，归零等于把用户的意图吃掉。）
+ *   ② **"相同模板" = 逐字节相同的内容签名**（`scnSig`，与名字/时间无关）。导入时按签名去重：
+ *      既比对**已有条目**，也比对**同一批导入内部**（同一份文件里重复的只留一条）。
+ *
+ * ★★保真度来自**复用产品的录屏序列化器** `recSnap(true)`（见 `scnFrame`），还原侧的适配层
+ *   自 `_repro_loader.js` 的 `buildFrame` 一族移植（那边是给视频管线用了很久的成熟实现）。
+ *   与之**刻意不同**的两处（存档比回放要求高）：
+ *     · W 体用**全量顶点** `ptsF`（回放用的是降采样到 ≤24 点的 `pts`）；
+ *     · 还原 `massG` / `mem`（公式记忆）/ `param`（参数面板滑块值）—— 回放只要"看得像"，
+ *       存档要"用得了"。
+ * ========================================================================================== */
+var SCN_KEY='sandbox_scenes';
+var SCN=[];        /* [{id,name,t,sig,frame}]；frame = {bs,sp,fl} */
+var SCN_SEL={};    /* id -> true（多选态，**不持久化**，每次打开都从空开始） */
+var SCN_MSG='';    /* 导入/保存的回执（一次性提示，重渲染后仍显示到下次操作） */
+var scnArmed=false;/* 删除的**二次确认**开关：第一次点「删除选中」只是**上膛**（按钮变红写成
+                      「确认删除 N 个」），再点一次才真删；任何重渲染（勾选变化/改名…）都会卸膛。
+                     ★刻意**不用原生 `confirm()`**：① 产品全文没有一处原生对话框，风格不搭；
+                       ② 原生对话框会阻塞、且在无头浏览器里默认被自动 `dismiss` ⇒ 判据根本测不到删除。 */
+
+function scnEsc(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function scnTime(ms){
+  var d=new Date(+ms||0);
+  function p(n){return (n<10?'0':'')+n;}
+  return (d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
+function scnNow(){ var d=new Date(),p=function(n){return (n<10?'0':'')+n;};
+  return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes()); }
+
+/* ---------- ① 取快照（复用 recSnap(true)，只补两处 + 丢掉录制专用字段） ---------- */
+/* ==========================================================================================
+ * ★★★**通用状态捕获**（用户 2026-10-14：「**全量检查一下，到底还有哪些是没有正确保存的**」）
+ * ------------------------------------------------------------------------------------------
+ * 第一版用**逐字段白名单**记状态，审计实测漏了一长串：`bh`（黑洞状态对象）、`infl`/`mc2`/
+ * `blastT`/`explodeStage`（mc² 爆炸各阶段）、`family`、`wob`、`trailOn`、`_bph`…
+ * **靠人想永远想不全** —— 产品每加一个 body 字段，就得记得回来补一次，忘了就是静默丢失。
+ * ⇒ 改成**通用捕获**：把 body 自己身上所有「JSON 安全」的自有字段整包记下来，
+ *   黑名单只排掉**建体/几何/身份**那批必须由构造器决定、写回会破坏重建的键。
+ *   ★这样**将来新加的字段自动被保存**，不需要再维护任何名单。
+ * ========================================================================================== */
+var SCN_BLK={
+  /* 位置/角度/速度：有专门的还原路径（要同步 Matter 体），不走整包写回 */
+  x:1,y:1,vx:1,vy:1,th:1,om:1,
+  /* 几何/尺寸：由构造器从 pts / glyphs 重算 */
+  sc:1,hw:1,hh:1,pts:1,hull:1,closed:1,wshape:1,
+  /* 身份/结构：由建体分支与 scnPostBody 专门处理 */
+  kind:1,fg:1,glyphs:1,mem:1,massG:1,param:1,st:1,bndI:1,bndM:1,mb:1,el:1,dead:1,
+  gnd:1,belt:1,conv:1,len:1,cur:1,e0:1,e1:1,anc:1,ox:1,oy:1,ks:1,dirLock:1,
+  hinge:1,rope:1,nodes:1,rp:1,_segLen:1,_rodL:1,_mlen:1,_mth:1,_at:1,
+  /* ★★R143 第七轮：**轨迹点**走专用通道（见 `scnFrame` 里的 `o.tr`）。
+     两个理由：① 通用捕获判「JSON 安全」的数组上限是 **64 项**，而轨迹能到 `TRAIL_MAX_PTS`=900
+     ⇒ **超过 64 点会被整条静默拒收**（实测：60 点 true / 70 点 false）；
+     ② 点里的 `t` 是 `trailTime`（**实时钟**、重开页面归零）⇒ 必须像残影池那样**重基**。
+     `trailLast` 直接由 `trail` 末点派生，不单独存（单一真源）。 */
+  trail:1,trailLast:1
+};
+/* 「JSON 安全」= 只由 number/string/boolean/null 组成（含嵌套的普通对象/数组，深度 <=3、
+   单层 <=64 项 / <=24 键）—— 防止把 DOM 节点、大数组、循环引用塞进存档。 */
+function scnPlain(v,d){
+  d=d||0;
+  if(d>3)return false;
+  var t=typeof v;
+  if(v===null||t==='number'||t==='string'||t==='boolean')return true;
+  if(t!=='object')return false;
+  if(v.nodeType||v===window)return false;
+  try{
+    if(Array.isArray(v)){
+      if(v.length>64)return false;
+      for(var i=0;i<v.length;i++)if(!scnPlain(v[i],d+1))return false;
+      return true;
+    }
+    var ks=Object.keys(v);
+    if(ks.length>24)return false;
+    for(var j=0;j<ks.length;j++)if(!scnPlain(v[ks[j]],d+1))return false;
+    return true;
+  }catch(e){ return false; }
+}
+function scnState(B){
+  var o={},has=false;
+  for(var k in B){
+    if(!Object.prototype.hasOwnProperty.call(B,k))continue;
+    if(SCN_BLK[k])continue;
+    var v=B[k];
+    if(scnPlain(v)){o[k]=v;has=true;}
+  }
+  if(!has)return null;
+  /* ★★★**必须深拷贝成快照**，不能直接把活引用塞进存档 —— 实测踩过：
+     `bh`（黑洞状态）是对象，存的是**同一个对象**；场景一销毁，产品就地把它改成 `dead:true`
+     （"黑洞被移除"的标志），于是**存档里的数据被悄悄改了**。两处后果一起爆：
+       · 读回来 `bh.dead` 从 false 变 true（守卫 S16a 红）；
+       · `scnSig` 是存盘那一刻算的，之后对象一变，**重算的签名就对不上**（S8 的"相同模板"失效）。
+     ⇒ 通用捕获的返回值一律 `JSON` 深拷贝（`scnPlain` 已保证它是 JSON 安全的）。 */
+  try{ return JSON.parse(JSON.stringify(o)); }catch(e){ return o; }
+}
+
+function scnFrame(){
+  var HAVE_TR=0;      /* ★是否采到了任何轨迹点（决定要不要记时间基准 `out.tt`） */
+  var f={};
+  try{ f=recSnap(true)||{}; }catch(e){ f={}; }
+  var bs=f.bs||[];
+  for(var i=0;i<bs.length;i++){
+    var o=bs[i],B=(o&&o.i!=null)?bodies[o.i]:null;
+    if(!o||!B||B.dead)continue;
+    try{
+      /* ★★字形（含质量字母与公式字母）：`recSnap` 只记了 `mem` 的**类型串**（给诊断用），
+         不足以还原。这里补记每个字形的**类型 + 局部偏移 `sx/sy`**。
+         为什么偏移是关键：`slot(B,g)` 只用 `sx/sy`（`{x:B.x+(g.sx*cos−g.sy*sin)*sc, ...}`），
+         **不读 `B.st`** ⇒ 只要 `sx/sy` 对，任何体（W / 场源 / 组合体）的字形都摆得一模一样，
+         而且**完全不用调 `layoutBody`** —— 这正是产品自己在 `promoteFreeLetter` 里的手法
+         （它写着「layoutBody would crash on an isolated non-formula letter… we place it manually」）。
+         `mgi` = 质量字母在这张表里的下标（-1 = 没有），还原时要把它挂回 `B.massG`。 */
+      var gl=[],mgi=-1;
+      if(B.glyphs&&B.glyphs.length){
+        for(var j=0;j<B.glyphs.length;j++){
+          var g=B.glyphs[j];
+          if(!g||g.dead||typeof g.type!=='string')continue;   /* 分隔线(BAR)等非字符串字形跳过 */
+          /* ★role 必须记准，否则还原会**造出原本不存在的状态**：
+               1 = massG（质量字母）  0 = 在 B.mem 里  2 = 只是 glyphs（场源体的字形 / fg）
+             实测踩过：场源 q 的字形原先**不在** mem 里，一律按 mem 还原会让 `B.mem.length` 0→1，
+             而 mem 是 `isMVR` / `hasGrav` 一类判据的输入 ⇒ 悄悄改变物理语义。 */
+          var role=2;
+          if(g===B.massG)role=1;
+          else if(B.mem&&B.mem.indexOf(g)>=0)role=0;
+          if(role===1)mgi=gl.length;
+          gl.push([g.type,+(g.sx||0).toFixed(1),+(g.sy||0).toFixed(1),role]);
+        }
+      }
+      if(gl.length){o.gl=gl;if(mgi>=0)o.mgi=mgi;}
+      /* ★通用状态整包捕获（黑名单见 SCN_BLK）—— 这是「全量」的关键 */
+      o.stt=scnState(B);
+      /* ★产品自己的速度字段（px/s）—— **必须单独记**：`recSnap` 对有 Matter 镜像的体记的是
+         `mb.velocity*60`，而 **static 体的 Matter 速度恒为 0** ⇒ 那个值把产品的 `B.vx/vy` 吃掉了；
+         而对 fixed/static 体，`B.vx/vy` 才是真正驱动它的量（见 `giveFromLetter` 的 v 分支）。 */
+      o.bvx=+((B.vx||0)).toFixed(2);o.bvy=+((B.vy||0)).toFixed(2);o.bom=+((B.om||0)).toFixed(4);
+      /* ★★轨迹点（专用通道）：取最近 TRAIL_KEEP 个，`[x,y,t]` 三元组 —— 时间戳还原时要重基。 */
+      if(B.trail&&B.trail.length){
+        var tp=[],t0=Math.max(0,B.trail.length-TRAIL_KEEP);
+        for(var ti=t0;ti<B.trail.length;ti++){
+          var pt2=B.trail[ti];
+          tp.push([+((pt2.x||0)).toFixed(1),+((pt2.y||0)).toFixed(1),+((pt2.t||0)).toFixed(2)]);
+        }
+        if(tp.length>=2){o.tr=tp;HAVE_TR=1;}
+      }
+      /* ★★**器件身份**：`recSnap` **完全不记** `gnd` / `belt` —— 而渲染分派与参数面板都认它们。
+         不补的后果产品自己踩过两次（`copyBody` 的 R110 / R132-11 注释）：
+           · 地面/墙面副本 ⇒ 变成一块**普通木板**（用户原话「那个地面器件变成了一个方块」）；
+           · 传送带副本 ⇒ 画成光板矩形（「神秘方框」，没有滚轮、没有人字纹）。
+         ⇒ 照 `copyBody` 的配方补记（地面还要 `len`，`makeGround` 用它算 hw/hh）。 */
+      if(B.gnd)o.gnd=[+(B.len||0).toFixed(2),+(B.hh||0).toFixed(2)];
+      if(B.belt){o.belt=1;if(B.conv!=null)o.conv=+B.conv;}
+      /* 参数面板的滑块值（质量/摩擦/弹性/电荷/缩放…）—— 回放不需要、存档必须 */
+      if(B.param){
+        var pr={},has=false;
+        for(var k in B.param)if(Object.prototype.hasOwnProperty.call(B.param,k)){pr[k]=B.param[k];has=true;}
+        if(has){try{o.pr=JSON.parse(JSON.stringify(pr));}catch(e){o.pr=pr;}}
+      }
+    }catch(e){}
+  }
+  /* ★★弹簧 / 轻绳**不在 `bs` 里**（见 `scnBuild` 的长注）⇒ 它们的 `stt`/速度得在这里补，
+     否则「弹簧被拖着走」这类状态在加载后全丢（`scnMkLink` 拿到的 sp 记录里什么都没有）。 */
+  var sps=f.sp||[];
+  for(var si=0;si<sps.length;si++){
+    var sp=sps[si],SB=(sp&&sp.i!=null)?bodies[sp.i]:null;
+    if(!SB||SB.dead)continue;
+    try{
+      sp.bvx=+((SB.vx||0)).toFixed(2);sp.bvy=+((SB.vy||0)).toFixed(2);sp.bom=+((SB.om||0)).toFixed(4);
+      var st2=scnState(SB);if(st2)sp.stt=st2;
+      var gl2=[],mg2=-1;
+      if(SB.glyphs&&SB.glyphs.length){
+        for(var gj=0;gj<SB.glyphs.length;gj++){
+          var g3=SB.glyphs[gj];
+          if(!g3||g3.dead||typeof g3.type!=='string')continue;
+          var r3=2;if(g3===SB.massG)r3=1;else if(SB.mem&&SB.mem.indexOf(g3)>=0)r3=0;
+          if(r3===1)mg2=gl2.length;
+          gl2.push([g3.type,+(g3.sx||0).toFixed(1),+(g3.sy||0).toFixed(1),r3]);
+        }
+      }
+      if(gl2.length){sp.gl=gl2;if(mg2>=0)sp.mgi=mg2;}
+    }catch(e){}
+  }
+  /* ★★自由字符的轨迹同样要记（`stepTrails` 会单独采非贴体的自由字符）。
+     `fl` 记录里带 `i`（在 `freeL` 里的下标）⇒ 用它回查那个字母的 `trail`。 */
+  try{
+    var flo=f.fl||[];
+    for(var fi=0;fi<flo.length;fi++){
+      var lo=flo[fi]; if(!lo||lo.i==null)continue;
+      var L2=freeL[lo.i];
+      if(!L2||L2.dead)continue;
+      /* ★★轨迹的**设置项**也要补：通用捕获只覆盖「体」和 `sp`，自由字符走的是 `recSnap` 的 `fl`
+         记录（只有 ch/坐标/速度/赋予参数）⇒ `trailOn`/`trailCfg` **原来一个都没记**
+         （实测：读回后 `trailOn` 是 undefined ⇒ 回落全局默认=false ⇒ 开关白开了、
+         连刚落好的轨迹点也不会被画出来）。★要放在"有没有点"的判断**之前** ——
+         开了轨迹但还没走过路（0 点）时，设置同样必须保住。 */
+      if(L2.trailOn!=null)lo.tOn=L2.trailOn;
+      if(L2.trailCfg&&scnPlain(L2.trailCfg)){
+        try{lo.tCf=JSON.parse(JSON.stringify(L2.trailCfg));}catch(e){}
+      }
+      if(!L2.trail||!L2.trail.length)continue;
+      var tq=[],t1=Math.max(0,L2.trail.length-TRAIL_KEEP);
+      for(var tj=t1;tj<L2.trail.length;tj++){
+        var pq=L2.trail[tj];
+        tq.push([+((pq.x||0)).toFixed(1),+((pq.y||0)).toFixed(1),+((pq.t||0)).toFixed(2)]);
+      }
+      if(tq.length>=2){lo.tr=tq;HAVE_TR=1;}
+    }
+  }catch(e){}
+  /* ★全局过渡态：粒子（用户点名的「中间态/过渡态」—— 爆炸到一半、黑洞吸积中的那些点）。
+     ★条数设上限，避免存档被粒子撑爆；超限只存前 N 个（画面近似，不丢整类）。 */
+  var fx={};
+  try{
+    var ps=(typeof particles!=='undefined'&&particles)?particles:null;
+    if(ps&&ps.length){
+      var arr=[];
+      for(var pi=0;pi<ps.length&&pi<240;pi++)if(scnPlain(ps[pi]))arr.push(ps[pi]);
+      if(arr.length)fx.p=arr;
+    }
+    var rs=(typeof rings!=='undefined'&&rings)?rings:null;
+    if(rs&&rs.length){
+      var ar2=[];
+      for(var ri=0;ri<rs.length&&ri<64;ri++)if(scnPlain(rs[ri]))ar2.push(rs[ri]);
+      if(ar2.length)fx.r=ar2;
+    }
+  }catch(e){}
+  /* ★★R143 第六轮（用户：「你再检查一下这个保存还有什么没有保存的，或者漏掉的」）：
+     **残影池 `retiredTrails`** —— 体被**物理消灭**（撞墙碎 `shatter` / 膨胀自毁 `explodeBody`）之后，
+     轨迹还要按它自己的 life 继续淡完的那些**实体**。它是个**模块级数组**、不在任何体身上
+     ⇒ 通用捕获（遍历 `B` 的自有字段）**永远抓不到**（实测：整个存档块里零引用，连 `rings` 都有）。
+     ★★存的不是"轨迹快照"，而是**每点的 (x,y,t)**：绘制是**逐点按 `trailTime` 淡出**的
+       （`alphaAt(idx) = 1-(trailTime-L[idx].t)/life`）⇒ 时间戳必须一起存，还原时**重基**，
+       否则旧时间戳一进来就"已经过期"，残影当场全灭。
+     ★只记绘制真正读到的三样：`trailOn`（开/关，`trailEnabled` 读它）、`trailCfg`（外观）、
+       `trail`（点）—— `trailStrokeOne` 只吃这些，所以还原成**普通对象**就够，不必是真体。 */
+  try{
+    var rlist=(typeof retiredTrails!=='undefined'&&retiredTrails)?retiredTrails:[];
+    var rts=[];
+    for(var ri2=0;ri2<rlist.length&&ri2<RETIRED_MAX;ri2++){
+      var re=rlist[ri2];
+      if(!re||!re.trail||re.trail.length<2)continue;
+      var rp=[];
+      for(var rj=0;rj<re.trail.length&&rj<240;rj++){
+        var p3=re.trail[rj];
+        rp.push([+((p3.x||0)).toFixed(1),+((p3.y||0)).toFixed(1),+((p3.t||0)).toFixed(2)]);
+      }
+      if(rp.length<2)continue;
+      var rc=null;
+      if(re.trailCfg&&scnPlain(re.trailCfg)){try{rc=JSON.parse(JSON.stringify(re.trailCfg));}catch(e3){rc=null;}}
+      rts.push({on:(re.trailOn==null?0:re.trailOn),cf:rc,pt:rp});
+    }
+    if(rts.length)fx.rt=rts;
+  }catch(e){}
+  var out={bs:bs,sp:sps,fl:f.fl||[]};
+  if(Object.keys(fx).length)out.fx=fx;
+  /* ★★统一的时间基准（**唯一真源**）：轨迹点 / 残影点的 `t` 都属于「存盘这一局的 `trailTime`」。
+     还原时用它把年龄搬回来（`t' = 现在 - (存时 - t)`）。只在**真的采到轨迹数据**时才记。 */
+  if(HAVE_TR||fx.rt)out.tt=+((typeof trailTime!=='undefined')?trailTime:0).toFixed(2);
+  /* ★★全局世界参数：**重力 `GRAV`**。`recSnap` 早就把它算好了（`f.g`），原来只是被这里丢掉
+     ⇒ 存档只还原了物体、没还原世界。
+     ★★★为什么必须补（用户 2026-10-14「全量检查一下，到底还有哪些是没有正确保存的」）：
+       `g` 字符的「重力」参数在**产品里改的就是全局 `GRAV`**（见 `applyParam` 的 `key==='grav'`
+       分支，R71⑬ 的注释说得很明白：「g 的参数不再写进本体的 `B.grav`，而是改**全局**」）。
+       而面板的显示值读的是 `B.param.grav`（`paramV` 的兜底分支）。
+       ⇒ 只还原 `B.param.grav` 会让面板与世界**自相矛盾**：「面板显示 5、世界跑的是 10」。
+     ★只写 `GRAV` **就够了**，不要顺手去写 `MW.engine.gravity.y` —— Matter 的重力在
+       `stepMatter` 里**每帧**从 `GRAV` 同步（那句 `MW.engine.gravity.y=GRAV/1000;`），
+       在这里再写一遍就是本项目反复栽的「同一口径两处各写」。
+     ★★**Δt（`TIME_SCALE`）也要存**（用户 2026-10-14 追加：「**要啊，有的时候就是要保存暂停的那一瞬间啊**」）
+       —— 「暂停态」本身就是场景状态：在 `t` 调到 0 的那一瞬间存下来的画面，加载后就该还是停着的。
+       ★`recSnap` 不记它（它是世界时钟、不属于任何体）⇒ 在这里单独记。 */
+  if(f.g!=null)out.g=f.g;
+  try{ if(typeof TIME_SCALE!=='undefined')out.ts=+TIME_SCALE; }catch(e){}
+  return out;
+}
+/* ---------- ② 内容签名（"相同模板"的唯一判据） ---------- */
+function scnSig(frame){
+  var s='';
+  try{ s=JSON.stringify(frame); }catch(e){ s=String(frame&&frame.bs&&frame.bs.length); }
+  var h1=5381,h2=52711;
+  for(var i=0;i<s.length;i++){var c=s.charCodeAt(i);h1=((h1*33)^c)>>>0;h2=((h2*31)+c)>>>0;}
+  return s.length+'-'+h1.toString(36)+'-'+h2.toString(36);
+}
+/* ---------- ③ 本地库读写（接口全部 `try` 包住：隐私模式/配额满都可能抛） ---------- */
+function scnReadStore(){
+  try{
+    var s=localStorage.getItem(SCN_KEY);
+    if(!s)return [];
+    var a=JSON.parse(s);
+    return (a&&a.length)?a:[];
+  }catch(e){ return []; }
+}
+function scnWriteStore(){
+  try{ localStorage.setItem(SCN_KEY,JSON.stringify(SCN)); return true; }
+  catch(e){ return false; }      /* 配额满 ⇒ 调用方回滚并提示 */
+}
+function scnFind(id){
+  for(var i=0;i<SCN.length;i++)if(SCN[i].id===id)return SCN[i];
+  return null;
+}
+/* ---------- ④ 保存 / 重命名 / 删除 / 加载 ---------- */
+function scnSave(name){
+  var nm=String(name==null?'':name).replace(/^\s+|\s+$/g,'').slice(0,40);
+  if(!nm)nm='未命名存档';
+  var fr=scnFrame();
+  var it={id:'s'+Date.now()+'_'+Math.floor(Math.random()*1e5),name:nm,t:Date.now(),
+          sig:scnSig(fr),frame:fr};
+  SCN.unshift(it);
+  if(!scnWriteStore()){ SCN.shift(); return {ok:false,err:'quota'}; }
+  return {ok:true,id:it.id,name:nm,n:(fr.bs||[]).length};
+}
+function scnRename(id,name){
+  var it=scnFind(id);if(!it)return {ok:false,err:'notfound'};
+  var nm=String(name==null?'':name).replace(/^\s+|\s+$/g,'').slice(0,40);
+  if(!nm)return {ok:false,err:'empty'};
+  var old=it.name;it.name=nm;
+  if(!scnWriteStore()){ it.name=old;return {ok:false,err:'quota'}; }
+  return {ok:true,name:nm};
+}
+function scnDelete(ids){
+  var n=0,keep=[];
+  for(var i=0;i<SCN.length;i++){
+    if(ids&&ids[SCN[i].id]){n++;continue;}
+    keep.push(SCN[i]);
+  }
+  if(!n)return {ok:false,n:0};
+  var old=SCN;
+  SCN=keep;
+  if(!scnWriteStore()){ SCN=old;return {ok:false,err:'quota'}; }
+  return {ok:true,n:n};
+}
+function scnLoadScene(id){
+  var it=scnFind(id);
+  if(!it)return {ok:false,err:'notfound'};
+  try{
+    var r=scnBuild(it.frame);
+    closeScenes();
+    return {ok:true,n:r.n,nl:r.nl};
+  }catch(e){ return {ok:false,err:String(e&&e.message||e)}; }
+}
+
+/* ==========================================================================================
+ * ⑤ 还原：适配层自 `_repro_loader.js`（SB.buildFrame 一族）移植，改用产品全局名直接调用。
+ *    ★**顺序不能变**：清场 → 建体（第一遍）→ 绑锚点（第二遍，此时宿主都已存在）
+ *      → 自由字母 → 只对**非 W 体** refresh。
+ *    ★★`refresh(B)` **绝不许**落在 W 体上：`refresh` 第一句 `if(B.kind){layoutField(B);return;}`，
+ *      而 `layoutField` 的 else 分支写死 `B.glyphs=[B.fg]; B.fg.body=B;` —— W 体的 `B.fg` 恒 null
+ *      ⇒ 当场抛 `Cannot set properties of null`，而且 `glyphs` 已被写成 `[null]`，之后每帧
+ *      `syncGlyphs` 连环报错（产品自己的 `clearAll()` 也会在同一处崩 ⇒ 清场失效、场景串味）。
+ *      —— 这条是 `_repro_loader.js` 里用两次实测换来的，照抄。
+ * ========================================================================================== */
+/* ★★★**物理参数还原的「唯一真源」** —— W 体与杆两条建体路径**都必须**调它。
+   踩过的坑：第一版把这段逻辑在 `scnAlignTo`（W）与 `scnMkRod`（T）里**各写了一遍**，
+   后来只修了前者（μ 改用原始值 `muf`），后者漏改 ⇒ 杆加载后 `wFrict` 从 `null` 变 `0.08`
+   （守卫 S12e 当场打红，实测确认）。**同一口径两处各写，必漏一处。**
+   ★三条字段口径（都是拿产品自己的配方换来的，不是猜的）：
+     · **μ 用原始值 `muf`**（`recSnap` 的 `mu` 是 `wEffMu` **有效值**）。产品对「调过 μ」与
+       「没调过」走**两条不同物理路径**（调过的走自算库仑摩擦 `wfSelfFriction`、`mb.friction` 被清零）
+       ⇒ 拿有效值写回会把"没调过"的体改成自算路径，数值一样、行为已换。
+       ★写完还必须 `applyWFrict(B)` 把那条路径接上 —— 这是 `makeBelt` 的配方
+       （只写 `B.wFrict` 不调它，带子的 `mb.friction` 会留在默认 1，实测过）。
+     · **弹性**没有原始值可记，只能用有效值 `e`，但**只在它与本体默认值不同时才写回**。
+     · **`fixed` 必须配 `setStatic(true)`** —— 只写 `B.fixed` 是没用的，真正让它不动的是
+       Matter 的 `isStatic`（`makeGround` 里那两句就是配套的）。 */
+/* ★★★物理/状态还原的**唯一真源** —— W 体、杆、组合体三条建体路径都必须调它。
+   ★★核心是**通用状态整包写回**（`n.stt`，见上面 SCN_BLK 那段长注）。
+   ★顺序有讲究：① 通用状态 → ② 器件身份（有专门配方）→ ③ 静态性 → ④ 参数 → ⑤ 重算派生量
+   （`applyWMul` 内部连带 `applyWFrict`/`applyWBounc`/`applyEffRest`，把状态写回 Matter 体）。 */
+function scnPhys(B,n){
+  try{
+    /* ① 通用状态整包写回（速度/角速度也在这儿 —— 用户要求「忠实还原那一刻」） */
+    if(n.stt){for(var k in n.stt)if(Object.prototype.hasOwnProperty.call(n.stt,k))B[k]=n.stt[k];}
+    /* ★产品自己的速度字段优先（`bvx` —— static 体的 Matter 速度恒 0，只有它靠得住） */
+    B.vx=(n.bvx!=null)?n.bvx:(n.vx||0);
+    B.vy=(n.bvy!=null)?n.bvy:(n.vy||0);
+    B.om=(n.bom!=null)?n.bom:((n.w!=null)?n.w:0);
+    if(B.mb){
+      try{
+        if(!B.mb.isStatic){
+          Matter.Body.setVelocity(B.mb,{x:(n.vx||0)/60,y:(n.vy||0)/60});
+          if(Matter.Body.setAngularVelocity)
+            Matter.Body.setAngularVelocity(B.mb,((n.w!=null?n.w:0)/60));
+        }
+        B.mb.isSleeping=false;
+        if(typeof Sleeping!=='undefined'&&Sleeping.set)Sleeping.set(B.mb,false);
+      }catch(e){}
+    }
+    /* ② 器件身份（地面/墙面、传送带）—— `recSnap` 不记，照 `copyBody` 的配方补。
+       不补 ⇒ 地面退回「普通木板」（用户报的「变成了一个方块」）、传送带画成光板方框。 */
+    if(n.gnd){
+      B.gnd=1;
+      B.len=(n.gnd[0]!=null&&n.gnd[0]>0)?n.gnd[0]:((n.hw||0)*2);
+      B.hw=(B.len||GROUND_SPAWN_LEN)/2;
+      B.hh=(n.gnd[1]!=null&&n.gnd[1]>0)?n.gnd[1]:GROUND_TH/2;
+      B._mlen=B.len;B._mth=B.th||0;
+      B.fixed=true;
+    }
+    if(n.belt){
+      B.belt=true;
+      B.conv=(n.conv!=null)?n.conv:((typeof CONV_DEF!=='undefined')?CONV_DEF:130);
+      B.fixed=true;
+    }
+    /* ③ 静态性：`fixed` **必须配 `setStatic`** —— 只写 `B.fixed` 是没用的，
+       真正让它不动的是 Matter 的 `isStatic`（`makeGround`/`makeBelt`/`copyBody` 三处都配套写）。 */
+    if(B.fixed&&B.mb){
+      Matter.Body.setStatic(B.mb,true);
+      if(typeof Sleeping!=='undefined'&&Sleeping.set)Sleeping.set(B.mb,false);
+    }
+    /* ④ 参数面板的滑块值（`param` 在黑名单里，单独走这条） */
+    if(n.pr){
+      if(!B.param)B.param={};
+      for(var pk in n.pr)if(Object.prototype.hasOwnProperty.call(n.pr,pk))B.param[pk]=n.pr[pk];
+      if(n.pr.mass!=null)B.mass=n.pr.mass;
+      if(n.pr.massM!=null)B.massCap=n.pr.massM;
+    }
+    /* ⑤ 把摩擦/弹性/质量倍率/恢复系数重新写进 Matter 体 */
+    if(typeof applyWMul==='function')applyWMul(B);
+  }catch(e){}
+}
+function scnMkW(n){
+  var a=n.a||0,c=Math.cos(a),s=Math.sin(a),wp=[],pts=n.ptsF||n.pts||[];
+  for(var i=0;i<pts.length;i++){
+    var px=pts[i][0],py=pts[i][1];
+    wp.push([n.x+px*c-py*s, n.y+px*s+py*c]);
+  }
+  var opt={closed:!!n.cl,shape:n.s||'poly'};
+  if(n.s==='circle'||n.s==='ring')opt.rad=n.hw;
+  if(n.rad!=null)opt.rad=n.rad;                   /* 弧等形状的半径（圆/圆轨上面那行已覆盖，值相同） */
+  var B=mkBoundary(wp,opt);
+  if(!B)return null;
+  scnAlignTo(B,n);
+  scnPhys(B,n);
+  return B;
+}
+function scnAlignTo(B,n){
+  /* 位置/角度钉回记录值（`mkBoundary` 的落点与它可能有微小差、以及「出生不许埋地」的自动上抬）。
+     ★速度**不在这里**处理 —— 统一由 `scnPhys` 还原（用户要求「忠实还原那一刻」）。 */
+  B.x=n.x;B.y=n.y;
+  if(B.mb){
+    try{
+      Matter.Body.setPosition(B.mb,{x:n.x,y:n.y});
+      if(n.a!=null)Matter.Body.setAngle(B.mb,n.a);
+      B.mb.angle=n.a||0;
+    }catch(e){}
+  }else if(B.kind==='T'){B.th=n.a||0;}
+}
+function scnMkRod(n){
+  var B=makeRod(n.x,n.y,0,0);
+  if(!B)return null;
+  if(n.len!=null&&typeof setRodLen==='function')setRodLen(B,n.len,true);
+  B.th=n.a||0;
+  scnPhys(B,n);        /* ★走唯一真源（速度 / 通用状态 / 器件身份 / 静态 都在里面） */
+  return B;
+}
+function scnMkLink(sp){
+  var B=null,x0=sp.e0[0],y0=sp.e0[1],x1=sp.e1[0],y1=sp.e1[1];
+  if(sp.hg)B=makeHinge(x0,y0);
+  else if(sp.ks===undefined)B=makeRope(x0,y0,x1,y1);
+  else B=makeSpring(x0,y0,x1,y1);
+  if(!B)return null;
+  B.e0.x=x0;B.e0.y=y0;B.e1.x=x1;B.e1.y=y1;
+  if(sp.len!=null)B.len=sp.len;
+  if(sp.ks!=null)B.ks=sp.ks;
+  /* 高中模式的弹簧自动方向锁按**记录下来的几何**重建（值恒 'uni' ⇒ 这段是死路径，照抄留档） */
+  if(typeof PHYS_MODE!=='undefined'&&PHYS_MODE==='high'&&!B.hinge&&!B.rope&&B.kind==='S'){
+    var ux=x1-x0,uy=y1-y0,d=Math.sqrt(ux*ux+uy*uy)||1;
+    B.dirLock={mx:(x0+x1)/2,my:(y0+y1)/2,ux:ux/d,uy:uy/d,auto:true};
+    if(sp.dir)B.dirLock.axis=sp.dir;
+  }else if(sp.dir){
+    var ux2=x1-x0,uy2=y1-y0,d2=Math.sqrt(ux2*ux2+uy2*uy2)||1;
+    B.dirLock={mx:(x0+x1)/2,my:(y0+y1)/2,ux:ux2/d2,uy:uy2/d2};
+    B.dirLock.axis=sp.dir;
+  }
+  if(typeof refreshSpringGeom==='function')refreshSpringGeom(B);
+  scnPhys(B,sp);      /* ★S 体也要走唯一真源：速度 / 通用状态 / 字形（sp 记录里补过，见 scnFrame） */
+  return B;
+}
+function scnMkField(n){
+  var B=spawnField(n.k,n.x,n.y,0,0);
+  if(!B)return null;
+  B.x=n.x;B.y=n.y;
+  if(B.mb){try{Matter.Body.setPosition(B.mb,{x:n.x,y:n.y});}catch(e){}}
+  if(n.q!=null)B.charge=n.q;
+  scnPhys(B,n);      /* ★场源体也要走唯一真源（审计发现：q/E 加载后 vx/vy/om 全丢） */
+  return B;
+}
+function scnMkLetter(l,tbase){
+  var d=GD(l.ch);
+  if(!d)return null;
+  /* ★★轨迹的**设置项**（与 `scnFrame` 里补的 `lo.tOn`/`lo.tCf` 成对）：开关 + 外观。 */
+  if(l.tOn!=null)d.trailOn=l.tOn;
+  if(l.tCf)d.trailCfg=l.tCf;
+  /* ★★轨迹点（与 `scnFrame` 里补的 `lo.tr` 成对）：时间戳**重基**到当前 `trailTime`，理由见体那段。 */
+  if(l.tr&&l.tr.length){
+    var tnl=(typeof trailTime!=='undefined')?trailTime:0;
+    var tbl=(tbase!=null)?tbase:tnl;
+    var tal=[];
+    for(var u=0;u<l.tr.length;u++){var pu=l.tr[u];
+      tal.push({x:pu[0],y:pu[1],t:tnl-(tbl-pu[2])});}
+    d.trail=tal;
+    var pml=tal[tal.length-1];
+    d.trailLast={x:pml.x,y:pml.y};
+  }
+  /* ★速度照原样带过去（用户要求「忠实还原那一刻」）；`freeLetter` 的第 4/5 参就是初速 */
+  freeLetter(d,l.x,l.y,l.vx||0,l.vy||0,1);
+  d.vx=l.vx||0;d.vy=l.vy||0;
+  if(l.q!=null)d.qCharge=l.q;
+  if(l.v!=null)d.vGive=l.v;
+  if(l.va!=null)d.vAng=l.va;
+  if(l.a!=null)d.aGive=l.a;
+  if(l.aa!=null)d.aAng=l.aa;
+  return d;
+}
+function scnBind(B,rec,map){
+  if(!B||!B.anc)return;
+  var anc=rec.anc||[],ancI=rec.ancI||[],ox=rec.ox||[],oy=rec.oy||[];
+  for(var i=0;i<2;i++){
+    var host=(anc[i]&&ancI[i]>=0)?map[ancI[i]]:null;
+    if(host&&host!==B&&!host.dead){
+      B.anc[i]={B:host,ox:(ox[i]||0),oy:(oy[i]||0),
+                _noRot:(typeof PHYS_MODE!=='undefined'&&PHYS_MODE==='high')};
+    }else B.anc[i]=null;
+  }
+  if(B.kind==='S'&&typeof refreshSpringGeom==='function')refreshSpringGeom(B);
+}
+/* 字形（质量字母 / 公式字母）：按 `scnFrame` 记下的**类型 + 局部偏移**重建。
+   ★★**一个字形的排版函数都不调** —— 与产品自己的 `promoteFreeLetter` 同一手法：
+     `slot()` 只吃 `sx/sy`，所以照抄偏移就能还原摆位；反过来 `refresh→layoutField` 对 W 体
+     会用恒为 null 的 `B.fg` 炸掉（见上文长注），而 `layoutBody` 对孤立字母也会崩。
+   ★顺带把 `hasR/hasV/hasG/hasA/hasMu` 按字形类型补回来（`promoteFreeLetter` 同样这么做），
+     否则公式体还原后**认不出自己是什么**（`isMVR` 一类判据都读这些）。 */
+function scnPostBody(B,n){
+  try{
+    var gl=n.gl||[];
+    /* ★★**体自己已经带字形时，一律不重建**。典型是**场源体**：`spawnField` 建体时就
+       `GD(kind)` 造好了它那个 `E`/`q` 字形并挂进 `B.glyphs`；这里再 `GD()` 造一个、
+       然后用 `B.glyphs=list` **整体替换** ⇒ 原来那个字形**当场变成孤儿**：它仍在 DOM 里，
+       但已经不在任何 `B.glyphs` 里 ⇒ `syncGlyphs` 永远不再摆它 ⇒ **停在 `.char` 的 CSS 默认
+       位置 (0,0)** —— 也就是用户看到的「左上角堆积了一份」。实测：画布 `.char` 5 → 6，
+       多出来的正是那个没被摆过的 `E`（`getBoundingClientRect()` = 0,0）。
+       ⇒ 判据：**该体已有非空 `glyphs` 就跳过字形重建**（`mkBoundary`/`makeRod` 造出来的体
+         是没有字形的，所以正常路径不受影响）。 */
+    if(gl.length&&!(B.glyphs&&B.glyphs.length)){
+      B.mem=B.mem||[];
+      var list=[];
+      for(var i=0;i<gl.length;i++){
+        var g=GD(gl[i][0]);
+        if(!g)continue;
+        g.pop=0;
+        g.sx=+gl[i][1]||0;g.sy=+gl[i][2]||0;
+        g.w=g.el?(g.el.offsetWidth||F*0.7):(F*0.7);
+        g.h=g.el?(g.el.offsetHeight||F):F;
+        g.body=B;g.inBody=true;g.prev={x:0,y:0};
+        /* ★按 role 归位（见 `scnFrame`）：1=massG / 0=mem / 2=只进 glyphs，两者都不进 */
+        if(gl[i][3]===1)B.massG=g;
+        else if(gl[i][3]===0){ if(B.mem.indexOf(g)<0)B.mem.push(g); }
+        if(g.type==='r')B.hasR=true;else if(g.type==='v')B.hasV=true;
+        else if(g.type==='g')B.hasG=true;else if(g.type==='a')B.hasA=true;
+        else if(g.type===MU)B.hasMu=true;
+        list.push(g);
+      }
+      if(list.length)B.glyphs=list;
+      if(typeof initWorld==='function')initWorld(B);
+    }
+    if(n.pr){
+      if(!B.param)B.param={};
+      for(var k in n.pr)if(Object.prototype.hasOwnProperty.call(n.pr,k))B.param[k]=n.pr[k];
+      if(n.pr.mass!=null)B.mass=n.pr.mass;
+      if(n.pr.massM!=null)B.massCap=n.pr.massM;
+    }
+    if(B.kind!=='W'&&typeof refresh==='function')refresh(B);
+  }catch(e){}
+}
+/* ★★**组合体 / 表达式体 / 字母体**：`BODY()` 造出来的体 **`kind` 是 `null`** ——
+   第一版的建体分支要求 `k` 属于 {W,T,S,场源}，于是这一整类**被静默跳过**
+   （审计实测：10 个体只还原 9 个，丢的正是组合体，且它的 `glyphs`/`mem`/`family`/`hasV` 全没了）。
+   还原走产品**自己的**创建路径：`BODY()` → 挂字形 → **`refresh()`**。
+   ★`refresh` 对这类体**安全且必要**：它 `if(B.kind)` 为假 ⇒ 走 `setF + layoutBody`，
+   会把 `B.st`（表达式的分数线/括号布局）、`B.frac`、`subBar` 一并重建出来
+   —— 这是「组合体没有正确保存」的另一半（只补字形、不重建表达式布局，看起来还是散的）。 */
+function scnMkPlain(n){
+  var B=BODY(n.x,n.y);
+  if(!B)return null;
+  scnPostBody(B,n);
+  if(typeof refresh==='function')refresh(B);
+  scnPhys(B,n);
+  return B;
+}
+
+function scnBuild(frame){
+  var bs=(frame&&frame.bs)||[],sps=(frame&&frame.sp)||[],fls=(frame&&frame.fl)||[];
+  ensureMatter();
+  clearAll();
+  var byI={},sprByI={},i,k;
+  for(i=0;i<bs.length;i++)byI[bs[i].i]=bs[i];
+  for(i=0;i<sps.length;i++)sprByI[sps[i].i]=sps[i];
+  var idxs=[];
+  for(k in byI)if(Object.prototype.hasOwnProperty.call(byI,k))idxs.push(+k);
+  /* ★★弹簧 / 轻绳**不在 `bs` 里**：`recSnap` 把"没有 Matter 镜像的 S 体"统一收进 `sp`
+     （只有**铰链**因 `_isRod` 为真才进 `bs`）⇒ 遍历必须是 **bs ∪ sp 的并集**。
+     实测踩过：只遍历 `bs` 时 6 个体只还原出 4 个，**弹簧和轻绳整类静默消失**。
+     ★注意 `_repro_loader.js` 的 `buildFrame` 只遍历 `bs` —— 那是视频管线的既有缺口，别照抄。 */
+  for(k in sprByI)if(Object.prototype.hasOwnProperty.call(sprByI,k)){
+    var ki=+k;if(idxs.indexOf(ki)<0)idxs.push(ki);
+  }
+  idxs.sort(function(a,b){return a-b;});
+  var map={};
+  for(i=0;i<idxs.length;i++){
+    /* ★★分支顺序的要害：`sp` 记录里**没有 `k` 字段**（它的字段是 i/ks/len/cur/th/dir/e0/e1/anc…）
+       ⇒ 拿 `n.k==='S'` 判弹簧**永远不成立**，会掉到"场源"分支去建一个空体（实测：弹簧/轻绳
+       建体静默失败、场景里凭空少两件）。⇒ **有 `sp` 记录就直接走 `scnMkLink`**；
+       铰链虽然同时在 `bs` 里，但 `scnMkLink` 先判 `hg` ⇒ 仍然正确。 */
+    var sp0=sprByI[idxs[i]],n=byI[idxs[i]]||sp0||{},B=null;
+    try{
+      if(sp0)B=scnMkLink(sp0);
+      else if(n.k==='W')B=scnMkW(n);
+      else if(n.k==='T')B=scnMkRod(n);
+      else if(n.k!=null)B=scnMkField(n);
+      else B=scnMkPlain(n);   /* kind 为空 => 组合体/表达式体/字母体 */
+    }catch(e){B=null;}
+    if(B){map[idxs[i]]=B;scnPostBody(B,n);}
+  }
+  for(i=0;i<idxs.length;i++){
+    var BB=map[idxs[i]];
+    if(!BB)continue;
+    var nb=byI[idxs[i]];
+    var rec=(nb&&nb.k==='S')?sprByI[idxs[i]]:(nb||sprByI[idxs[i]]||{});
+    if(rec&&rec.anc){try{scnBind(BB,rec,map);}catch(e){}}
+  }
+  /* ★自由字符也要还轨迹（`scnFrame` 里补的 `lo.tr`）；时间基准与体共用 `frame.tt`。 */
+  var ttb=(frame&&frame.tt!=null)?frame.tt:((typeof trailTime!=='undefined')?trailTime:0);
+  for(i=0;i<fls.length;i++){try{scnMkLetter(fls[i],ttb);}catch(e){}}
+  if(typeof refresh==='function'){
+    for(i=0;i<bodies.length;i++){
+      var Br=bodies[i];
+      if(!Br||Br.dead||Br.kind==='W')continue;
+      try{refresh(Br);}catch(e){}
+    }
+  }
+  /* ★恢复全局过渡态（粒子/冲击环）—— 只在**存前确实有**时才覆盖，避免把加载前残留的粒子留下 */
+  try{
+    if(frame&&frame.fx&&frame.fx.p&&typeof particles!=='undefined'){
+      particles.length=0;
+      for(var q1=0;q1<frame.fx.p.length;q1++)particles.push(frame.fx.p[q1]);
+    }
+    if(frame&&frame.fx&&frame.fx.r&&typeof rings!=='undefined'){
+      rings.length=0;
+      for(var q2=0;q2<frame.fx.r.length;q2++)rings.push(frame.fx.r[q2]);
+    }
+  }catch(e){}
+  /* ★★轨迹点还原（与 `scnFrame` 里的 `o.tr` 成对，改一处必改另一处）。
+     ★★**时间戳同样要重基**：`t' = 现在 - (存时trailTime - t)`。不重基的话，跨会话（重开页面、
+       `trailTime` 归零）时旧时间戳 > 新的 `trailTime` ⇒ `alphaAt = 1-(trailTime-t)/life > 1`
+       ⇒ 轨迹以**满不透明**画出来且**永不淡出**（一条"黑线"越画越脏）。
+     ★`trailLast` 不单独存，直接从 `trail` 的末点派生 —— 它是 `trailPush` 的去重参照，单一真源。 */
+  try{
+    var tn0=(typeof trailTime!=='undefined')?trailTime:0;
+    var tb0=(frame&&frame.tt!=null)?frame.tt:tn0;
+    for(i=0;i<idxs.length;i++){
+      var BT=map[idxs[i]],nT=byI[idxs[i]];
+      if(!BT||!nT||!nT.tr||!nT.tr.length)continue;
+      var ta=[];
+      for(var kk=0;kk<nT.tr.length;kk++){
+        var pk=nT.tr[kk];
+        ta.push({x:pk[0],y:pk[1],t:tn0-(tb0-pk[2])});
+      }
+      BT.trail=ta;
+      var pl2=ta[ta.length-1];
+      BT.trailLast={x:pl2.x,y:pl2.y};
+    }
+  }catch(e){}
+  /* ★★残影池还原（与 `scnFrame` 里那段成对，改一处必改另一处）。
+     ★★**时间戳必须重基**：绘制是逐点按 `trailTime` 淡出的（`1-(trailTime-t)/life`），
+       存档里的 `t` 属于**存盘那一局的 `trailTime`**（`fx.tt`）。直接塞回当前时间轴 ⇒ 全部
+       "已经过期" ⇒ 残影当场消失（看起来就像没存）。正解：`t' = 现在 - (存时trailTime - t)`，
+       即**保持每一点相对于"存盘那一刻"的年龄**，于是淡出进度接着往下走。
+     ★★**无条件清空**（不像上面 `p`/`r` 那样只"有才覆盖"）：残影池是世界级的，加载了场景 X
+       就该只剩 X 的残影；留着上一场的残影就是"串味"。
+     ★还原成**普通对象**即可：`trailEnabled`(读 `trailOn`) / `trailCfgForDraw`(读 `trailCfg`) /
+       `trailStrokeOne`(读 `trail`) 三处只吃这三个字段，残影不进 `bodies[]`、不参与物理。 */
+  try{
+    if(typeof retiredTrails!=='undefined'&&retiredTrails){
+      var tnow=(typeof trailTime!=='undefined')?trailTime:0;
+      var tbase=(frame&&frame.tt!=null)?frame.tt:tnow;   /* ★唯一真源：`out.tt`（残影/轨迹共用） */
+      retiredTrails.length=0;
+      var rArr=(frame&&frame.fx&&frame.fx.rt)?frame.fx.rt:[];
+      for(var r1=0;r1<rArr.length;r1++){
+        var r0=rArr[r1],pts2=r0.pt||[];
+        var ent2={trailOn:(r0.on==null?0:r0.on),trailCfg:(r0.cf||undefined),trail:[],trailRetired:true};
+        for(var r2=0;r2<pts2.length;r2++){
+          var q3=pts2[r2];
+          ent2.trail.push({x:q3[0],y:q3[1],t:tnow-(tbase-q3[2])});
+        }
+        if(ent2.trail.length>=2)retiredTrails.push(ent2);
+      }
+    }
+  }catch(e){}
+  /* ★★全局世界参数还原：**重力 `GRAV`** + **Δt `TIME_SCALE`**
+     （与 `scnFrame` 里那段注释成对，改一处必改另一处）。
+     ★只赋 `GRAV`：Matter 的 `MW.engine.gravity.y` 由 `stepMatter` **每帧**同步，
+       这里再写一遍就是「同一口径两处各写」（本项目在 μ/e 上刚栽过一次，见 `scnPhys`）。
+     ★`g` 控件的 `B.param.grav` 已由 `scnPhys` 写回 ⇒ 面板显示与这里的全局值同源、不会再打架。
+     ★★两个量都**按产品自己的上界钳一次**（`applyParam` 的 `key==='grav'` / `key==='tscale'`
+       分支：GRAV ∈[0,1e7]、TIME_SCALE ∈[0,20]）—— 存档是本机 `localStorage`，但**导入的 JSON
+       是外来数据**，不钳的话一个手改的 `ts:1e9` 会把物理一次性推爆。 */
+  try{
+    if(frame&&frame.g!=null&&typeof GRAV!=='undefined')GRAV=clamp(+frame.g,0,1e7);
+    if(frame&&frame.ts!=null&&typeof TIME_SCALE!=='undefined')TIME_SCALE=clamp(+frame.ts,0,20);
+  }catch(e){}
+  return {n:idxs.length,nl:fls.length};
+}
+
+/* ==========================================================================================
+ * ⑥ 导出 / 导入
+ * ========================================================================================== */
+function scnPayload(ids){
+  var items=[];
+  for(var i=0;i<SCN.length;i++){
+    var it=SCN[i];
+    if(!ids||!ids[it.id])continue;
+    items.push({name:it.name,t:it.t,sig:it.sig,frame:it.frame});
+  }
+  return {app:'physics-sandbox',kind:'scene-archive',ver:1,exported:Date.now(),items:items};
+}
+function scnExport(ids){
+  var pay=scnPayload(ids);
+  if(!pay.items.length)return {ok:false,err:'none'};
+  try{
+    var blob=new Blob([JSON.stringify(pay)],{type:'application/json'});
+    var url=URL.createObjectURL(blob);
+    var a=DD.createElement('a');
+    a.href=url;a.download='物理沙盒存档-'+scnNow()+'.json';
+    a.style.display='none';
+    DD.body.appendChild(a);a.click();
+    setTimeout(function(){try{DD.body.removeChild(a);}catch(e){}try{URL.revokeObjectURL(url);}catch(e){}},0);
+  }catch(e){ return {ok:false,err:String(e&&e.message||e)}; }
+  return {ok:true,n:pay.items.length};
+}
+/* 吃三种输入：本产品导出的包 / 裸数组 / 单个 frame —— 用户可能只发来其中一个 */
+function scnImportParse(text){
+  var d=null;
+  try{ d=JSON.parse(text); }catch(e){ return {err:'parse'}; }
+  var items=null;
+  if(d&&d.kind==='scene-archive'&&d.items&&d.items.length)items=d.items;
+  else if(d&&d.length&&d[0]&&d[0].frame)items=d;
+  else if(d&&d.bs)items=[{name:'导入存档',t:Date.now(),frame:d}];
+  if(!items||!items.length)return {err:'format'};
+  return {items:items};
+}
+/* ★「自动识别相同模板，避免重复」：按**内容签名**去重（与名字、时间无关），
+   既比已有条目，也比同一批内部（同一份文件里重复的只留一条）。 */
+function scnImportApply(items){
+  var seen={},news=[],add=0,skip=0,bad=0;
+  for(var i=0;i<SCN.length;i++)seen[SCN[i].sig]=1;
+  for(var j=0;j<items.length;j++){
+    var it=items[j];
+    if(!it||!it.frame||(!it.frame.bs&&!it.frame.sp&&!it.frame.fl)){bad++;continue;}
+    var sig=it.sig||scnSig(it.frame);
+    if(seen[sig]){skip++;continue;}
+    seen[sig]=1;
+    news.push({id:'s'+Date.now()+'_'+j+'_'+Math.floor(Math.random()*1e5),
+               name:String(it.name||('导入 '+(j+1))).replace(/^\s+|\s+$/g,'').slice(0,40)||('导入 '+(j+1)),
+               t:+it.t||Date.now(),sig:sig,frame:it.frame});
+    add++;
+  }
+  if(add){
+    var old=SCN;
+    SCN=news.concat(SCN);
+    if(!scnWriteStore()){ SCN=old; return {ok:false,err:'quota',add:0,skip:skip,bad:bad}; }
+  }
+  return {ok:true,add:add,skip:skip,bad:bad};
+}
+
+/* ==========================================================================================
+ * ⑦ 界面
+ * ========================================================================================== */
+var scnmask=null,scnbox=null,scnlst=null,scnfile=null;
+function scnSelected(){
+  var a=[],n=0;
+  for(var i=0;i<SCN.length;i++)if(SCN_SEL[SCN[i].id]){a.push(SCN[i].id);n++;}
+  return {ids:a,n:n};
+}
+function scnBar(){
+  var sel=scnSelected();
+  var cnt=DD.getElementById('scncnt');
+  if(cnt)cnt.textContent=sel.n+' 项已选';
+  var all=DD.getElementById('scnall');
+  if(all){all.checked=SCN.length>0&&sel.n===SCN.length;all.disabled=!SCN.length;}
+  var exp=DD.getElementById('scnexp');if(exp)exp.disabled=!sel.n;
+  var del=DD.getElementById('scndel');
+  if(del){
+    del.disabled=!sel.n;
+    del.textContent=(scnArmed&&sel.n)?('确认删除 '+sel.n+' 个'):'删除选中';
+    del.classList.toggle('on',!!(scnArmed&&sel.n));
+  }
+  var imp=DD.getElementById('scnimp');
+  if(imp){imp.innerHTML=SCN_MSG?'● '+scnEsc(SCN_MSG):'';}
+}
+function scnRender(){
+  if(!scnlst)return;
+  scnArmed=false;                       /* 任何重渲染都卸膛（勾选一变，上一轮的确认就作废） */
+  var h='';
+  if(!SCN.length)h='<div class="scnempty">还没有存档</div>';
+  for(var i=0;i<SCN.length;i++){
+    var it=SCN[i];
+    h+='<div class="scnit" data-id="'+scnEsc(it.id)+'">'
+      +'<input type="checkbox" data-role="ck"'+(SCN_SEL[it.id]?' checked':'')+'>'
+      +'<span class="scnnm" title="'+scnEsc(it.name)+'">'+scnEsc(it.name)+'</span>'
+      +'<span class="scntm">'+scnEsc(scnTime(it.t))+'</span>'
+      +'<button class="scnib" data-role="ren">重命名</button>'
+      +'<button class="scnib" data-role="load">加载</button></div>';
+  }
+  scnlst.innerHTML=h;
+  scnMask();
+  scnBar();
+}
+/* ★★R143 版式：列表底部渐隐的开关（见 `.scnlist.scnmore` 的 CSS 注释）。
+   两个条件都成立才挂：**内容溢出** ∧ **还没滚到底**。
+   ★为什么必须判"滚到底"：`mask` 是挂在滚动容器**自身盒子**上的（不随内容滚动），
+     所以滚到最后一行时它照样会被淡掉 —— 看起来像"这行被删了一半"。 */
+function scnMask(){
+  if(!scnlst)return;
+  try{
+    var over=scnlst.scrollHeight>scnlst.clientHeight+2;
+    var atEnd=scnlst.scrollTop+scnlst.clientHeight>=scnlst.scrollHeight-2;
+    scnlst.classList.toggle('scnmore',over&&!atEnd);
+  }catch(e){}
+}
+/* ★R143 版式：回执条里的名字先截断再拼 —— 名字上限 40 字（`maxLength=40`），
+   直接拼进回执会让那一行折成两三行（截图实测）。★列表行本身仍显示原名（带 `title` 看全）。 */
+function scnShort(s){
+  s=String(s==null?'':s);
+  return s.length>14?(s.slice(0,14)+'…'):s;
+}
+function openScenes(){
+  SCN=scnReadStore();          /* ★每次打开都从 localStorage 重读（多标签页/换浏览器不会看到陈旧数据） */
+  SCN_SEL={};SCN_MSG='';
+  scnfile=DD.getElementById('scnfile');
+  if(scnfile)scnfile.value='';
+  var nm=DD.getElementById('scnin');if(nm)nm.value='';
+  scnRender();
+  if(scnmask)scnmask.classList.add('on');
+  if(scnbox)scnbox.classList.add('on');
+}
+function closeScenes(){
+  if(scnmask)scnmask.classList.remove('on');
+  if(scnbox)scnbox.classList.remove('on');
+  /* ★★与 `closeSettings()` 同款收尾：气泡 `#qpop` 挂在 body（不是面板内），面板关了它还浮在
+     屏幕上就成了孤儿；触屏路径尤其容易漏，因为它没有 mouseleave。 */
+  var pop=DD.getElementById('qpop');if(pop)pop.classList.remove('on');
+  var q=DD.getElementById('scnhelpq');if(q)q.classList.remove('on');
+}
+/* 就在行内改名：把名字 span 换成输入框、按钮变「确定」；Enter / 失焦 = 提交，Esc = 放弃。
+   ★★**提交必须幂等 + 延后**：`blur` 与「确定」点击会**同时**到达（点按钮先触发 blur），
+     两条路径各写一次 `innerHTML` 就会互踩，实测报
+       `Failed to set the 'innerHTML' property on 'Element': The node to be removed is no longer
+        a child of this node. Perhaps it was moved in a 'blur' event handler?`
+     ⇒ 用闭包里的 `done` 做一次性闸门，并把 blur 那次**推迟一个 tick**（等 blur 事件本身走完）。 */
+function scnEditRow(id){
+  var row=DD.querySelector('.scnit[data-id="'+id+'"]');
+  var it=scnFind(id);
+  if(!row||!it)return;
+  var nm=row.querySelector('.scnnm'),ren=row.querySelector('[data-role="ren"]');
+  if(!nm||!ren)return;
+  var inp=DD.createElement('input');
+  inp.type='text';inp.className='scnnin';inp.maxLength=40;inp.value=it.name;
+  row.replaceChild(inp,nm);
+  ren.textContent='确定';ren.setAttribute('data-role','renok');
+  try{inp.focus();inp.select();}catch(e){}
+  var done=false;
+  var commit=function(){
+    if(done)return;
+    done=true;
+    var r=scnRename(id,inp.value);
+    SCN_MSG=r.ok?('已重命名为「'+scnShort(r.name)+'」'):(r.err==='empty'?'名字不能为空':'保存失败');
+    scnRender();
+  };
+  inp.__commit=commit;                     /* 让事件委托里的「确定」走同一条路（同一个闸门） */
+  inp.addEventListener('keydown',function(e){
+    if(e.key==='Enter'){e.preventDefault();commit();}
+    else if(e.key==='Escape'){e.preventDefault();done=true;scnRender();}
+  });
+  inp.addEventListener('blur',function(){ setTimeout(commit,0); });
+}
+function scnDone(msg){ SCN_MSG=msg||''; scnRender(); }
+window.openScenes=openScenes;window.closeScenes=closeScenes;
+/* 探针只读/只写口：给验收脚本一个稳定观测面（不猜内部字段名），也便于外部脚本验证 */
+window.__scn={frame:scnFrame,sig:scnSig,save:scnSave,rename:scnRename,del:scnDelete,
+  loadScene:scnLoadScene,payload:scnPayload,importParse:scnImportParse,importApply:scnImportApply,
+  list:function(){return SCN;},readStore:scnReadStore,key:SCN_KEY};
+
+function scnInit(){
+  scnmask=DD.getElementById('scnmask');scnbox=DD.getElementById('scnbox');
+  scnlst=DD.getElementById('scnlist');scnfile=DD.getElementById('scnfile');
+  /* ★R143 版式：滚动时重算底部渐隐（滚到底就摘掉，见 `scnMask`） */
+  if(scnlst)scnlst.addEventListener('scroll',scnMask);
+  var q=DD.getElementById('scnhelpq');
+  if(scnmask)scnmask.addEventListener('click',closeScenes);
+  var cl=DD.getElementById('scnclose');if(cl)cl.addEventListener('click',closeScenes);
+  /* ★R143：问号按钮走设置面板**同一条**绑定（桌面 hover / 触屏 click），文案在 `QPOP_TEXT` 里登记。 */
+  if(q)bindQBtn('scnhelpq',true);   /* ★true：气泡贴**面板右外沿**展开，不压右上角的 ✕（见 qpopShow） */
+  var sv=DD.getElementById('scnsave');
+  if(sv)sv.addEventListener('click',function(){
+    var inp=DD.getElementById('scnin');
+    var r=scnSave(inp?inp.value:'');
+    if(!r.ok){ scnDone(r.err==='quota'?'本地空间不足，保存失败（可先导出再删掉一些）':'保存失败'); return; }
+    if(inp)inp.value='';
+    scnDone('已保存「'+scnShort(r.name)+'」（'+r.n+' 个物体）');
+  });
+  var all=DD.getElementById('scnall');
+  if(all)all.addEventListener('change',function(){
+    SCN_SEL={};
+    if(all.checked)for(var i=0;i<SCN.length;i++)SCN_SEL[SCN[i].id]=true;
+    scnRender();
+  });
+  var ex=DD.getElementById('scnexp');
+  if(ex)ex.addEventListener('click',function(){
+    var sel=scnSelected();
+    var r=scnExport(SCN_SEL);
+    scnDone(r.ok?('已导出 '+r.n+' 个存档'):'没有可导出的存档');
+  });
+  var ib=DD.getElementById('scnimpbtn');
+  if(ib)ib.addEventListener('click',function(){ if(scnfile)scnfile.click(); });
+  if(scnfile)scnfile.addEventListener('change',function(){
+    var fs=scnfile.files;
+    if(!fs||!fs.length)return;
+    var pending=[],bad=0;
+    var readers=[];
+    for(var i=0;i<fs.length;i++){
+      (function(f){
+        readers.push(new Promise(function(res){
+          try{
+            var rd=new FileReader();
+            rd.onload=function(){
+              var p=scnImportParse(String(rd.result||''));
+              if(p.err)bad++; else pending=pending.concat(p.items);
+              res();
+            };
+            rd.onerror=function(){bad++;res();};
+            rd.readAsText(f);
+          }catch(e){bad++;res();}
+        }));
+      })(fs[i]);
+    }
+    Promise.all(readers).then(function(){
+      var r=scnImportApply(pending);
+      scnfile.value='';
+      if(!r.ok){ scnDone('本地空间不足，导入失败'); return; }
+      var t='导入 '+r.add+' 个存档';
+      if(r.skip)t+='，跳过 '+r.skip+' 个重复';
+      if(r.bad||bad)t+='，'+((r.bad||0)+bad)+' 个文件无法识别';
+      scnDone(t);
+    });
+  });
+  var dl=DD.getElementById('scndel');
+  if(dl)dl.addEventListener('click',function(){
+    var sel=scnSelected();
+    if(!sel.n)return;
+    if(!scnArmed){                       /* 第一次 = 上膛（只改按钮文案/配色，不删任何东西） */
+      scnArmed=true;scnBar();return;
+    }
+    scnArmed=false;
+    var r=scnDelete(SCN_SEL);
+    SCN_SEL={};
+    scnDone(r.ok?('已删除 '+r.n+' 个存档'):'删除失败');
+  });
+  /* 列表用**事件委托**：行是每次重渲染出来的，逐行挂监听会随 innerHTML 一起丢掉 */
+  if(scnlst){
+    scnlst.addEventListener('change',function(e){
+      var ck=e.target.closest('input[data-role="ck"]');if(!ck)return;
+      var row=ck.closest('.scnit');if(!row)return;
+      if(ck.checked)SCN_SEL[row.getAttribute('data-id')]=true;
+      else delete SCN_SEL[row.getAttribute('data-id')];
+      scnBar();
+    });
+    scnlst.addEventListener('click',function(e){
+      var b=e.target.closest('.scnib');if(!b)return;
+      var row=b.closest('.scnit');if(!row)return;
+      var id=row.getAttribute('data-id'),role=b.getAttribute('data-role');
+      if(role==='ren')scnEditRow(id);
+      else if(role==='renok'){
+        var inp=row.querySelector('.scnnin');
+        if(inp&&inp.__commit)inp.__commit();      /* ★走与 Enter/blur 同一个幂等闸门 */
+        else scnRender();
+      }
+      else if(role==='load'){
+        var r2=scnLoadScene(id);
+        if(!r2.ok)scnDone('加载失败：'+r2.err);
+      }
+    });
+  }
+}
+scnInit();
 /* 探针只读读数口：给验收脚本一个稳定的观测面，不必猜内部字段名。 */
 window.TRAIL_CFG=TRAIL_CFG;
 window.openTrailBox=openTrailBox;window.closeTrailBox=closeTrailBox;
@@ -19494,6 +20621,7 @@ tRow.addEventListener('click',function(e){
   var t=b.getAttribute('data-tool');
   if(t==='formula'){closeToolsSoft();openFormulaMenu();}
   else if(t==='settings'){closeToolsSoft();openSettings();}
+  else if(t==='save'){closeToolsSoft();openScenes();}
   else if(t==='brush'){tSub.classList.remove('on');dSub.classList.remove('on');toolTap('brush','brush');}
   else if(t==='shape'){
     // 行按钮有自己的 key：它和下面的形状 chip 是不同的按钮，不能算成「同一按钮点两下」
@@ -19561,9 +20689,18 @@ var QPOP_TEXT={
      现在唯一的问号按钮是「交互模式」。 */
   quitipbtn:'<b>交互模式</b><br>· <b>自动</b>：按设备自动判断（有触摸屏就用触屏版）<br>'
       + '· <b>电脑版</b>：鼠标操作（右键弹参数菜单）<br>'
-      + '· <b>触屏版</b>：手指操作（长按 = 右键菜单 · 点选符号后再点画布放置 · 点画布拖动）'
+      + '· <b>触屏版</b>：手指操作（长按 = 右键菜单 · 点选符号后再点画布放置 · 点画布拖动）',
+  /* ★R143：存档面板右上角那个问号 —— **文案是用户逐字给的**（「在右上角有一个问号的解释，
+     "保存后仅保存在当前浏览器，切换浏览器请导出数据"」），一字未改。 */
+  scnhelpq:'保存后仅保存在当前浏览器，切换浏览器请导出数据'
 };
-function qpopShow(btn){
+/* ★★R143：`outside=true` ⇒ **先贴所属面板的右外沿**再展开（`left = max(按钮右侧+10, 面板右沿+12)`）。
+   为什么需要这个开关（用户：「这个界面好像排版不是很美观，你再截图检查一遍」）：
+     存档面板右上角是 `?` **紧挨着** `✕`（实测 `?`=[846,350,26,26]、`✕`=[872,353,27,21]），
+     而气泡默认从按钮**右侧**展开、`z-index:21` 又高于 `.bbox`(20) ⇒ 气泡正好压在 `✕` 上，
+     且 `✕` 是深墨色字 + 气泡是深色底 ⇒ **关闭按钮当场看不见**（截图实锤）。
+   ★默认 `false` ⇒ 设置面板那条路径**一字不动**（它的问号离关闭按钮远，本来就没问题）。 */
+function qpopShow(btn,outside){
   var pop=DD.getElementById('qpop');
   if(!pop||!btn)return;
   var txt=QPOP_TEXT[btn.id];
@@ -19574,6 +20711,10 @@ function qpopShow(btn){
   /* 先显形再量尺寸（display:none 时量不到宽高 ⇒ 右侧夹取会失效） */
   var r=btn.getBoundingClientRect(),pr=pop.getBoundingClientRect();
   var left=r.right+10;
+  if(outside){
+    var bx=(btn.closest&&btn.closest('.bbox'));
+    if(bx)left=Math.max(left,bx.getBoundingClientRect().right+12);
+  }
   if(left+pr.width>window.innerWidth-8)left=Math.max(8,r.left-pr.width-10);   // 右边放不下 ⇒ 翻到左侧
   var top=r.top;
   if(top+pr.height>window.innerHeight-8)top=Math.max(8,window.innerHeight-8-pr.height);
@@ -19585,18 +20726,18 @@ function qpopHide(btn){
   if(pop)pop.classList.remove('on');
   if(btn)btn.classList.remove('on');
 }
-function bindQBtn(id){
+function bindQBtn(id,outside){
   var b=DD.getElementById(id);
   if(!b)return;
   /* 桌面：悬浮显示 / 移出隐藏。触屏：click 切换（`uiTouch()` 那条路上 click 照样会来，
-   *  hover 事件则根本不产生 ⇒ 两条路径天然互不干扰）。 */
-  b.addEventListener('mouseenter',function(){if(!uiTouch())qpopShow(b);});
+   *  hover 事件则根本不产生 ⇒ 两条路径天然互不干扰）。`outside` 透传给 `qpopShow`。 */
+  b.addEventListener('mouseenter',function(){if(!uiTouch())qpopShow(b,outside);});
   b.addEventListener('mouseleave',function(){if(!uiTouch())qpopHide(b);});
   b.addEventListener('click',function(e){
     e.stopPropagation();
     if(!uiTouch())return;                       // 桌面走 hover，click 不再重复切换
     var pop=DD.getElementById('qpop');
-    if(pop&&pop.classList.contains('on'))qpopHide(b);else qpopShow(b);
+    if(pop&&pop.classList.contains('on'))qpopHide(b);else qpopShow(b,outside);
   });
 }
 /* ---- ④ 器件行（R96）：从面板**拖出** / 点选 --------------------------------------------- */
