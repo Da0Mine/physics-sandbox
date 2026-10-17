@@ -8671,9 +8671,16 @@ DD.addEventListener('pointermove',function(e){
         // 用户口径「两个方向拖动」：`grab.edge` 由 pointerdown 从手柄的 `data-edge` 读入
         // （那个值又是 `updateWRes` 判出来的）—— 一条链路、不两处各算。
         // 新尺寸 = **指针到对边的距离**（拖右边 ⇒ 宽 = |lx−中心|×2，左右对称伸缩，中心不动）。
+        /* ★★★R143-r：`'c0'..'c3'` = **拖角点**（用户：「鼠标在四个点拖动时直接改变点的位置，
+           也就是两个边一起变」）⇒ 走 `wSetRectCorner`：**对角固定**、两条邻边同时变、对边不动。
+           与下面那两条边手柄（`'x'`/`'y'`，绕中心对称伸缩）**语义不同、各管各的**：
+           边手柄只有一条边近才出，角手柄要**两条边同时近**才出（见 `updateWRes`）。 */
         var qr=wLocalOf(WBx,pointer.x,pointer.y),whr=wRectWH(WBx);
-        if(grab.edge==='x')wSetRectSize(WBx,Math.abs(qr.x-whr.cx)*2,whr.h);
-        else if(grab.edge==='y')wSetRectSize(WBx,whr.w,Math.abs(qr.y-whr.cy)*2);
+        var _e0=String(grab.edge||'');
+        if(_e0.charAt(0)==='c'){
+          wSetRectCorner(WBx,parseInt(_e0.slice(1),10),pointer.x,pointer.y);
+        }else if(_e0==='x')wSetRectSize(WBx,Math.abs(qr.x-whr.cx)*2,whr.h);
+        else if(_e0==='y')wSetRectSize(WBx,whr.w,Math.abs(qr.y-whr.cy)*2);
       }else if(WBx.wshape==='ring'&&WBx.rad){
         // ★R143-k：圆轨只有一个半径 ⇒ 只有一个手柄，拖动 = 「指针到圆心的距离就是新半径」。
         var dRD=Math.hypot(pointer.x-WBx.x,pointer.y-WBx.y);
@@ -11953,7 +11960,20 @@ function updateWRes(){
     var nearX=(Math.abs(q.x-l)<=TOL)?l:((Math.abs(q.x-r)<=TOL)?r:null);
     var nearY=(Math.abs(q.y-t)<=TOL)?t:((Math.abs(q.y-b)<=TOL)?b:null);
     var inY=(q.y>=t-TOL&&q.y<=b+TOL),inX=(q.x>=l-TOL&&q.x<=r+TOL);
-    // 两条边都近时按**距离决胜**（角点处否则会来回横跳）
+    /* ★★★R143-r（用户：「鼠标在**四个点**拖动时**直接改变点的位置**，也就是**两个边一起变**」）：
+       **两条边同时近 = 角点**，先判它 —— 角手柄走 `wSetRectCorner`（对角固定、两条邻边同时变）。
+       ★为什么必须有这一支：改之前这里是「按距离决胜」—— 角上只有距离更近的那一条边生效，
+         于是「四个点」上拖**每次只动一条边**、而且对边还跟着对称动。
+       ★角在矩形上**本来就落在墨线上** ⇒ `hoverW` 的 `nearInk` 已经覆盖得到，不必像凹槽那样
+         再往 `hoverW` 里补一条判定（半凹槽的角在弧的圆心上、不在墨线里才需要）。
+       ★序号与 `wTubCorners` 对齐：0=左上 1=右上 2=右下 3=左下（对角 = `(i+2)%4`）。 */
+    if(nearX!==null&&nearY!==null&&inX&&inY){
+      var ci=(nearY===t)?((nearX===l)?0:1):((nearX===r)?2:3);
+      var wc=wWorldOf(h,nearX,nearY);
+      wShowWRes(wc.x,wc.y,'c'+ci);
+      return;
+    }
+    // 只近一条边 ⇒ 仍是**按边分流**（`x` 改宽 / `y` 改高），与角手柄各自独立
     var dxs=(nearX!==null)?Math.abs(q.x-nearX):1e9, dys=(nearY!==null)?Math.abs(q.y-nearY):1e9;
     if(nearX!==null&&inY&&dxs<=dys){
       var wp=wWorldOf(h,nearX,q.y);      // 手柄贴在该边上、跟随指针滑（同 .fresize 的手感）
@@ -15431,7 +15451,7 @@ function wRectWH(B){
   }
   return {w:maxx-minx,h:maxy-miny,cx:(minx+maxx)/2,cy:(miny+maxy)/2};
 }
-function wSetRectSize(B,w,h){
+function wSetRectSize(B,w,h,anchor){
   if(!B||B.dead||B.wshape!=='rect')return false;
   var cur=wRectWH(B);
   if(cur.w<1e-6||cur.h<1e-6)return false;
@@ -15444,9 +15464,54 @@ function wSetRectSize(B,w,h){
     B.pts[i][0]=cur.cx+(B.pts[i][0]-cur.cx)*kx;
     B.pts[i][1]=cur.cy+(B.pts[i][1]-cur.cy)*ky;
   }
+  /* ★★★R143-r：可选**锚点** `anchor`（本地坐标 [x,y]）—— 传了它就把**那个点**搬回缩放前的位置。
+     语义 = 「钉住某个点、其余按比例伸缩」，正是用户要的**拖角点**：
+       「鼠标在四个点拖动时直接改变点的位置，也就是两个边一起变」
+     —— 对角固定 ⇒ 被拖的角可以停在任何地方，而那两条**邻边**同时跟着变（对边不动）。
+     不传 ⇒ 与以前**逐字相同**（绕包围盒中心对称伸缩），所以面板里的宽/高输入框那条路一个字没变。
+     ★为什么放在这里而不是另写一个函数：`wSetRectSize` 是矩形尺寸的**唯一出口**
+       （面板宽/高 + 拖边 + 拖角三条路都走它）⇒ 夹取（W_DIM_MIN/MAX）、`hw/hh`、重建
+       （`rebuildWBody`）三件事只写一遍，不会分叉。
+     ★`wSetTubCorner`（凹槽/半凹槽）里那条「定点 + 轴向缩放」是**同一语义的另一支**：
+       它的几何是 `segCompound`（还要搬 hull/arcs、且必须 `B.th=0` 下建体），与矩形这
+       4 点多边形不是同一条管线 —— 改这里的口径时**回头看一眼它**。
+     ★★★**第一版我写错了，如实记下来**（探针当场抓出：定点漂 **25.73px**）：
+       我既把 `pts` 整体搬了 `s = F−F'`，又把 `B.x/B.y` 搬了 `R(θ)·s`。
+       而世界坐标 = `B + R·local` ⇒ 那两份**都会**贡献位移 ⇒ 定点实际动了 **2·s**。
+       **正解 = 只搬 `B`，本地 `pts` 一个字节都不动**（本地那份已经由缩放/归零定死了）：
+         `B' = B + R(θ)·(F − F'')`，其中 `F''` = 锚点在缩放+归零之后的本地位置。 */
+  if(anchor){
+    var ax=anchor[0],ay=anchor[1];
+    /* 质心归零：缩放前位于**本地原点**的那个点（= 质心）被映到 `o' = (cx,cy) − k∘(cx,cy)`；
+       把整份 pts 搬 `m = −o'` 就让它回到 0（矩形本来 `cx=cy=0` ⇒ `m=0`，这步是恒等）。
+       ★不能省：`pts` 的本地原点必须恒为质心（`wRectWH`/`wLocalOf`/`wClipAnchorsToBoundary`
+       这些出口都按这个原点写）。 */
+    var mx=kx*cur.cx-cur.cx, my=ky*cur.cy-cur.cy;
+    if(mx||my){for(i=0;i<B.pts.length;i++){B.pts[i][0]+=mx;B.pts[i][1]+=my;}}
+    var nx=cur.cx+(ax-cur.cx)*kx+mx, ny=cur.cy+(ay-cur.cy)*ky+my;   // 锚点缩放+归零后落在哪
+    var sx=ax-nx, sy=ay-ny;                                          // 还差的**本地**位移
+    if(sx||sy){
+      var ca=Math.cos(B.th||0),sa=Math.sin(B.th||0);
+      B.x+=sx*ca-sy*sa; B.y+=sx*sa+sy*ca;    // ★只搬世界原点（本地位移 -> 世界 = R(θ)·s）
+    }
+  }
   B.hw=w/2+BOX_PAD;B.hh=h/2+BOX_PAD;
   rebuildWBody(B,B.th);
   return true;
+}
+/* ★★★R143-r（用户第十一批之后）：「在矩形的形状调节时，鼠标在**四个点**拖动时**直接改变点的位置**，
+   也就是**两个边一起变**」
+   —— 拖第 `ci` 个角点到世界点 (px,py)：**对角固定**，两个轴各自伸缩（两条邻边同时变、对边不动）。
+   ★几何口径与 `wSetTubCorner` **同源**：角用 `wTubCorners`（= 包围盒四角，本地系，
+     0=左上 1=右上 2=右下 3=左下），定点 = `(ci+2)%4` 的对角。
+   ★★`wLocalOf` 必须在**改 B.x/B.y 之前**算（锚点补偿会动 B.x/B.y）—— `wSetTubCorner` 里
+     同一句注释，这里逐字同款。 */
+function wSetRectCorner(B,ci,px,py){
+  if(!B||B.dead||B.wshape!=='rect'||!B.pts)return false;
+  if(!(ci>=0&&ci<4))return false;
+  var cs=wTubCorners(B),F=cs[(ci+2)%4];
+  var n=wLocalOf(B,px,py);                       // ★改 B.x/B.y 之前
+  return wSetRectSize(B,Math.abs(n.x-F[0]),Math.abs(n.y-F[1]),F);
 }
 // 世界点 -> 该体的**本地**坐标（`pts` 的坐标系）。矩形的手柄判定要用它把指针换算过来。
 function wLocalOf(B,px,py){
@@ -20413,6 +20478,17 @@ function recEv(ty,e){
     o.el=el.tagName+(el.id?'#'+el.id:'')
         +(el.className&&typeof el.className==='string'&&el.className?'.'+el.className.split(' ')[0]:'');
     if(typeof el.textContent==='string'&&el.textContent)o.txt=el.textContent.slice(0,24);
+    /* ★★R143-t（用户：「录屏存的是画布上的物体，不存面板 DOM 状态……那这个老限制怎么解决」）：
+       输入框里的**值**原来一个字节都没记 —— `textContent` 对 INPUT 恒为空串，
+       所以旧录屏里只能看到「在某个 INPUT 上按了 9 次退格」，**永远不知道用户输的是 `-1` 还是 `-100`**。
+       ⇒ 补两个字段：`val`＝当前值、`rl`＝它所在那一行的标签（认得出这是「杆长」还是「质量」）。
+       ★两条都截断：`REC.events` 本来就有 `REC_EVMAX` 上限，且这两个字段只在 input/change 上出现。 */
+    if(typeof el.value==='string'&&/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))
+      o.val=el.value.slice(0,40);
+    if(el.closest&&typeof el.closest==='function'&&el.closest('.prow')){
+      var _rl=(el.closest('.prow').textContent||'').replace(/\s+/g,' ').trim();
+      if(_rl)o.rl=_rl.slice(0,20);
+    }
   }
   if(e&&e.button!=null)o.btn=e.button;
   if(e&&e.key)o.key=e.key;
@@ -21010,6 +21086,33 @@ window.openBugDlg=openBugDlg;window.bugSubmit=bugSubmit;window.closeBugDlg=close
      本批的判据落在 `_verify_r143e_sizeedit.py`（E17~E28）与 `_verify_r143k_ideal.py`（I1~I9）。
    每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
 var BUGFIX_LIST=[
+  /* ★★R143-s（2026-10-17，用户逐字：「帮我把bug回收站里面新加的bug导出为视频，并且加到bug列表里面，
+     不需要进行机检，只需要剔除掉无效信息的提交即可」）——
+     第六批 **21 条**并入（回收站新增 25 条，剔掉 4 条说明只有 `.`/`55`/`BUG`/`2` 的无效提交）。
+     ★**没跑 `_an_bugs.py`** ⇒ 状态一律「未判定」、备注留空（R140 口径：「未机检的状态为未判定」；
+       「待修复」只给机检过的 —— 不许凭空断言 bug 存在）。
+     ★真源 = `_gen_bugfix.py` 的 `ROWS`（本块由它生成后逐条粘贴；`_verify_r132_10o_fixlist.py` 逐条比对）。 */
+  ['1792207780880','mg摔会多出一个交互错误的m','未判定',''],
+  ['1792206864968','m怎么会闪身步躲避这个v 并且复制还是mv😱😱😱','未判定',''],
+  ['1792206745801','黑洞公式要结束的时候点击出现没有激活的黑洞公式','未判定',''],
+  ['1792206643175','路易十六和黑洞在一起','未判定',''],
+  ['1792206306939','黑洞公式不变成黑洞','未判定',''],
+  ['1792206229285','拿到黑洞公式里的M结果M用不了了 并且还能变成公式','未判定',''],
+  ['1792199428772','在使用复制的m与c组成mc²公式后不会爆炸(或：会爆炸，但是m的动画异常)','未判定',''],
+  ['1792160197555','注：由于该问题很难复现(超过30秒)，因此不提供画面 多自由度弹簧-连杆耦合振子这种结构很容易在操作中直接消失','未判定',''],
+  ['1792159017422','在长度设置中，输入框出现允许长度为负的情况','未判定',''],
+  ['1792158683016','【以传送带为例】把部分公式放入传送带内部(以画面为准)的时候，公式会卡在内部并且抽搐','未判定',''],
+  ['1792158216922','当在地面之下放置图形时，很容易跟地面之上的图形重合，并且在试图移动时重叠的图形会立刻瞬移出来导致撞到其他东西','未判定',''],
+  ['1792157835908','在放置图形后，切换为全屏，会出现图形实际的位置与渲染的位置不同','未判定',''],
+  ['1792157692342','【以m和g为例】进行一些操作后(以画面为准)，m和g会组合成(g+m)『也可能出现(g+)这类的异常显示』','未判定',''],
+  ['1792157366474','【以m和g为例】调整g的参数后，m和g无法组合为mg','未判定',''],
+  ['1792157071615','在一些情况下，字母或公式无法正常的移动，只能被拖动，并且超出线不会被检测到','未判定',''],
+  ['1792156908658','在一些情况下，长按字母或者公式召唤出右键菜单时，参数选项会消失','未判定',''],
+  ['1792156730264','在示例公式界面中召唤出向心力公式后拆散该公式，再重新组合成，会导致显示异常','未判定',''],
+  ['1792156421943','【触屏】在调整朝向时，旋转按钮会出现无法按到，只能转动一点的情况 『备注：优化原bug的描述信息，新增了后续测试中发现的其他同类复现场景，完善了问题全貌的说明，保证bug描述准确严谨』','未判定',''],
+  ['1792155505366','【触屏】在调整电场的朝向时，旋转按钮会出现无法按到，只能转动一点的情况','未判定',''],
+  ['1792154976502','【疑似时序竞态bug】在召唤史瓦西半径公式触发黑洞后，不断的打开公式示例界面，点击史瓦西半径公式，不断这样操作，到最后召唤出的史瓦西半径公式不会变成黑洞','未判定',''],
+  ['1792148232220','多弄了几下公式就如此','未判定',''],
   ['1791729903539','画笔用量接近上限时点史瓦西半径等物理符号会卡顿并黑屏','待修复','机检:检出异常'],
   ['1791722371365','弹簧无法锚到墙上的点，只能与物块诡异「协同运动」','待修复','机检:检出异常'],
   ['1791721182569','特定屏幕尺寸下点「Bug 修复列表」的退出键点不到，反而打开符号面板','待修复','机检:无画面'],
