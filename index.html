@@ -28,7 +28,7 @@ body{background:#F4F1EA;font-family:Georgia,'Times New Roman',serif;font-style:i
 .panel .char:active{cursor:grabbing}
 @keyframes popin{0%{transform:scale(0);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
 .dockin{animation:popin .22s ease-out}
-.panel{position:fixed;top:24px;right:24px;display:grid;grid-template-columns:repeat(4,44px);grid-template-rows:repeat(5,44px);gap:6px;padding:10px;border:1px solid rgba(38,34,28,.2);border-radius:14px;background:rgba(255,255,255,.5);pointer-events:none;z-index:3;transition:opacity .45s ease}
+.panel{position:fixed;top:14px;right:24px;display:grid;grid-template-columns:repeat(4,44px);grid-template-rows:repeat(5,44px);gap:6px;padding:10px;border:1px solid rgba(38,34,28,.2);border-radius:14px;background:rgba(255,255,255,.5);pointer-events:none;z-index:3;transition:opacity .45s ease}
 .panel .sep{width:1px;height:30px;background:rgba(38,34,28,.16);flex:none}
 /* ★★R132-9e：召唤期间把符号面板压淡 —— 表达式按用户要求上移到屏幕中上方后，
    右端会与右上角面板叠在一起（两者都是深色墨迹，交叠处糊成一团）。
@@ -49,7 +49,19 @@ body.bossing .tools{opacity:.10}
  *  （见 `fixPanelSlot` 注释）⇒ 电脑版那块位置一直是空的。改成**两版都显示**，
  *  并把折叠规则从 `touch-ui` 限定里解出来（两版都能收起/展开）。 */
 /* ★R131-27c：面板把手 —— 视觉与左上角 .ttoggle 完全同款（同一类控件同一张脸） */
-#panelToggle{position:fixed;top:22px;right:22px;z-index:46;width:44px;height:44px;border-radius:10px;
+/* ★★R143-z（用户 2026-10-18 两条）：
+   ① 「左右的那个下拉框的按钮好像上下位置不一致啊，把右边的连同整个符号表上移使下拉按钮对齐」
+      实测：左 `#ttoggle` 盒子 (22,22,48×48) ⇒ 中心 y=**46**；右 `#panelToggle` (top:22,44×44)
+      ⇒ 中心 y=44，但 `.panel` 的 `top:24` + padding 10 + 首行 44 让按钮实际落在 y=34
+      ⇒ 中心 y=**56**，比左边低 **10px**（量出来的，不是估的）。
+      处理：符号表 `top` 24→**14**、按钮 34→**24** ⇒ 两者中心都回到 **46**，与左侧严格对齐。
+      （只动这两个数：`#panel` 的 4×5 网格与折叠 `translateY(-110%)` 都不受影响。）
+   ② 「打开了设置这一类的次级菜单后，后面那个下拉框按钮还是能点到，明明被挡住了」
+      实测：`#smask` z=15、`#smenu` z=16，左按钮在 `.tools`(z=14) 里 ⇒ 被遮罩正确挡住
+      （`elementFromPoint` = `DIV#smask` ✓）；而 `#panelToggle` 是 **z=46** ⇒ 压在遮罩**上面**，
+      点它拿到的还是它自己的 svg（✗）。⇒ 降到 **12**：高于 `.panel`(3)/`.trash`(3)，
+      低于任何遮罩(15+)，从此被老老实实盖住。 */
+#panelToggle{position:fixed;top:24px;right:22px;z-index:12;width:44px;height:44px;border-radius:10px;
   background:rgba(255,255,255,.62);border:1px solid rgba(38,34,28,.22);display:flex;
   align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:#26221C;
   box-shadow:0 4px 14px rgba(38,34,28,.10);padding:0;
@@ -71,7 +83,18 @@ body.touch-panel-folded #panelToggle{transform:translateY(0);}
 .char.touch-pick{outline:2px solid #e8a33d;outline-offset:-2px;background:rgba(232,163,61,.22);border-radius:8px;}
 /* ★R131-27 触摸版：点选放置的选中态高亮 */
 .touch-sel{outline:2px dashed #e8a33d;outline-offset:3px;border-radius:4px;}
-.handle{position:fixed;left:0;top:0;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.35);border:1px solid rgba(38,34,28,.45);box-shadow:0 3px 10px rgba(38,34,28,.10);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .18s;cursor:grab;z-index:6}
+.handle{position:fixed;left:0;top:0;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.35);border:1px solid rgba(38,34,28,.45);box-shadow:0 3px 10px rgba(38,34,28,.10);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .18s;cursor:grab;z-index:6;touch-action:none}
+/* ★★★R143-z（用户 2026-10-18：「那个可以旋转器件的旋转按钮，触摸板按下后拖动屏幕无法进行旋转」）：
+   **手柄族漏了 `touch-action:none`** —— 这正是 R132-9 那条已经写在上面的同一个根因
+   （`.cv` / `.char` / `.trash` / `.params` / 参数面板都补过，唯独 `.handle` 与它的兄弟没补）：
+   浏览器在 `touch-action:auto` 的元素上要先判断「这一下是滚动还是拖拽」，判成手势就发
+   `pointercancel` **掐断整条 pointer 流** ⇒ 手柄只收到一个 `pointerdown`，之后的
+   `pointermove` 一个都收不到 ⇒ 「按下去拖不动、画面还在滚」。
+   ★为什么只加这一条就够：手柄的 `pointerdown` 已经 `preventDefault+stopPropagation` 并建立
+   `grab.kind='rot'`，缺的只有「别让浏览器把手势抢走」。
+   ★为什么必须覆盖整族：`.ring`（弧的辅助圈）、`.fresize`（公式缩放）、`.wres`（形状尺寸）、
+   `.arknob`（弧端点）、`.rodlen`（杆长）—— 它们的拖动通道完全一样，漏一个就是下一个 bug。 */
+.handle,.ring,.fresize,.wres,.arknob,.rodlen{touch-action:none}
 .handle svg{opacity:.85}
 .handle.hideRot{display:none}
 .handle.on{opacity:1;pointer-events:auto}
@@ -279,6 +302,7 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
 /* ★★R132-9：垃圾桶同样要 `touch-action:none`（同一个 pointercancel 根因，同 `_tmp_r314` 量测：
    触摸拖垃圾桶时 `pointercancel=1` ⇒ 只跟一小段就停住、松手还可能被当成 tap）。 */
 .trash{position:fixed;right:24px;bottom:24px;display:flex;align-items:center;justify-content:center;opacity:.5;pointer-events:auto;touch-action:none;transition:opacity .15s ease,transform .15s ease;z-index:3;cursor:pointer}
+
 .trash.on{opacity:1;transform:scale(1.15)}
 .trash svg{pointer-events:none}
 /* ================= R47: top-left tool palette ==========================================
@@ -653,6 +677,9 @@ input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
 .histit .hv{font-size:12px;font-style:normal;font-family:Consolas,Menlo,monospace;
   color:#B23A2E;margin-left:8px;letter-spacing:.4px}
 .histit ul{margin:6px 0 0;padding-left:18px;font-size:14px;line-height:1.65}
+/* ★R143-z14：历史记录右上角的**当前版本号**（与录屏 env.bt 同源，只读展示）。 */
+.histver{font-family:Consolas,Menlo,monospace;font-size:11.5px;font-style:normal;
+  color:rgba(38,34,28,.42);margin-right:10px;white-space:nowrap;letter-spacing:.3px}
 .histit li{margin:0 0 3px}
 .histit li:last-child{margin-bottom:0}
 /* ★★R143：存档界面（复用 `.bbox` 浅色弹层，只加这一族自己的排版）。
@@ -660,7 +687,37 @@ input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
      → 全选/计数条 → 列表（每条 = 勾选框 + 名字 + 时间 + ✎ + 加载）→ 底部三颗动作钮。
    ★列表单独 `overflow:auto` + `overscroll-behavior:contain`（同 `.histlist`）⇒ 长列表滚动到
      边界不会把整页带着滚；`touch-action:pan-y` 保住触屏上的纵向滚动（与参数面板同一口径）。 */
-.scnbox{width:min(560px,94vw)}
+/* ★★★R143-z11（用户：「存档界面在手机版中由于上下过窄，导致显示不出下面导入的存档文件列表，
+   可以让这个上下边界长一些，离窗口的上下边界近一些，自适应窗口大小」）：
+   病根：`.scnlist` 的 `max-height:calc(100vh - 400px)` 是**减法魔数**——手机竖屏/横屏
+   `100vh` 只有 350~700px，减 400 之后**趋近于 0 甚至为负** ⇒ 列表被压没（底部导入的
+   存档列表完全显示不出来）。
+   修法（不再用减法魔数，让布局自己算）：
+   ① `#scnbox` 改**纵向 flex**：标题/保存行/计数条/回执/底部按钮是固定内容，
+     `.scnlist` 拿 `flex:1 1 auto;min-height:0` 吃掉**全部剩余高度** ⇒ 多少窗口就给多少列表；
+     ★必须 `min-height:0`（不是某个正数）：flex 子项的自动 min-content 高度会顶住收缩，
+     不显式归零它就缩不下来（实测 12 条存档在 375px 高窗里列表撑到 527px、溢出面板）。
+   ② 面板上限从 `calc(100vh - 24px)`（`.bbox` 默认）提到 **`calc(100vh - 12px)`**——
+     上下各留 6px，就是用户要的「离窗口上下边界近一些」；窗口矮时面板贴满、列表内部滚，
+     窗窗高时面板跟着内容走（内容短面板就短，不硬撑）。 */
+/* ★★★R143-z11（用户：「存档界面在手机版中由于上下过窄，导致显示不出下面导入的存档文件列表，
+   可以让这个上下边界长一些，离窗口的上下边界近一些，自适应窗口大小」）：
+   病根：`.scnlist` 的 `max-height:calc(100vh - 400px)` 是**减法魔数**——手机竖屏/横屏
+   `100vh` 只有 350~700px，减 400 之后**趋近于 0 甚至为负** ⇒ 列表被压没（底部导入的
+   存档列表完全显示不出来）。
+   修法（不再用减法魔数，让布局自己算）：
+   ① `#scnbox` 改**纵向 flex**：标题/保存行/计数条/回执/底部按钮是固定内容，
+     `.scnlist` 拿 `flex:1 1 auto;min-height:0` 吃掉**全部剩余高度** ⇒ 多少窗口就给多少列表；
+     ★必须 `min-height:0`（不是某个正数）：flex 子项的自动 min-content 高度会顶住收缩，
+     不显式归零它就缩不下来（实测 12 条存档在 375px 高窗里列表撑到 527px、溢出面板）。
+   ② 面板上限从 `calc(100vh - 24px)`（`.bbox` 默认）提到 **`calc(100vh - 12px)`**——
+     上下各留 6px，就是用户要的「离窗口上下边界近一些」；窗口矮时面板贴满、列表内部滚，
+     窗窗高时面板跟着内容走（内容短面板就短，不硬撑）。
+   ★★**`display:flex` 只能写在 `.scnbox.on` 里**：`.scnbox` 与 `.bbox{display:none}` 同特异性
+     (0,1,0) 且靠后 ⇒ 写在 `.scnbox` 上会把「关着的面板」变成**常显**，一块空面板浮在画布
+     中央拦截所有点击（z10 首跑 36 支套件因此连片假红，二分+elementFromPoint 定位）。 */
+.scnbox{width:min(560px,94vw);max-height:calc(100vh - 12px)}
+.scnbox.on{display:flex;flex-direction:column}
 /* ★★R143：问号按钮**直接复用设置面板那套**（用户：「那个问号按钮的样式和触发不是这样的，
    你参考设置里面的那个」）⇒ 用 `.qbtn`（正圆、与 `.sbtn/.ubtn` 同一视觉语言）+ 共享气泡
    `#qpop` + `bindQBtn()`（桌面 hover / 触屏 click，文案登记在 `QPOP_TEXT`）。
@@ -672,12 +729,12 @@ input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
   font-family:inherit;font-style:normal;font-size:14px;color:#26221C;outline:none}
 .scnin:focus{border-color:rgba(38,34,28,.5)}
 .scnrow .rbtn{flex:none;font-size:13px;padding:8px 14px}
-.scnbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.scnbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex:none}
 .scnall{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12.5px;
   font-style:normal;color:rgba(38,34,28,.62)}
 .scnall input{cursor:pointer;margin:0}
 .scncnt{font-size:12.5px;font-style:normal;font-family:Consolas,Menlo,monospace;color:rgba(38,34,28,.45)}
-.scnlist{margin-top:2px;max-height:calc(100vh - 400px);overflow:auto;
+.scnlist{margin-top:2px;flex:1 1 auto;min-height:0;overflow:auto;
   overscroll-behavior:contain;touch-action:pan-y}
 /* ★★R143 版式（用户：「这个界面好像排版不是很美观，你再截图检查一遍」）：列表**溢出时**
    底部会正好切在半行上（截图实测：`场景 01` 只剩上半截），看起来像坏了。
@@ -729,6 +786,9 @@ input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
 .scnimp{margin:8px 0 8px;font-size:12.5px;font-style:normal;color:rgba(38,34,28,.62);line-height:1.55}
 .scnfoot{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
 .scnfoot .rbtn{font-size:13px;padding:7px 13px}
+/* ★R143-z11：纵向 flex 里固定行一律 `flex:none`（标题/保存行/回执/底部按钮不许被压扁，
+   只有 `.scnlist` 弹性伸缩）。 */
+.scnbox .fmhead,.scnbox .scnrow,.scnbox .scnimp,.scnbox .scnfoot{flex:none}
 .scndelr{color:#B23A2E;border-color:rgba(178,58,46,.5)}
 .scndelr:hover{background:rgba(178,58,46,.10)}
 .scndelr[disabled],.scnfoot .rbtn[disabled]{opacity:.45;cursor:default}
@@ -1344,7 +1404,12 @@ input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
      「点击进入次级菜单，里面展示多久时间更新的内容」）。条目由脚本里的 UPDATE_LOG 渲染。 -->
 <div class="bmask" id="histmask"></div>
 <div class="bbox" id="histbox">
-  <div class="fmhead"><span class="fmtitle">历史记录</span><button class="fmclose" id="histclose">✕</button></div>
+  <!-- ★★★R143-z14（用户：「在更新的历史记录里面的右上角增加一个显示当前版本号的文字」）：
+       版本号取自 `BUILD_TAG`（构建指纹，与录屏 `env.bt` 同源）⇒ 打开这一页就能确认
+       "我现在跑的是哪一批"，不用再靠录屏反推。 -->
+  <div class="fmhead"><span class="fmtitle">历史记录</span>
+    <span><span class="histver" id="histver"></span>
+    <button class="fmclose" id="histclose">✕</button></span></div>
   <div class="histlist" id="histlist"></div>
 </div>
 <!-- ★★R143（2026-10-14，用户逐字）：「在左上角的设置按钮右边增加一个保存的按钮，点击后打开存档界面，
@@ -2113,6 +2178,11 @@ function applyTCombo(L,c){
  * 视觉：锯齿线圈，圈数随长度自适应；拉长偏红 / 压短偏蓝 / 原长墨黑；拴住的一端画实心锚点。
  */
 var SPR_GRAB=16;         // 线圈的可抓/可悬浮带宽（与「只有有线才响应」一致）
+/* ★R143-y：**铰链销钉的右键命中半径**。铰链是 len=0 的点器件，必然落在宿主的墨迹上，
+   而画布右键的顺序是「W 优先 ⇒ 弹簧 ⇒ 杆」⇒ 销钉永远被宿主抢走、它的菜单根本点不开。
+   只在指针**几乎压在销钉上**时才让铰链抢：8px 比 `SPR_GRAB`(16) 小一半，贴着表面右键
+   仍然是物体的菜单（R143-l 那条「物体优先于弹簧」不受影响）。 */
+var HINGE_GRAB=8;
 var SPR_PAD=15;          // 端点判定「碰到别的物体」的距离
 var SPR_KS_DEF=250;      // ★R130c（用户：「弹簧默认改成250」）：300 → 250 N/m。夹子缩放锚点
                          //   已冻结在 SPR_KS_ANCHOR=150（R130b），改默认不再动夹子行为。
@@ -2162,11 +2232,17 @@ function wfStaticOf(mu){
      配对 min 之后天花板就是**物体自己**，不放开的话 μ>0.6 仍是死区。 */
   return (mu>WF_STATIC_CAP)?mu:((mu>0)?0.6:0);      /* ★μ=0 必须真为 0（光滑语义，H-2） */
 }
-var SPR_DAMP=0.8;        // ★R118（用户：「阻尼比0.08」）：高中模式 ζ = damp/SPR_HIGH_ZETA_DIV
-                         // = 0.8/10 = 0.08。⚠ 大学模式同一个滑块读的是**有量纲阻尼 D=0.8**
-                         // （R87-E 口径 ζ_大学 = D/(2√(k·m))，k=150/m=1 ⇒ ζ≈0.033）。
-                         // 7.1 明显更「弹」——这是用户点名的值，如嫌振荡多再调滑块）。
-                         // 历史：0.294(3~4 次振荡) -> 7.1(ζ_大学 0.5，R87-E) -> 0.8(高中 ζ=0.08，R118)。
+/* ★★★R143-y（用户 2026-10-18：「把所有弹簧的**默认阻尼参数调成 6.8**」）：0.8 → 6.8。
+ *  这是**面板 `sdamp` 的出厂值**（`PARAM_DEFS.sdamp.def` 与 `paramDefVal('sdamp')` 都读它），
+ *  也是 `springDamp()` 在 `B.damp==null` 时的回落值 —— 改这一处即全局生效，别去别处再写一遍数字。
+ *  两种模式下的量纲照旧：
+ *    · 高中/桌面：同一个滑块是**有量纲阻尼** D，实际用 `D × springDampGain(keff)`（ks=250 时 ×1.29）；
+ *    · 高中模式另算 ζ = D/SPR_HIGH_ZETA_DIV(10) ⇒ 6.8/10 = **0.68**（旧 0.08 几乎是自由的）。
+ *  稳定余量：显式积分要求 `D·dt/m ≲ 0.3`；6.8×1.29/60 = **0.146** ✓
+ *  （面板本来就能手动拉到 30，那条路上限一直是用户可选的，所以这不是新增风险）。 */
+var SPR_DAMP=6.8;
+                         // 历史：0.294(3~4 次振荡) -> 7.1(ζ_大学 0.5，R87-E) -> 0.8(高中 ζ=0.08，R118)
+                         //       -> 6.8(R143-y，用户点名；高中 ζ=0.68)
 var SPR_MIRROR_TOL=10;   // Matter 镜像长度变化超过它才重建（不能每帧造体）
 // R63（用户：「弹簧老是会导致物体翻滚……在地面连接两个正方体，拉动时总是导致另一个正方体翻转，
 // 使连接点位于远端」）：弹力对**画出来的图形**（W 体）的**水平**加速度上限，单位是 g。
@@ -2248,7 +2324,14 @@ var SPR_DAMP_GAIN_MAX=10;  // 阻尼的放大倍数上限（D·dt/m ≤ 0.30，�
 //   k=50 的静伸长 52px vs 截断后 k≥2000 的 1.3px，肉眼差别 40 倍，用户要的「k 要有用」成立。
 var SPR_K_MAX=2000;
 function springKEff(ks){
-  var k=(ks>0?ks:SPR_KS_DEF);
+  /* ★★★R143-z（用户 2026-10-18：「我明明把这个弹性参数调成了 0，怎么还一直在弹动」）：
+     旧写法 `(ks>0?ks:SPR_KS_DEF)` 把 **ks=0 当成"没设"**，静默回落到默认 250 ——
+     用户把劲度系数调到 0，弹簧照旧满刚度出力（实测：夹具里 ks=0 传进去，`springKEff` 返回 **250**）。
+     ⇒ 0 是**合法的物理值**（没有弹力），只有 null/undefined 才代表"没设过"。
+     ★这条与 R143-k 那条「弹性 e=0 被极值语义抬到 1」是同一族的不同旋钮：
+       用户把某个耗散/刚度旋钮拧到 0，产品就必须真的不给力。 */
+  var k=(ks==null)?SPR_KS_DEF:ks;
+  if(!(k>0))return 0;                     // 0 / 负数 / NaN ⇒ 没有弹力
   return k>SPR_K_MAX?SPR_K_MAX:k;
 }
 // 宿主刚度账本：把「一个宿主身上所有弹簧的有效刚度之和」算出来，超预算时**同比例缩水**
@@ -2283,6 +2366,103 @@ function springKBook(){
 function springKShare(h){
   if(!h||!h._kS||h._kS<=SPR_K_MAX)return 1;
   return SPR_K_MAX/h._kS;
+}
+/* ★★★R143-u（用户 2026-10-17：「这弹簧的伸长量不对吧，怎么两个只伸长这么一点，三个直接就
+ *   直直的往下掉了」）—— **竖直限幅必须跟着载荷走**。
+ *
+ *  病：`springForceOn` 里 `limY = SPR_AY_G(1.35)·GRAV·m·gain` 是个**绝对**加速度上限，
+ *      而它管的是「弹簧这根杆能施加多大加速度」。可吊**一串**物体时，最上面那个体
+ *      必须承受**全部重量**：吊 N 个就要 N·g。实测（rec_2026-10-17-15-48-47）：
+ *        · 吊 1 个：弹簧伸长 41.48px（需要 1.00g）✓
+ *        · 吊 2 个：82.56px（需要 2.00g，上限 2.25g）✓ —— 正好 2 倍，**本来就是对的**
+ *        · 吊 3 个：**293.27px**（需要 3.00g > 2.25g）✗ —— 力被顶死在 2.25g，
+ *          净向下 ⇒ 一路掉，最后被地面托住（实测最下面那个圆的底边 = 601.07，地面 = 601）
+ *      上面那句注释「竖直必须大于 1g（否则弹簧吊不起任何东西）」只对**单个体**成立。
+ *
+ *  改法：把上限写成 `(SPR_AY_G + (N−1))·g` —— N = 这根弹簧**下面挂着几个体**。
+ *    N=1 时与原来**逐位相同**（1.35g，R63b 那套「猛提不甩飞 / 方块不翻」的标定一个字没动），
+ *    N=3 时 3.35g，正好比静吊所需高 0.35g —— 保留了「最多 0.35g 净加速度」这个原始意图。
+ *
+ *  载荷怎么数：从**较低的那个宿主**出发，沿弹簧/铰链/绳的锚定关系只往**更靠下**的体走
+ *  （`o.y > h.y + 1`），累加个数。只往下走是关键 —— 否则会顺着天花板把**整个场景**都数进来。
+ *  每帧清一次缓存（`_loadN` 带下划线前缀，不进存档）。 */
+function springHangClear(){
+  for(var i=0;i<bodies.length;i++){var b=bodies[i];if(b){b._loadN=null;b._loadM=null;}}
+}
+function springHangLoad(h,depth){
+  if(!h||h.dead)return 0;
+  if(h._loadN!=null)return h._loadN;
+  h._loadN=1;                                   // 占位（防锚定成环时无限递归）
+  var n=1;
+  if((depth||0)<32){
+    for(var i=0;i<bodies.length;i++){
+      var S=bodies[i];
+      if(!S||S.dead||S.kind!=='S')continue;
+      var o=null;
+      if(S.anc&&S.anc[0]&&S.anc[0].B===h)o=S.anc[1]?S.anc[1].B:null;
+      else if(S.anc&&S.anc[1]&&S.anc[1].B===h)o=S.anc[0]?S.anc[0].B:null;
+      if(!o||o===h||o.dead)continue;
+      if(!(o.y>h.y+1))continue;                 // ★只往「更靠下」的方向算载荷
+      n+=springHangLoad(o,(depth||0)+1);
+    }
+  }
+  h._loadN=n;
+  return n;
+}
+/* ★★★R143-w（用户 2026-10-18：「那个弹簧还是没有修好，只要底下的重物**超过一定限度**，
+ *   就会发生直直往下坠落」）—— **载荷口径必须按「质量」而不是「个数」。**
+ *
+ *  【病因】R143-u 把竖直限幅改成了 `(1.35 + N − 1)·g`，但 N 是**体数**。等质量的链看着对，
+ *    一旦某个体被调重（面板 `wmass`，0.2~5 倍），链条需要的是 `Σm·g` 而限幅只按 `N·g`：
+ *    实测（`_diag_r143w_loadlimit.py`，3 个圆、把最下面那个加质）：
+ *      m3=1 → 伸长 31.29（理论 31.20）✓｜m3=2 → 42.22（41.60）✓
+ *      **m3=3 → 110.86（理论 52.00）**、**m3=4 → 382.80 掉到地上**（需要 15600 的力，
+ *      而上限只有 14517）⇒ 用户看到的「超过一定限度就直直往下坠落」。
+ *
+ *  【改法】同一个递归里再累加一份**质量**（`_loadM`），限幅改写成
+ *      `limY = (SPR_AY_G·m + (M − m))·g·gain`        —— M = 这根弹簧下面挂着的总质量
+ *    等质量（每个 m=1）时化简回 `(1.35 + N − 1)·g`，与 R143-u **逐位相同**；
+ *    弹簧能施加的**力**上限也要抬到 `SPR_AY_G·M·g·gain`（否则重物照样被 `fmax` 夹住）。
+ *  两端传同一个 M ⇒ 牛顿第三定律仍成立（不会给系统净注入动量）。
+ *  ★别只改一边：`B.mass`（弹簧力通道）与 `mb.mass`（Matter 重力）是两个口径 ——
+ *    改产品参数时 `applyParam` 会一起改，自己搭夹具时**必须两边都改**，否则量出「加质伸长不动」的假结论。 */
+function springHangMass(h,depth){
+  if(!h||h.dead)return 0;
+  if(h._loadM!=null)return h._loadM;
+  var mSelf=(h.mass&&h.mass>0)?h.mass:1;
+  h._loadM=mSelf;                               // 占位（防锚定成环时无限递归）
+  var m=mSelf;
+  if((depth||0)<32){
+    for(var i=0;i<bodies.length;i++){
+      var S=bodies[i];
+      if(!S||S.dead||S.kind!=='S')continue;
+      var o=null;
+      if(S.anc&&S.anc[0]&&S.anc[0].B===h)o=S.anc[1]?S.anc[1].B:null;
+      else if(S.anc&&S.anc[1]&&S.anc[1].B===h)o=S.anc[0]?S.anc[0].B:null;
+      if(!o||o===h||o.dead)continue;
+      if(!(o.y>h.y+1))continue;                 // ★只往「更靠下」的方向算载荷
+      m+=springHangMass(o,(depth||0)+1);
+    }
+  }
+  h._loadM=m;
+  return m;
+}
+/* 这根弹簧自己扛着多少**质量**（取**较低那一端**的载荷）。等质量时数值 == 体数 ⇒ R143-u 的
+   `_probe_r143u_springload.py`（A1 检查 1/2/3）继续成立。 */
+function springLinkLoad(B){
+  if(!B||!B.anc)return 1;
+  var h0=B.anc[0]?B.anc[0].B:null, h1=B.anc[1]?B.anc[1].B:null;
+  var lo=(h0&&h1)?((h0.y>=h1.y)?h0:h1):(h0||h1);
+  if(!lo)return 1;
+  var m=springHangMass(lo,0);
+  return m>1?m:1;
+}
+/* 这根弹簧「扛得住载荷」所需的**力**上限：`SPR_AY_G·M·g·gain`（比静吊所需高 35%）。
+   只在载荷大时才会超过 `springFMax` ⇒ 普通场景逐位不变。 */
+function springLoadFMax(keff,M){
+  var base=springFMax(keff);
+  var need=SPR_AY_G*(M>0?M:1)*GRAV*springAccGain(keff);
+  return need>base?need:base;
 }
 // 三个「按 ks 缩放」的取用口，集中在这里免得四处各写一遍（口径不一致是最难查的 bug）。
 function springFMax(ks){
@@ -4348,7 +4528,7 @@ function springHostVel(h,ux,uy,px,py){
 // 修法：力照旧推质心，同时把 τ = r × F（r = 锚点 - 质心）折成角速度增量（见下方 h.rad 的
 // 范围说明 + 配套的 springHostVel 里那个 ω×r 项 —— 少了它，转动态不在阻尼作用范围内，
 // 「弹簧+球+地面」会变成一个永远不衰减的极限环）。
-function springForceOn(h,fx,fy,dt,px,py,ks){
+function springForceOn(h,fx,fy,dt,px,py,ks,nload){
   if(!h||h.dead)return;
   if(h.kind==='S')return;                      // 弹簧不直接推弹簧（避免连锁拖动/自激）
   if(h.mb&&h.mb.isStatic)return;               // 右键固定过的物体、铁砧：不动
@@ -4392,7 +4572,19 @@ function springForceOn(h,fx,fy,dt,px,py,ks){
       var asp=(rw>0&&rh>0)?Math.max(0.25,rw/rh):1;
       var limX=SPR_AX_G*GRAV*m*asp*gain;
       if(fx>limX)fx=limX;else if(fx<-limX)fx=-limX;
-      var limY=SPR_AY_G*GRAV*m*gain;
+      /* ★★★R143-u：竖直上限 = **(载荷 + 0.35)g**，不是绝对 1.35g。
+         吊 N 个物体时最上面那个体要扛 N·g，绝对上限会把它**顶死**在 2.25g（ks=250 时）
+         ⇒ 3 个的链条永远吊不住、一路掉到地面（实测弹簧被拉到 293px、链底压在地面上）。
+         N=1 时下面这个式子与旧式**逐位相同**（1.35g）⇒ R63b 的标定不受影响。
+         ★`nload` 由 `stepSprings` 按这根弹簧的锚定链算出来，两端传同一个值 ⇒ 牛三成立。 */
+      /* ★★★R143-w：`nload` 现在是**载荷总质量**（不是体数）。等质量（每个 m=1）时
+         下面这个式子和 R143-u 的 `(1.35 + N − 1)·g·m·gain` **逐位相同**；
+         质量不等时它退化成 `(1.35·m + (M − m))·g·gain`，正是「扛得住 M·g 再加 0.35g」。
+         实测（`_diag_r143w_loadlimit.py`，3 个圆、最下面那个 4 倍质量）：改前伸长 382.80
+         （掉到地面），改后应回到 62.4 附近。 */
+      var _M=(nload&&nload>0)?nload:m;
+      if(_M<m)_M=m;
+      var limY=(SPR_AY_G*m+(_M-m))*GRAV*gain;
       if(fy>limY)fy=limY;else if(fy<-limY)fy=-limY;
     }
     // 边界/图形的位姿归 Matter 管：stepMatter 每帧把 B.vx/B.vy 用**位姿差分**写成只读派生量，
@@ -4662,7 +4854,26 @@ function projHalfExtent(mb,ux,uy){
   }
   return {u:ru,n:rn};
 }
+/* ★★★R143-x（用户 2026-10-18，录屏 `rec_2026-10-18-05-05-03.json` + 截图）：
+ *   「如果弹簧和物体表面**斜着**连接的时候，又会发生这种**隔着一段距离就推开**的现象，
+ *    并且吸附…要不把之前做的那个需求给削了，就是弹簧端点**没有连接时就默认像是连接着一个板**
+ *    一样，改成还是**像以前的就一个端点接触点**的碰撞箱判断」。
+ *
+ *  ⇒ **R131-14「未锚定的自由端 = 一块横向挡面」这个需求整体撤掉**（本开关置 false）。
+ *    撤掉之后：自由端不再有看不见的挡面，物体可以一直贴近到线圈墨迹，吸附由
+ *    `springTryAnchor` 的落点判定负责（= R131-14 之前的行为）。
+ *
+ *  ★撤它的理由（用户实测）：挡面让物体**靠近不了**（隔空推开），可松手时 `SPR_PAD=15`
+ *    的吸附带又够得着 ⇒「推着不让靠近、却能隔空吸上」。R143-j 把挡面缩到墨迹大小只是
+ *    把幻影距离从 13px 压到 0 附近，**没解决「板 vs 点」这个语义本身** —— 斜着连接时
+ *    挡面的法向跟着弹簧轴转，横向位移被放大成可见的来回推。
+ *  ★保留 `SPR_CAP_W / SPR_CAP_T / SPR_INK_HW` 这几个常量与 `drawSpring` 里的 `_capCmp`
+ *    消费点：开关为 false 时 `_capCmp` 恒为 0，视觉与几何都回到"不压缩"的原样，
+ *    常量仍在 ⇒ `_verify_r143i.py` 的 G4/G5（同源/像素）不受影响。
+ *  ★要恢复这个需求：把下面这个开关改回 true 即可，别去动函数体。 */
+var SPR_CAP_FREE_END=false;
 function springEndCaps(B){
+  if(!SPR_CAP_FREE_END)return;                    // ★R143-x：自由端挡面已整体撤掉（用户拍板）
   window.__capN=(window.__capN||0)+1;
   if(!B||B.rope||B.hinge)return;
   var _nA0=(B.anc&&B.anc[0]&&B.anc[0].B)?1:0,_nA1=(B.anc&&B.anc[1]&&B.anc[1].B)?1:0;
@@ -4915,8 +5126,15 @@ function alignPanelToggle(){
   /* ★R131-31b：面板在触屏折叠态下 getBoundingClientRect 是**折叠后**的位置（拿不到
    *  格子坐标）⇒ 用**固定布局算法**：面板固定在 top:24/right:24，padding 10，
    *  格 44 + gap 6 ⇒ 第 1 行第 4 格 = 右起 (24+10+44) 、上起 (24+10)。 */
+  /* ★★R143-z：`top` 必须与 `.panel` 的 CSS `top` 同源 —— 旧代码把 `24+10` 写死，
+     等于**第二套坐标**：本轮把 `.panel{top:24→14}` 上移对齐左侧把手之后，这里还写 24
+     ⇒ 面板上去了、把手没动，两个下拉按钮仍然差 10px（实测 dy 依旧 10）。
+     ⇒ 直接读面板的**计算值** `top`（position:fixed 下它就是解析后的像素值，不受
+       折叠 transform 影响），以后 CSS 再改也不用改这里。 */
+  var panTop=14;
+  try{var _pt=parseFloat(getComputedStyle(pan).top);if(isFinite(_pt))panTop=_pt;}catch(e){}
   tg.style.left=(window.innerWidth-24-10-44)+'px';
-  tg.style.top=(24+10)+'px';
+  tg.style.top=(panTop+10)+'px';
   tg.style.right='auto';
 }
 function fixPanelSlot(){
@@ -5277,13 +5495,32 @@ function springRedMass(h0,h1){
 }
 function springDamp(B,h0,h1){
   var d=(B&&B.damp!=null)?B.damp:SPR_DAMP;
-  if(PHYS_MODE!=='high')return d*springDampGain(springKEff(B?B.ks:SPR_KS_DEF));
+  /* ★R143-z：**没有刚度就没有这个弹簧** —— ks=0 时阻尼也不能出力。
+     否则「劲度系数调成 0」的弹簧仍会按 D·v_rel 拖住宿主（用户报的就是"还在动"）。 */
+  var kz=springKEff(B?B.ks:SPR_KS_DEF);
+  if(!(kz>0))return 0;
+  if(PHYS_MODE!=='high')return d*springDampGain(kz);
   var z=d/SPR_HIGH_ZETA_DIV;
+  return 2*z*Math.sqrt(kz*springRedMass(h0,h1));
+}
+/* ★★★R143-z：弹簧「触底挡板」的生效恢复系数（返回 **null = 根本没有挡板**）。
+   两条修正一起放在这里，因为它们回答的是同一个问题「这次触底到底该不该弹、弹多少」：
+     ① `ks<=0` ⇒ 这根弹簧不存在（既无弹力也无挡板）。旧代码的挡板判据只看几何，与 ks 无关。
+     ② 用户**显式设过弹性**（`wBounc!=null`）就按他的数 —— 触底也是一次碰撞，不该比
+        物体自己声明的更弹。用户没设过才沿用 R77 的能量守恒语义（`SPR_STOP_E=1`）。
+        ★为什么不能无条件用 `effRest`：它给圆球的默认是 `BALL_REST=0.52`，
+          `_diag_r77_sprmin.py` 的能量守恒标定会被这条默认值改写（那是另一套回归的前提）。 */
+function springStopE(B,h0,h1){
   var k=springKEff(B?B.ks:SPR_KS_DEF);
-  return 2*z*Math.sqrt(k*springRedMass(h0,h1));
+  if(!(k>0))return null;
+  var e=null;
+  if(h0&&h0.wBounc!=null)e=h0.wBounc;
+  if(h1&&h1.wBounc!=null)e=(e==null)?h1.wBounc:Math.max(e,h1.wBounc);
+  return (e==null)?SPR_STOP_E:e;
 }
 function stepSprings(dt){
   springKBook();         // R88⑤：宿主刚度账本（超预算时同比例缩水，见该函数注释）
+  springHangClear();     // ★R143-u：本帧重算「每根弹簧下面挂着几个体」（竖直限幅要按载荷算）
   springSyncLocks();     // R65：方向锁宿主冻结自转（清角速度 + 打 _lockRot 标志，供 springForceOn 用）
   rodSyncLocks();        // ★R131-21：杆锚定宿主角度锁死（同 _lockRot 通道）
   rodHingeTorque();      // ★R131-32c：复摆重力力矩（锚定物体绕固定点摆动）
@@ -5427,7 +5664,12 @@ function stepSprings(dt){
     // 只是超过上限之后按「本机最硬的可稳定弹簧」执行。share 是宿主预算的分摊比例 ——
     // 同一个宿主上挂 n 根弹簧时，它们分 SPR_K_MAX 这一份，刚度从「叠加到爆」变成「封顶」。
     var keff=springKEff(B.ks)*Math.min(springKShare(h0),springKShare(h1));
-    var fmax=springFMax(keff);
+    /* ★★★R143-w：载荷（**质量**，等质量时数值等于体数）先算出来 —— 它同时决定
+       「力上限」（这里）与「加速度上限」（springForceOn 里）。只抬加速度上限、不抬力上限的话，
+       重物仍然会被 `springFMax` 夹住（实测 3 个圆、最下面那个 4 倍质量：需要 15600 的力，
+       而 ks=250 的 fmax=40000 其实够，真正卡住的是 14517 的加速度限幅 —— 两条都得按质量算）。 */
+    var _nl=springLinkLoad(B);
+    var fmax=springLoadFMax(keff,_nl);
     var f=clamp(keff*(dEff-B.len)+springDamp(B,h0,h1)*vrel,-fmax,fmax);
     // R71③：自由端无载荷（见上）→ 内力必须为 0。否则「一端拴住」的弹簧会靠阻尼项
     // D·v_rel 对宿主施加一个沿轴向的恒定虚假阻力（宿主下落时 v_rel≠0，f 就非零），
@@ -5443,8 +5685,10 @@ function stepSprings(dt){
     B._sv1=(h1&&h1.mb&&!h1.mb.isStatic&&h1.kind!=='S'&&!h1.dead)?(h1.mb.velocity.x*ux+h1.mb.velocity.y*uy):null;
     if(f){
       // 力作用在**锚点**上（e0/e1 就是锚的世界坐标），宿主才会绕挂点转 —— R60b
-      springForceOn(h0, f*ux, f*uy,dt, h0?B.e0.x:null, h0?B.e0.y:null,keff);
-      springForceOn(h1,-f*ux,-f*uy,dt, h1?B.e1.x:null, h1?B.e1.y:null,keff);
+      /* ★R143-u/w：竖直限幅按**这根弹簧扛着的总质量**算（两端用同一个数 ⇒ 牛三仍然成立，
+         不会因为两端各算一次而给系统净注入动量）。`_nl` 在上面的 clamp 之前已算好。 */
+      springForceOn(h0, f*ux, f*uy,dt, h0?B.e0.x:null, h0?B.e0.y:null,keff,_nl);
+      springForceOn(h1,-f*ux,-f*uy,dt, h1?B.e1.x:null, h1?B.e1.y:null,keff,_nl);
     }
     // G-collision（位置+速度约束）：力通道有 ±24000 限幅，重物/高速冲击时一帧刹不住——
     // m=5、v=5000px/s 时一帧位移 83px，远超 minLen(20px)，stepSprings 检测到触底时
@@ -5474,7 +5718,13 @@ function stepSprings(dt){
     var vrelM=0;
     if(h0&&h0.mb)vrelM-=(h0.mb.velocity.x*ux+h0.mb.velocity.y*uy);
     if(h1&&h1.mb)vrelM+=(h1.mb.velocity.x*ux+h1.mb.velocity.y*uy);
-    if(!freeEndOnly&&(crossedG||d<=minLen)&&vrelM<0){
+    /* ★★★R143-z：**ks=0 ⇒ 这根弹簧既没有弹力，也没有"触底挡板"**。
+       触底挡板原本只判几何（`crossedG||d<=minLen`）+ 相对速度方向，与 ks 完全无关 ⇒
+       「把劲度调到 0 的弹簧」照样是一块完全弹性的挡板（SPR_STOP_E=1），压进去再弹回来，
+       这就是用户录屏里"弹性调成 0 还一直在弹"。 */
+    var _stopE=springStopE(B,h0,h1);
+    if(_stopE==null){ /* keff<=0：整段挡板逻辑跳过 */ }
+    else if(!freeEndOnly&&(crossedG||d<=minLen)&&vrelM<0){
       var h0f=h0&&h0.mb&&!h0.mb.isStatic&&h0.kind!=='S'&&!h0.dead;
       var h1f=h1&&h1.mb&&!h1.mb.isStatic&&h1.kind!=='S'&&!h1.dead;
       var penG=minLen-projG;                  // projG<0(交叉)时 penG>minLen，正确加大修正量
@@ -5515,11 +5765,19 @@ function stepSprings(dt){
       //   代价如实登记：两端都是自由体时 Px' = −E·Px（整体动量反号）——这正是 R105-7 当初
       //   要修的（_diag_r105v.py 实测 U-2 撞前 Px=+5732.50 → 撞后 −5454.16），用户拍板要旧手感。
       //   一端是铁砧/静止体时走撞墙反射（R78 的两条推导照旧成立）。
+      /* ★★★R143-z：低速触底 = **静置接触**，不许弹。
+         这就是用户录屏 `rec_2026-10-18-15-32-13` 里"一直在抽搐抽动"的机理：
+         宿主正好停在 `d≈minLen` 的挡板边界上，每帧被重力压进 0.1px、又被 e=1 的挡板原样弹回，
+         形成一个**确定性的极限环**（实测 vy 在 +1.2 ↔ −99.9 px/s 之间每 4 帧循环一次，
+         数值逐周期逐位重复）。挡板本来就不是弹簧，低速下它连"碰撞"都不算。
+         阈值 120px/s 与 Matter 自己的 resting 门限同源（`REST_FIX_VMAX` 就在用这个数）。 */
+      var _spd=-vrelM*240;                     // 接近速度（px/s）；vrelM 是 px/子步
+      var _E=(_spd<120)?0:_stopE;              // 低速 ⇒ 完全非弹性（吃掉这份速度）
       if(h0f){
         var mv0g=h0.mb.velocity||{x:0,y:0}, v0g=mv0g.x*ux+mv0g.y*uy;
         var v0p=(B._sv0==null)?v0g:B._sv0;              // R78：施力前的轴向速度
         if(v0g>0){
-          var dvg=-SPR_STOP_E*v0p-v0g;                  // 目标轴向速度 = −E·(施力前速度)
+          var dvg=-_E*v0p-v0g;                          // 目标轴向速度 = −E·(施力前速度)
           Matter.Body.setVelocity(h0.mb,{x:mv0g.x+dvg*ux,y:mv0g.y+dvg*uy});
           Matter.Sleeping.set(h0.mb,false);
         }
@@ -5528,7 +5786,7 @@ function stepSprings(dt){
         var mv1g=h1.mb.velocity||{x:0,y:0}, v1g=mv1g.x*ux+mv1g.y*uy;
         var v1p=(B._sv1==null)?v1g:B._sv1;              // R78：施力前的轴向速度（同 h0，见上）
         if(v1g<0){
-          var dvg1=-SPR_STOP_E*v1p-v1g;
+          var dvg1=-_E*v1p-v1g;
           Matter.Body.setVelocity(h1.mb,{x:mv1g.x+dvg1*ux,y:mv1g.y+dvg1*uy});
           Matter.Sleeping.set(h1.mb,false);
         }
@@ -7863,14 +8121,17 @@ function openMenu(x,y,B,d){
   var fx=menu.querySelector('[data-act="fix"] .fix-lab');
   if(fx)fx.textContent=(B.fixed)?'取消固定':'固定';
   // R64：「固定方向」只对弹簧显示 —— 锁定那一刻的弹簧朝向成为导轨，之后只能沿它伸缩
-  // ★R104-3（用户：「绳子不需要有固定方向的选项」）：把这个门收成 **kind==='S' 且不是绳/铰链**。
-  //   'S' 一族现在有三个成员：弹簧（有朝向、可锁导轨）、轻绳（没有「方向」可言，几何完全由两个
-  //   锚点决定）、光滑铰链（长度恒 0，连方向都没有）。旧判据只看 kind ⇒ 后两者也弹出这一行，
-  //   而 dirLock 对它们做的事是**冻结宿主自转 + 用弹簧力把锚点拽回导轨** —— 对一条只传张力的绳
-  //   或一个销钉来说是纯破坏（铰链会被拽成一根有向的杆）。所以直接在**显示层**收口，
-  //   并在下面 menu click 的分派里加同一条守卫（双通道，漏一处就会出现「点得到但没反应」）。
+  // ★R104-3（用户：「绳子不需要有固定方向的选项」）：把这个门收成 **kind==='S' 且不是绳**。
+  //   'S' 一族有三个成员：弹簧（有朝向、可锁导轨）、轻绳（没有「方向」可言）、光滑铰链。
+  //   旧判据只看 kind ⇒ 后两者也弹出这一行，而 dirLock 对它们做的事是**冻结宿主自转 +
+  //   用弹簧力把锚点拽回导轨** —— 对绳或销钉来说是纯破坏。
+  /* ★★★R143-y（用户 2026-10-18：「还要给那个铰链器件右键也要有那个**固定方向**的按钮，
+   *   点击后固定方向，意思是如果固定物体的话就相当于**刚体连接**，不能自由转动」）：
+   *   铰链**重新显示**这一行，但动作走的是**另一条**语义（`param.hfix` 刚接，
+   *   见下面 click 分派里的 hinge 支路）—— 与弹簧的 `dirLock` 导轨**不是同一件事**，
+   *   千万别说成"铰链也要 dirLock"：dirLock 会把销钉拽成一根有向的杆。 */
   var db=menu.querySelector('[data-act="dirlock"]');
-  if(db)db.classList.toggle('hide',B.kind!=='S'||!!B.rope||!!B.hinge);
+  if(db)db.classList.toggle('hide',B.kind!=='S'||!!B.rope);
   /* ★R131-33（用户：「右键铰链显示固定角度按钮，点击后铰链固定角度」）：杆（铰链）显示
    *  「固定角度」——锁定后**物体随杆一起转**（连接点仍不动，相对姿态锁死）。 */
   var rb=menu.querySelector('[data-act="rodlock"]');
@@ -7881,7 +8142,8 @@ function openMenu(x,y,B,d){
     if(rl)rl.textContent=B._rodAngleLock?'解除角度固定':'固定角度';
   }
   var dl=menu.querySelector('[data-act="dirlock"] .dl-lab');
-  if(dl)dl.textContent=(B.dirLock)?'取消固定方向':'固定方向';
+  /* ★R143-y：铰链这一行的状态由 `param.hfix` 决定（刚接），弹簧由 `dirLock` 决定（导轨）。 */
+  if(dl)dl.textContent=(B.hinge?!!(B.param&&B.param.hfix):!!B.dirLock)?'取消固定方向':'固定方向';
   /* ★★★R143-m（用户逐字：「处于**形状调节模式**后，右键它的第一个菜单**最右边**出现一个
      **退出调节模式**的按钮，点击后按钮消失并退出」）—— 只在该物体正处于形状调节模式时出现；
      位置固定在菜单条**最右端**（HTML 里排在 `参数` 之后，`.menu` 是横排 flex ⇒ 天然最右）。
@@ -8016,9 +8278,40 @@ menu.addEventListener('click',function(e){
       }
     }
   }
-  else if(act==='dirlock'&&menuBody&&menuBody.kind==='S'&&!menuBody.rope&&!menuBody.hinge){
-    // R64：锁定 = 把**此刻**的中点与方向冻结成导轨线。解除 = 清掉，几何回到「跟着宿主走」。
-    if(menuBody.dirLock){
+  else if(act==='dirlock'&&menuBody&&menuBody.kind==='S'&&!menuBody.rope){
+    /* ★★★R143-y：**铰链的「固定方向」= 刚接**（用户：「点击后固定方向…相当于刚体连接，
+       不能自由转动」）。⚠ 不复用弹簧的 `dirLock`：
+         · `dirLock` 是**导轨**语义（端点每帧投影到一条直线上、还会冻结宿主自转）——
+           套到销钉上会把铰链拽成一根有向的杆（R104-3 就是因为这个把铰链从菜单里摘掉的）；
+         · 铰链要的是「相对转角冻住」，产品里**已经有**这条通道：`param.hfix` ⇒
+           `hingeFoldLimit` 把折角钉在基准构型上，并掐掉继续超限的切向速度。
+       所以这里只做一件事：**把菜单这一下映射到同一个 hfix 开关**（与面板 `hfix` 行同源，
+       不另造第二套逻辑）。 */
+    if(menuBody.hinge){
+      menuBody.param=menuBody.param||{};
+      var _on=!menuBody.param.hfix;
+      menuBody.param.hfix=_on?1:0;
+      /* 基准折角必须**作废**：开启时按此刻构型重新捕获；关闭时也清掉，免得下次开启
+         用一份很旧的基准（= 切换时看得见的瞬跳）。这条与 applyParam('hfix') 同口径。 */
+      menuBody._hFold0=null;
+      menuBody._weld=null;          // ★R143-z：刚接基准（相对位姿）同样按此刻重捕
+      if(_on){
+        /* 锁上那一刻就把两宿主的**相对角速度**掐掉：否则它们带着残余 ω 继续转，
+           `hingeFoldLimit` 要花几帧才把它拉回来（用户看到的是"锁了还在动一下"）。
+           只掐**相对**分量：整体还能绕销一起转（这才是刚接的正确语义）。 */
+        var _hA=menuBody.anc&&menuBody.anc[0]?menuBody.anc[0].B:null;
+        var _hB=menuBody.anc&&menuBody.anc[1]?menuBody.anc[1].B:null;
+        if(_hA&&_hB&&_hA.mb&&_hB.mb){
+          var _avg=0.5*((_hA.mb.angularVelocity||0)+(_hB.mb.angularVelocity||0));
+          if(!_hA.mb.isStatic)Matter.Body.setAngularVelocity(_hA.mb,_avg);
+          if(!_hB.mb.isStatic)Matter.Body.setAngularVelocity(_hB.mb,_avg);
+          Matter.Sleeping.set(_hA.mb,false);Matter.Sleeping.set(_hB.mb,false);
+        }
+      }
+      var _dl2=menu.querySelector('[data-act="dirlock"] .dl-lab');
+      if(_dl2)_dl2.textContent=_on?'取消固定方向':'固定方向';
+    }else if(menuBody.dirLock){
+      // R64：锁定 = 把**此刻**的中点与方向冻结成导轨线。解除 = 清掉，几何回到「跟着宿主走」。
       menuBody.dirLock=null;
     }else{
       var mx0=(menuBody.e0.x+menuBody.e1.x)/2,my0=(menuBody.e0.y+menuBody.e1.y)/2;
@@ -8459,6 +8752,20 @@ cv.addEventListener('pointerdown',function(e){
 cv.addEventListener('contextmenu',function(e){
   e.preventDefault();
   var ci,CB,cmCand=null;
+  /* ★★★R143-y：**铰链销钉优先**（只认铰链，不碰弹簧/绳）。
+     铰链是 len=0 的点器件，画成一个销钉点，**必然落在两个宿主的墨迹上** ⇒ 按下面「W 优先」
+     的规则永远抢不到 ⇒ 用户要的「右键铰链 → 固定方向」根本点不开（实测：点销钉弹出的是
+     圆/方块的菜单，那一行是隐藏的）。
+     这里给一个**很小的点半径** `HINGE_GRAB`(8px)：只有指针几乎压在销钉上才抢；
+     其它任何位置照旧 W 优先 —— R143-l 那条「物体优先于弹簧」一个字没动（那条说的是
+     长线圈贴着物体表面的情形，与点器件无关）。 */
+  for(ci=0;ci<bodies.length;ci++){
+    CB=bodies[ci];
+    if(!CB||CB.dead||CB.kind!=='S'||!CB.hinge)continue;
+    if(Math.hypot(CB.e0.x-pointer.x,CB.e0.y-pointer.y)<=HINGE_GRAB){
+      openMenu(e.clientX,e.clientY,CB,null);return;
+    }
+  }
   /* ① 画出来的物体（W）—— **墨线优先**；★R143-l 起「实心图形内部」也算命中（与悬浮/抓取同源）。
      内部候选只记下来、不当场返回：一轮扫完确认**没有任何线命中**才用它 ⇒ 保住「线赢内部」。
      候选之间取「离指针质心最近」（同一份 `wSolidBest`）。
@@ -8895,7 +9202,16 @@ DD.addEventListener('pointerup',function(e){
     var B=grab.obj;
     if(inTrash(pointer.x,pointer.y)){
       if(B.bh){explodeBlackHole(B);}   // a live black hole dropped in the trash DETONATES
-      else{killBody(B);}
+      /* ★★★R143-x（用户 2026-10-18 第二次澄清，录屏 `rec_2026-10-18-05-03-49.json`）：
+         「你看这**每一次都只删除其中一个物体**，没有整个连接体一起删除」。
+         ★我上一轮把「连接体」读成了"连接件（弹簧/杆）"，读错了 —— 用户嘴里的「连接体」
+           就是**连接在一起的这一坨**：抓其中**任何一个成员**（物体、天花板、弹簧都行）
+           拖进垃圾桶 = 删整组。
+         ★与「把垃圾桶**拖过去**擦除」区分：那个手势走 `eraseUnderTrash`，仍然只擦指针
+           底下那一个 —— 用户要的「拖到哪儿就只删那一个」说的是那个手势。
+         铁砧（fixed / static）在**遍历**时是终止符：抓物体时不会顺着天花板把整面墙拔掉；
+         但**你亲手抓的那一个**即使是固定的也照删（你都把它拖进垃圾桶了）。 */
+      else{deleteAssembly(B);}
       grab.kind=null;grab.obj=null;
       return;
     }
@@ -10910,7 +11226,7 @@ function applyParam(B,spec,val){
     // ★R105-6：铰链的「固定铰链」开关（0=关/1=开）。开启 = 角度被定死在**此刻**的构型上
     //   ⇒ 必须作废旧基准：否则会瞬跳回「两端刚连上那一刻」的旧折角（用户切换时看得见的跳变）。
     //   hingeFoldLimit 下一帧按当前几何重新捕获（B._hFold0==null 那条懒捕获分支）。
-    if(val&&B.hinge){B._hFold0=null;}
+    if(val&&B.hinge){B._hFold0=null;B._weld=null;}   // ★R143-z：_weld 一并作废（开/关都重捕）
   }else if(key==='sdamp'){
     // R71④：弹簧阻尼系数（0 = 无阻尼）。存专用字段 B.damp，stepSprings / springGuideForce
     // 都读它，缺省回落到 SPR_DAMP。R72：阻尼无物理上限（越大只是越快进入过阻尼）。
@@ -11002,6 +11318,78 @@ function springAssemblyOf(seed){
   }
   return set;
 }
+/* ★★★R143-v（用户 2026-10-18：「那些连接体拖到垃圾桶时进行删除时，怎么只能删除掉其中接触到
+ *   的物体，不应该是删除整个连接体吗」）—— **拖到垃圾桶 = 删掉整个连接体**。
+ *
+ *  旧行为：松手落在垃圾桶上只 `killBody(B)` 一个体 ⇒ 弹簧/铰链/n 个球，只掉一个，
+ *  剩下的半截挂在空中（弹簧变成单端自由、铰链变成孤销）。
+ *
+ *  现在的语义：从被抓的那个体出发，沿**弹簧/轻绳/光滑铰链**的锚定关系把整个装配体收齐，
+ *  一起删掉。两条边界写死在这里，别改：
+ *   ① ★**铁砧（fixed / Matter static）是终止符** —— 不删、也不穿过去。
+ *      没有这条的话，删一个吊在墙上的球会把**用户画的整面墙**连根拔掉；
+ *      更糟的是三组共用一面天花板时会一锅端（用户上一轮的场景正是那样）。
+ *      例外：**你亲手抓的**那个体即使是固定的也照删（你都把它拖进垃圾桶了）。
+ *   ② ★删除顺序 = **先连接件（S）后物体**。反过来的话，宿主先死会让 `anc` 悬空，
+ *      `springSyncEnds` 还要多跑一轮去清；而且视觉上会闪一下「没有宿主的弹簧」。
+ *
+ *  ★与 `eraseUnderTrash`（把垃圾桶拖到物体上擦）**故意不同**：那个是"手术刀"，
+ *    只擦掉指针底下那一个；这里是"丢进垃圾桶"，丢的是整组。两个手势本来就不同，
+ *    擦除如果也级联，拖着垃圾桶划过屏幕就会一锅端。 */
+function deleteAssembly(B){
+  if(!B||B.dead)return;
+  var set=[B],q=[B],guard=0,i,S,cur,oth,hit;
+  /* ★R143-v-2：抓到的本身就是**连接件**（弹簧/绳/铰链/杆）时，它自己的两个宿主也得算进来。
+     不补这一步的话「把杆拖进垃圾桶」只会删掉杆、两个物体留在原地 —— 而命中优先级是
+     **线 > 内部**（`wSolidBest`），点在两个圆的切点附近时**抓到的是杆**，很容易触发。
+     「整个连接体」= 不管从哪个成员下手，整组一起走；铁砧（fixed/static）照旧是终止符。 */
+  if(B.anc){
+    for(i=0;i<2;i++){
+      var h0=B.anc[i]?B.anc[i].B:null;
+      if(h0&&h0!==B&&!h0.dead&&set.indexOf(h0)<0
+         &&!h0.fixed&&!(h0.mb&&h0.mb.isStatic)){
+        set.push(h0);q.push(h0);
+      }
+    }
+  }
+  while(q.length&&guard++<4000){
+    cur=q.shift();
+    for(i=0;i<bodies.length;i++){
+      S=bodies[i];
+      /* ★R143-v-2：连接件不光有 S 族（弹簧/轻绳/铰链），**轻质杆（T）也是连接件** —— 它的
+         `anc[0]/anc[1]` 与弹簧同构（makeRod 的注释写明"与弹簧同构"）。只走 S 族的话，
+         「方块—杆—方块」拖进垃圾桶只会删掉手里那一个，杆变成孤儿、另一个方块留在原地。
+         `killBody` 对 T 与对 S 是同一套（摘约束 → 摘出 bodies → removeMatterBody），
+         所以放开这一族没有额外风险。 */
+      if(!S||S.dead||(S.kind!=='S'&&S.kind!=='T'))continue;
+      hit=(S.anc&&S.anc[0]&&S.anc[0].B===cur)||(S.anc&&S.anc[1]&&S.anc[1].B===cur);
+      if(!hit)continue;
+      if(set.indexOf(S)<0){set.push(S);q.push(S);}
+      oth=null;
+      if(S.anc[0]&&S.anc[0].B===cur)oth=S.anc[1]?S.anc[1].B:null;
+      else oth=S.anc[0]?S.anc[0].B:null;
+      if(oth&&oth!==B&&!oth.dead&&set.indexOf(oth)<0
+         &&!oth.fixed&&!(oth.mb&&oth.mb.isStatic)){
+        set.push(oth);q.push(oth);
+      }
+    }
+  }
+  /* 删除顺序：连接件先、物体后（S → T → W）。反过来的话中间那一帧会出现
+     「弹簧/杆还挂着但宿主已经没了」的半条链画面。 */
+  for(i=0;i<set.length;i++){
+    if(set[i]&&!set[i].dead&&set[i].kind==='S')killBody(set[i]);
+  }
+  for(i=0;i<set.length;i++){
+    if(set[i]&&!set[i].dead&&set[i].kind==='T')killBody(set[i]);
+  }
+  for(i=0;i<set.length;i++){
+    if(set[i]&&!set[i].dead&&set[i].kind==='W')killBody(set[i]);
+  }
+  /* 兜底：任何别的种类（场源/传送带/黑洞等）也一并清掉 —— 它们不该在「整组删除」里被留下 */
+  for(i=0;i<set.length;i++){
+    if(set[i]&&!set[i].dead)killBody(set[i]);
+  }
+}
 // R60c：复制一个画出来的线/图形（W 体）。
 // **这个函数是「点装配体里的物体 -> 卡死」的修法本体**：旧代码只判 `if(src.kind)`，而 W 体的
 // kind 是 'W'（真值），于是被当成场源走 spawnField('W') —— 造出一个 kind='W' 但**没有 B.pts**
@@ -11064,6 +11452,22 @@ function copySpringBody(src,dx,dy,quiet){
         :makeSpring(src.e0.x+dx,src.e0.y+dy,src.e0.x+dx+sdx,src.e0.y+dy+sdy);
   if(ns.rope)ns.len=src.len;
   else if(!ns.hinge){ns.len=src.len;ns.ks=src.ks;}
+  /* ★★★R143-y（用户 2026-10-18：「复制一个弹簧后，另外一个弹簧没有继承复制的那个弹簧的
+   *   参数，比如我把前面那个调成阻尼为 6.8，后面那个复制出来，参数还是默认参数，
+   *   检查一下还有没有同类问题 bug」）—— **面板上调过的参数必须随副本走**。
+   *   旧版只带了 `len / ks / dirLock`，漏掉：
+   *     · **`damp`（阻尼 D）** ← 用户报的这一条；
+   *     · **铰链的 `param.hfix`（固定铰链）** ← 同族：菜单/面板刚加的那个开关，复制后归零。
+   *   `B.damp` 用 `!=null` 判（0 是合法值，"无阻尼"不能被判成"没设过"）。
+   *   铰链的折角基准 `_hFold0` **不**照搬 —— 副本是平移到别处的另一套几何，必须让它按
+   *   自己的构型重新捕获（`hingeFoldLimit` 的懒捕获分支），否则会瞬跳回源的折角。 */
+  if(src.damp!=null)ns.damp=src.damp;
+  if(src.hinge&&src.param&&src.param.hfix){
+    ns.param=ns.param||{};
+    ns.param.hfix=src.param.hfix;
+    ns._hFold0=null;
+    ns._weld=null;                 // ★R143-z：副本按自己的锚点重捕相对位姿
+  }
   if(src.dirLock)ns.dirLock={mx:src.dirLock.mx+dx,my:src.dirLock.my+dy,
                              ux:src.dirLock.ux,uy:src.dirLock.uy,
                              auto:!!src.dirLock.auto};   // R64：导轨随副本平移；R83：auto 标记一并继承
@@ -11130,6 +11534,12 @@ function copyBody(src){
     // copy a vt-rod: a fresh rod of the same length + rotation
     var nr=makeRod(src.x+48+Math.random()*40-20,src.y+42+Math.random()*30-15,0,0);
     nr.th=src.th||0;nr.len=src.len||170;nr.hw=nr.len/2+2;
+    /* ★★R143-y（同族排查）：杆的**面板参数**与**菜单锁**也要随副本走 ——
+       旧版只带了 `th/len/_rodL`，漏掉 `rmass`（杆质量，面板 `rodmass` 那一行）与
+       `_rodAngleLock`（右键「固定角度」）。症状与弹簧阻尼那条一模一样：
+       调过的杆复制出来又是一个出厂杆。 */
+    if(src.rmass!=null)nr.rmass=src.rmass;
+    if(src._rodAngleLock)nr._rodAngleLock=true;
     /* ★R110：副本也要带上**反棘轮的目标长度**。
      *   `_rodL` 是 `rodSyncAnchors` 计算 `err` 的基准（见 R107-1）；
      *   不复制的话只能靠惰初始化 —— 那一帧的 `err` 会按旧值算，
@@ -12221,6 +12631,24 @@ function bodyOfMb(mb){
   if(mb===MW.ground||mb===MW.wl||mb===MW.wr||mb===MW.wt)return null;
   for(var i=0;i<bodies.length;i++)if(bodies[i].mb===mb)return bodies[i];
   return null;
+}
+/* ★★★R143-z2：这块几何体到底有**接缝**吗？
+   只有「把曲线离散成一串直线」的体才在段与段之间产生接缝（R70 的凹槽、41 段弧折线、画笔曲线）。
+   平板/直杆/方块（4 个点）没有接缝 ⇒ 不需要 R70 那份"接缝无损"补偿。
+   判据（任一成立就算曲线）：
+     · `arcs` / `ell` —— 产品的弧通道；
+     · `pts` 点数 ≥ 12 —— 离散弧 / 画笔曲线（一块矩形只有 4~5 个点，圆是 48 点但圆本身
+       没有"段间拐角"…★这里必须把 circle 排除，否则球自己会被判成曲线，
+       于是"球 vs 平板"那一对又被抬成完全弹性，用户的 bug 原样复发）。 */
+function bodyIsCurved(B){
+  if(!B)return false;
+  if(B.wshape==='circle')return false;
+  if(B.arcs&&B.arcs.length)return true;
+  if(B.ell)return true;
+  /* ★复合体：离散弧/画笔曲线在 Matter 里是"几十个条带 part"，而 B.pts 只是它的外轮廓
+     （往往只有 4 个点）—— D1 的 41 段凹槽就是这种，光看 pts 会漏判。 */
+  if(B.mb&&B.mb.parts&&B.mb.parts.length>2)return true;
+  return !!(B.pts&&B.pts.length>=12);
 }
 // R64：Matter 体 -> 可读名字（接触区用）。ground/wall 是引擎常驻静态体，其余按 mb 反查实体。
 // R71⑪：名字换成编号名（圆1/弧1/杆1…），与配对表里的标题同源。
@@ -15288,6 +15716,8 @@ function ensureMatter(){
     P.update=function(pairs,collisions,ts){
       raw(pairs,collisions,ts);
       try{envRestFix(pairs);}catch(e){}
+      /* ★★R143-z6：非弹性接触的增能闸——在本子步**求解之前**打标记（见 wGateMark 注释）。 */
+      try{wGateMark(pairs);}catch(e){}
     };
     P.__envWrap=1;
   })();
@@ -16150,7 +16580,23 @@ function applyEffRest(B){
          处的长注）—— 体级 max 分辨不出伙伴，只能在那一步按伙伴重算。
      ⇒ 面板读数 `effRest` 与用户最常观察到的那个行为仍然同源：
        **地面/墙上的生效弹性 = `effRest`**；场上物体之间 = 1（作用域偏大，已登记代价）。 */
-  var r=wMuSmooth(B)?1:wEffE(B);
+  /* ★★★R143-z2（用户 2026-10-19 第三次说同一句话，这次点名「不是弹簧，是**小球这些形状的
+     弹性系数**」+「是形状在**地面器件**上的弹跳」）：
+     **μ=0 的极值语义把体级弹性无条件抬到 1，只把引擎自带的地面/墙摘了出去（R143-k），
+     用户自己画的地面器件没摘。**
+     ★实测（`_diag_z_rest2.py`，全部走面板真实入口 `applyParam(B,PARAM_DEFS[key],v)`）：
+       · R1 地面器件 μ=0（球 μ=0.08、弹性 0）：地面体级 rest = **1** ⇒ e_eff **1.024** ✗
+       · R2 球 μ=0 且弹性 0：球体级 rest = **1** ⇒ e_eff **1.000** ✗
+       · R4 球 μ=0 但**没动过**弹性：rest = 1 ⇒ e_eff 1.026（这是 D1 要的语义，保留）
+     ⇒ 判据从 `wMuSmooth`（只看 μ）换成 **`wMuIdeal`（μ=0 且用户没表达过弹性）**。
+       语义界线与 R143-k 完全一致：「理想光滑面 = 无耗散」只是**默认**，
+       用户一旦设过弹性，就由他那个数说了算 —— 面板显示 0 世界就必须是 0。
+     ★代价如实登记：`_probe_r76.py` D1（μ=0 球贴凹槽滚 12s 的下沉量）会从 2.7% 涨到约 19%
+       （R143-k 的注释里实测过这条数）。那是**离散段接缝**的数值损耗，
+       而用户能看见的是「设 0 还弹」——按用户口径（真实物理优先）选择后者。
+       ★若哪天要把 D1 拿回来，正确做法是**在接缝处补切向/法向能量**（`circleRestitutionFix`
+         已经在做 8~120px/s 那一档），**不是**再把体级弹性无条件抬成 1。 */
+  var r=wMuIdeal(B)?1:wEffE(B);
   B.mb.restitution=r;
   var ps=B.mb.parts||[];
   for(var i=0;i<ps.length;i++)ps[i].restitution=r;
@@ -16193,9 +16639,24 @@ function envRestFix(pairs){
     if(!pr||pr.isSensor||!pr.collision||pr.isActive===false)continue;
     var A=pr.bodyA&&(pr.bodyA.parent||pr.bodyA),Bb=pr.bodyB&&(pr.bodyB.parent||pr.bodyB);
     if(!A||!Bb)continue;
-    if(!isEnvMb(A)&&!isEnvMb(Bb))continue;        // 只处理「地面/墙」那一侧
     var eA=explRestMb(A),eB=explRestMb(Bb);
-    if(eA==null&&eB==null)continue;               // 两侧都没显式声明 ⇒ 体级语义照旧
+    /* ★★★R143-z2：本通道从「地面/墙豁免」扩成**「按伙伴兑现用户声明的弹性」**。
+       为什么必须扩（用户 2026-10-19 第三次报同一件事，这次点名「是形状在**地面器件**上弹」）：
+         · R143-k 只把 `MW.ground/wl/wr/wt` 从「μ=0 ⇒ 体级 rest=1」里摘了出去；
+         · **用户自己画的杆/板不是 env** ⇒ 它的体级 rest 仍是 1（实测 R1）⇒
+           `max(1, 0)` 让用户设的弹性 0 完全失效，球在自绘地面上永远完全弹性。
+       ★为什么不能只在 `applyEffRest` 改体级就完事：Matter 每个子步都会从**体级**重算
+         `pair.restitution`（`Pair.update` 取双方 max），所以"按伙伴"的裁决**只能**在这个窗口
+         （Pairs.update 之后、Resolver 之前）做 —— 这也正是本函数存在的理由。
+       ★两条优先级（顺序即语义）：
+         ① **离散曲线优先保持 1**：凹槽/弧/多段折线的**接缝**是离散化产物，补偿它属于
+            「消除数值伪影」，不是覆盖用户的物理。`_probe_r76.py` D1 实测：
+            不给 1 就 +19~20% 下沉（用户以前报过的「球在凹槽里越滚越低」）。
+         ② 其余情况：只要**任一侧声明过弹性**，就按声明的最大值为准（平板/直杆无接缝）。 */
+    var isEnv=isEnvMb(A)||isEnvMb(Bb);
+    if(eA==null&&eB==null)continue;                 // 谁都没声明 ⇒ 体级语义照旧（env 也一样）
+    var Ab=bodyOfMb(A),Bb2=bodyOfMb(Bb);
+    if(bodyIsCurved(Ab)||bodyIsCurved(Bb2)){pr.restitution=1;continue;}
     pr.restitution=Math.max((eA==null)?-1:eA,(eB==null)?-1:eB);
   }
 }
@@ -16408,7 +16869,21 @@ function refreshAllPairs(){
       //    切向速度的法向投影吸走（每秒漏 ~45% 动能，密集采样实测 τ≈1.2s 衰减睡死）；
       //    rest=1 时接缝碰撞变成**镜面反射**，微弹高度 ~0.04px 肉眼不可见。这是「μ=0 ⇒
       //    无耗散」极值语义（L031）在曲面上的延伸；平面滑动 R68 已覆盖，曲面滚动由本条补齐。
-      pr.restitution=1;
+      /* ★★★R143-z2：**接缝补偿只对"离散曲线"生效**（几何判据，不是语义判据）。
+         接缝是「把一条弧重采样成几十段直线」的**离散化产物** —— 只有段与段的拐角才会
+         把法向速度吃掉。一块**平板/直杆**（4 个点）根本没有接缝，不需要补偿；
+         而 R143-k 之前把补偿无条件给所有 μ=0 的对，于是"用户画的平板"也变成完全弹性
+         （实测 `_diag_z_rest2.py` R1：地面器件 μ=0 ⇒ 体级 rest=1 ⇒ e_eff **1.024**，
+         球设了弹性 0 完全无效 —— 这就是用户这次报的"形状在地面器件上一直弹"）。
+         ⇒ 只在「本对里有一方是曲线体」时才给 1：
+             · 凹槽/弧（`arcs`/`ell`）—— R70 的原始场景；
+             · 画笔/离散弧折线（`pts.length ≥ 12`）—— `_probe_r76.py` D1 的 41 段凹槽。
+         ★与 R143-k 试过的那两种门（`wMuIdeal` / `wBounc==null`）**不是一回事**：
+           那两种是"看用户语义"⇒ D1 的槽也一起被关掉（实测 +18.61%/+19.55%）。
+           这里看的是**几何**：D1 的槽是曲线 ⇒ 照旧给 1（实测回到 4% 量级）；
+           平板是 4 点 ⇒ 给 max(体级)=用户值（实测 0.000）。 */
+      pr.restitution=(bodyIsCurved(_eA)||bodyIsCurved(_eB))
+                     ?1:Math.max(pr.bodyA.restitution,pr.bodyB.restitution);
       //    rest=1 后仍有 τ≈4s 的残余衰减（多接触干涉 + 位置修正不一致，Matter 固有——
       //    段数加密/稀疏化、求解迭代加厚均无改善，N=41 实测最优）。曾试「能量维护」（按
       //    E=½v²+g·h 把速度补回 E_ref），实测与约束求解打架产生正反馈自加速弹飞（L018
@@ -16991,8 +17466,7 @@ function circleRollSnap(list){
     p.x=B.mb.velocity.x;p.y=B.mb.velocity.y;
   }
 }
-function circleRollStep(list,dt){
-  if(!list||!MW||!MW.engine)return;
+function circleRollStep(list,dt){  if(!list||!MW||!MW.engine)return;
   // 速度口径 → impAt（每子步位移）口径 的换算比（见函数上方「口径」注释）
   var SUBSC=(Matter.Common&&Matter.Common._baseDelta>0&&dt>0)
     ?(Matter.Common._baseDelta/(dt*1000)):1;
@@ -17079,15 +17553,211 @@ function circleRollStep(list,dt){
     }
     // ④ 滚动阻力 a = μ_r·g：沿切向反对滚动，ω 同步（保住纯滚动 ⇒ 球匀减速自然停下）。
     //    只写球、不写对方 —— 滚阻是变形耗散，不是接触力对；写对方会把下面的板凭空推走。
-    if(mu>0&&Math.abs(pca)>1e-9){   // mu 已在本函数上方算过（同为 wEffMu 口径）
-      var vr=(mb.velocity.x-ovx)*ptx+(mb.velocity.y-ovy)*pty-ow*pcb;   // 球心相对接触面的切向速度
-      var dv=mu*GRAV*dt/60*ROLL_RESIST_G;                              // px/s² → velocity 口径
-      if(dv>Math.abs(vr))dv=Math.abs(vr);                              // 不许冲过零
+    /* ④ 滚动阻力 a = μ_r·g：沿切向反对**滚动方向**（不是反对滑移！），ω 同步（保住纯滚动）。
+       ★★★R143-z5（用户 2026-10-19：「球在几个地面器件之间一直无故弹动抽搐」）：
+         原来这一段的**上限取的是 `vr` = 球心相对接触面的切向速度 − ωR = 滑移**，
+         而**纯滚动时滑移恒为 0** ⇒ `if(dv>|vr|)dv=|vr|` 把 dv 夹成 **0** ⇒
+         **滚阻在纯滚动（= 稳态）下永远不生效**。这正是"球在 V 形槽里滚 12s 不衰减"的机理：
+         e=0 不丢能 + 纯滚动不打滑（摩擦不丢能）+ 出厂空气 0 + 滚阻被自己夹成 0 ⇒ 三条耗散全关。
+       ★物理上滚阻是**接触区变形**引起的力矩，阻力矩 = C_rr·N·R，与"有没有滑移"无关：
+         它反对的是**滚动前进的方向**，所以速度上限要取**球心的切向速度**（含滚动），方向取它的反号。
+       ★只写球、不写对方 —— 滚阻是变形耗散，不是接触力对；写对方会把板凭空推走。 */
+    if(mu>0&&Math.abs(pca)>1e-9){
+      var vt=(mb.velocity.x-ovx)*ptx+(mb.velocity.y-ovy)*pty;   // 球心切向速度（含滚动，不是滑移）
+      var dv=mu*GRAV*dt/60*ROLL_RESIST_G;                       // px/s² → velocity 口径
+      if(dv>Math.abs(vt))dv=Math.abs(vt);                       // 不许冲过零
       if(dv>0){
-        var sg=-(vr>0?1:-1)*dv;
+        var sg=-(vt>0?1:-1)*dv;
         impAt(mb,sg*ptx/SUBSC,sg*pty/SUBSC,-sg/(pca*SUBSC));
       }
     }
+  }
+}
+/* ★★★R143-z6（用户 2026-10-19 11:10 录屏：「我觉得是那个**地面器件**的问题，你看弹性明明
+ * 调成了0，从上面松手却会被弹飞出去」）—— **非弹性接触的增能闸**。
+ *
+ * 实拍证据（`rec_2026-10-19-11-10-00.json`，`_diag_z_fullreplay.py` 逐帧对表）：
+ *   · 场上有三块 **fixed 地面器件**：bar0 (555,281.5) **a=1.0066 rad=57.67°**、
+ *     bar1 (688,387.5) 水平、bar2 (691.5,316) −45°；球 r=70、**e=0、μ=0.08**。
+ *   · t=2394 与 t=2410 球的位置**两帧一模一样** (628.12,231.59)，而 `mb.velocity` 恒为
+ *     (311.2,878.1) —— 典型「卡死」态：每帧都被位置修正原样推回。
+ *   · t=2427（一帧之内）变成 (−802.6,−1268.4)，|v| 931→**1501**，ω +4.30→**−20.86**。
+ *   · 指纹：|ω|·R·60 = 0.3477×72.33×60 = **1509 ≈ |v|**，方向恰好沿 bar0 轴向
+ *     ⇒ 出来是个"纯滚动"态。**既不是法向投影**（e=0 只会把法向分量清零，绝不会反向放大），
+ *     **也不是重力**（一帧只加 43px/s）。⇒ 接触求解在「同时压住两根固定杆」的超定几何下
+ *     凭空造了速度。
+ *   ★负对照（`_diag_z_pensweep.py` 扫埋深 0~34px、`_diag_z_replay_fling.py` 扫 dt
+ *     1/30·1/60·1/120，几何/初速与实拍逐字相同）：回放里球**一律停住**（出/入 1.044）。
+ *     即这一发依赖单帧快照抓不到的中间态（卡死两帧攒下的 `positionImpulse`）。
+ *     ⇒ 所以本闸**不是**针对某条已知通道的补丁，而是补一条**守恒约束**：
+ *     「e≈0 的接触，一个子步内不许把速度抬到"子步前速度 + 一个子步的重力增量"之上」。
+ *     这条约束对**任何**注入源都成立（求解器超调、约束打架、位置修正回灌），
+ *     所以即使机理下次换个面孔，它仍然拦得住 —— 这正是用户要的「弹性 0 就不该被弹飞」。
+ *
+ * 为什么不会伤到别的机制（逐条对过，都有明确的门）：
+ *   · 弹簧 / 绳 / 铰链 / 传送带 / 爆炸 / 黑洞：全部在**帧级**写速度
+ *     （`stepSprings` / `collideBodies` / `beltDragMatter` …），根本不经过这个窗口；
+ *   · 与**动态体**的接触一律跳过（`stA===stB`）⇒ 动量交换、物体互撞、铰链刚接不受影响；
+ *   · `wEffE(B) > 0.001` 的体跳过 ⇒ 用户**设过弹性**的照旧按他的数走（e=1 完全弹性不碰）；
+ *   · 上限里带 `GRAV*dt/60*1.5`，正好放行"一个子步的重力增量"（实测 10.83px/s × 1.5）。
+ * 已知代价（如实登记）：
+ *   · 若某天出现「e=0 的体在一个子步内被某约束**合法**加速」的新机制，会被本闸压住 ——
+ *     届时应在该机制里显式抬 `_egAllow`，**不要**放开判据；
+ *   · 本闸不处理"两侧都动"的超定几何（那属于动量守恒范畴，需另一套判据）。
+ * 调试：`window.W_EGATE_STAT` = {n: 拦过几次, m: 标记过几个体·子步, max: 最大越限量(**px/step**，
+ *   1px/step = 60px/s)}。探针直接读。 */
+var W_EGATE_ON=true;
+var W_EGATE_STAT={n:0,max:0,m:0};
+function wGateSnap(){
+  for(var i=0;i<bodies.length;i++){
+    var B=bodies[i];
+    if(!B||B.dead||B.kind!=='W'||!B.mb||B.mb.isStatic)continue;
+    var v=B.mb.velocity,p=B._eg;
+    if(!p)p=B._eg={x:0,y:0};
+    p.x=v.x;p.y=v.y;
+    B._egHit=0;
+  }
+}
+function wEnergyGate(dt){
+  if(!W_EGATE_ON||!MW||!MW.engine)return;
+  var gdt=GRAV*dt/60;                            // 一个子步的重力增量（Matter 速度口径：px/step）
+  /* ★★★R143-z7：**分离闸的数据源是 `pairs.collisionActive`，不是 `pairs.list`**。
+   *   `Pairs.update` 会把刚结束的对称出 `list`，但 `collisionActive` 是**本子步**的接触快照，
+   *   求解之后仍然可读 ⇒ "撞进去又被弹出来"的那一对在这里一定看得到（list 里已经没了）。
+   *   实测教训：第一版把法向记在 `Pairs.update` 的包装里（`wGateMark`），
+   *   阳性对照怎么都不触发（`STAT.n=0`）；换成 collisionActive 直接读才对得上。
+   * ★门限：本子步**法向接近 ≥60px/s** 才算"撞进去"。必须高于一个子步的重力增量
+   *   （10.8px/s），否则压在面上静置的体每子步都会被判成撞击 ⇒ 帧级给它的上升速度会被削掉。 */
+  /* ★必须把 `collisionStart` **一起算进去**：首次接触那一子步，新对只进 `collisionStart`，
+   *   `collisionActive` 是"上一步也撞着"的集合 ⇒ 只读它会在**撞击那一子步**漏掉这一对
+   *   （实测：阳性对照 `STAT.m` 只在"一直贴着"的子步涨，撞击子步一次都没进闸）。 */
+  var PJ=MW.engine.pairs||{};
+  var CA=(PJ.collisionStart||[]).concat(PJ.collisionActive||[]);
+  var HIT={},i,ci;
+  for(ci=0;ci<CA.length;ci++){
+    var pr=CA[ci];
+    if(!pr||pr.isSensor||!pr.collision)continue;
+    var A=pr.collision.parentA||pr.bodyA, C=pr.collision.parentB||pr.bodyB;
+    if(!A||!C)continue;
+    var stA=!!(A.isStatic||A.isSleeping), stC=!!(C.isStatic||C.isSleeping);
+    if(stA===stC)continue;                       // 只处理「一动一静」的接触
+    var B=bodyOfMb(stA?C:A);
+    if(!B||!B._eg||!B.mb||B.mb.isStatic)continue;
+    /* ★离散曲线（凹槽 / 弧折线 / 画笔曲线，`bodyIsCurved`）**豁免**：它每一段都是一个"斜面"，
+     *   球滚过去时相邻段的接缝天生带一点法向接近 —— 那不是碰撞，是离散化产物。
+     *   不豁免的实测代价：`_probe_r76.py` D1（μ=0 球贴凹槽滚 12s 的下沉量）从 3.79~4.99%
+     *   恶化到 **16.23%**（门槛 6%）—— 球的滚速在每个接缝被削一点，一路沉下去。
+     *   这也与 `envRestFix` 里"曲线分支直接给 1"的既有裁决同一条界线。 */
+    var PB=bodyOfMb(stA?A:C);
+    if(typeof bodyIsCurved==='function'&&bodyIsCurved(PB))continue;
+    /* ★判"非弹性"必须用 `effRest`（=「与地面/墙碰撞时的**生效**弹性」，面板读数同源），
+     *   **不能**用 `wEffE`：μ=0 且用户没动过弹性旋钮时 `wEffE` 是 0 而 `effRest` 是 1
+     *  （`wMuIdeal` 的「理想光滑面 = 无耗散」）⇒ 会把"理想光滑球"一起压平
+     *  （`_verify_r143k_envrest.py` E2 当场红，rise −9.29 / 期望 >120）。 */
+    var er=(typeof effRest==='function')?effRest(B):
+           ((typeof wMuIdeal==='function'&&wMuIdeal(B))?1:
+            (typeof wEffE==='function'?wEffE(B):0));
+    if(er>0.001)continue;
+    var n=pr.collision.normal;
+    if(!n)continue;
+    /* ★★符号实测（不是推的）：球压在水平杆上方时读到 `stA=true`、`normal=(0,+1)` ——
+     *   而"从杆指向球"是 (0,−1) ⇒ **这个构建里 `collision.normal` 是 B→A**，
+     *   所以静止方是 A 时外向要取 **−n**。（第一版按 A→B 取号，`relN` 恒为 +8.33，
+     *   分离闸一次都没触发过 —— 阳性对照 `STAT.n=0` 就是它。） */
+    var sg=(stA?-1:1);                           // 外向（静止物 → 球）
+    var relN=B._eg.x*sg*n.x+B._eg.y*sg*n.y;      // <0 = 正在往里撞
+    if(relN>=-1.0)continue;                      // -1.0px/step = -60px/s
+    var h=HIT[B.mb.id]||(HIT[B.mb.id]={B:B,m:[]});
+    if(h.m.length<3)h.m.push({x:sg*n.x,y:sg*n.y});
+  }
+  for(var bi=0;bi<bodies.length;bi++){
+    var D=bodies[bi];
+    if(!D||!D._eg||!D.mb||D.mb.isStatic)continue;
+    var H=HIT[D.mb.id];                          // 有 = 本子步"对着静止物撞进去"（分离闸生效）
+    if(!D._egHit&&!H)continue;                   // _egHit = 与静止物有过接触（增能闸生效）
+    var mb=D.mb,v=mb.velocity,vx=v.x,vy=v.y;
+    var sp0=Math.sqrt(D._eg.x*D._eg.x+D._eg.y*D._eg.y);
+    var sp=Math.sqrt(vx*vx+vy*vy);
+    if(sp<1e-6)continue;
+    var hit=false,pass,kk;
+    /* ① 分离闸：把外向分量削成 0。两遍（V 形夹角有两根法向，削一遍可能让另一条又变正；
+     *   只削不加 ⇒ 收敛）。 */
+    if(H){
+      for(pass=0;pass<2;pass++){
+        for(kk=0;kk<H.m.length;kk++){
+          var nn=H.m[kk],vn=vx*nn.x+vy*nn.y;
+          if(vn>0){vx-=vn*nn.x;vy-=vn*nn.y;hit=true;}
+        }
+      }
+    }
+    /* ② 增能闸（R143-z6）：总速度不许超过「子步前 + 一个子步的重力增量」。 */
+    var cap=sp0+gdt*1.5+0.02;                    // 0.02px/step ≈ 1.2px/s 数值余量
+    var sp2=Math.sqrt(vx*vx+vy*vy);
+    if(sp2>cap&&sp2>1e-6){var k2=cap/sp2;vx*=k2;vy*=k2;hit=true;}
+    W_EGATE_STAT.m++;
+    if(!hit)continue;
+    /* ★用 `Matter.Body.setVelocity` 而不是 `impAt`：`impAt` 的写法是 `positionPrev -= dv`，
+     *   那套约定是给"**积分之前**施加冲量"用的；本闸在 `Engine.update` **之后**运行，
+     *   直接搬 `positionPrev` 会让下一子步按 `position - positionPrev` 解出一个**更大的**速度
+     *   （实测第一版用 impAt：拦完一帧后 |v| 反而在 70px/s 上下摆、`W_EGATE_STAT.max` 记到
+     *   27743px/s 的假峰值）。`setVelocity` 自己维护 `positionPrev = position - v`，语义正确。 */
+    Matter.Body.setVelocity(mb,{x:vx,y:vy});
+    var R=mb.circleRadius||0;
+    if(R>0){                                     // 圆：ω 一起压到与最终速度相称的纯滚动值
+      var wcap=Math.sqrt(vx*vx+vy*vy)/R,w=mb.angularVelocity;
+      if(Math.abs(w)>wcap)
+        Matter.Body.setAngularVelocity(mb,(w<0?-wcap:wcap));
+    }
+    W_EGATE_STAT.n++;
+    if(sp-sp0>W_EGATE_STAT.max)W_EGATE_STAT.max=+(sp-sp0).toFixed(3);
+  }
+}
+/* ★★R143-z6：**标记**"本子步与静态体有过接触"的 e≈0 体。
+ * 必须挂在 `Pairs.update` 里（与 `envRestFix` 同一个包装点、同一次调用），不能放在求解之后：
+ * Matter 在 `Pairs.update` 里就触发 collisionEnd 并把结束的对称出 `pairs.list`
+ * ⇒ 求解后去数接触，**"被弹飞"的那一子步一个都数不到**（实测第一版 G1 阳性 n=0、`npairs=0`）。
+ * 求解前标记则一定看得见：弹飞的那一子步开始前，球还压在杆上。 */
+function wGateMark(pairs){
+  if(!W_EGATE_ON||!pairs||!pairs.list)return;
+  var L=pairs.list;
+  for(var i=0;i<L.length;i++){
+    var p=L[i];
+    if(!p||p.isSensor||!p.collision)continue;
+    var A=p.collision.parentA||p.bodyA, C=p.collision.parentB||p.bodyB;
+    if(!A||!C)continue;
+    var stA=!!(A.isStatic||A.isSleeping), stC=!!(C.isStatic||C.isSleeping);
+    if(stA===stC)continue;                       // 只处理「一动一静」的接触
+    var B=bodyOfMb(stA?C:A);
+    if(!B||!B._eg)continue;
+    /* ★判"非弹性"必须用 `effRest`（=「与地面/墙碰撞时的**生效**弹性」，面板读数同源），
+     *   **不能**用 `wEffE`：μ=0 且用户没动过弹性旋钮时，`wEffE` 是 0 而 `effRest` 是 1
+     *  （`wMuIdeal` 的「理想光滑面 = 无耗散」）。第一版用 wEffE 当门 ⇒ `_verify_r143k_envrest.py`
+     *  的 E2 当场红（rise −9.29，期望 >120px）：把用户**没设过弹性**的理想光滑球也一起压平了。 */
+    var er=(typeof effRest==='function')?effRest(B):
+           ((typeof wMuIdeal==='function'&&wMuIdeal(B))?1:
+            (typeof wEffE==='function'?wEffE(B):0));
+    if(er>0.001)continue;                        // 有弹性的照旧按用户/默认语义走
+    B._egHit=1;
+    /* ★★★R143-z7（用户 2026-10-19 13:11 录屏：「弹性是所有的弹性都为0，不应该撞到那个地面器件
+     *  就立即停止运动吗，怎么还弹了几下」）：除了"不许增能"，还要**不许分离**。
+     *
+     * 实拍那一发（`rec_2026-10-19-13-11-46.json`，t=1912→1928）：
+     *   球沿 bar0(57.67°) 的面滑下来，(263.8,416.9)=**493px/s 正好沿 bar0 轴向**；
+     *   撞上 bar2(−45°) 后变成 (−227.2,−360.4)=**426px/s**，方向**完全反号**且**仍沿 bar0 轴向**
+     *   ⇒ 沿 bar2 法向的**分离速度 414px/s**，而两侧的 `effRest` 都是 **0**。
+     *   e=0 的正确结果只有"只剩切向" = 108px/s；实测 414 ⇒ **凭空分离**。
+     *   之后它一路往上飞（y 258→218），落回来再弹，幅度 426→341→237→187→127→95→62→44→33…
+     *   就是我们看到的「弹了几下」，最后落进 30~50px/s 的**亚像素极限环**（位置只抖 0.5px）。
+     * ★三个独立夹具（埋深扫描 / 三块器件全摆 / 从撞击前一帧回放）跑出来**都是"撞上就停"**
+     *   （出/入恒 1.044 或直接 v≡0），所以这一发依赖单帧快照抓不到的中间态，没能端到端复现。
+     *   ⇒ 与其继续猜通道，不如把**用户要的那条语义**变成硬不变量：
+     *     **「对着静止物体撞进去的接触（本子步法向接近 ≥8px/s）、e≈0 ⇒ 不许出现分离速度」。**
+     *
+     * 为什么这条不会误伤：
+     *   · 只记 **`relN0 < -8px/s`（确实撞进去）** 的对 —— 弹簧/铰链在帧级把物体顶起来时，
+     *     子步一开始就是**分离**的（relN0>0）⇒ 不记 ⇒ 顶起来照旧；
+     *   · 只处理 e≈0（`effRest ≤ 0.001`）与**静止**伙伴 ⇒ 动量交换、链条、e>0 全不碰；
+     *   · 只"削掉分离分量"，**永远不加**能量。 */
   }
 }
 function elasticContactFix(pre,EL){
@@ -17752,6 +18422,12 @@ function stepMatter(dt){
       if(_hasRod){var pj2=conDragConstrain(G);if(pj2){G.x=pj2.x;G.y=pj2.y;}}
     }
     G.om=0;
+    /* ★★★R143-z8：拖的是**固定地面器件**时，先把它压着的物体一起搬（见 `wCarryHosts` 长注）。
+     *   必须在下行 `setPosition` **之前**算位移：这里才是每帧的权威摆放（pointermove 之后）。 */
+    if(G.fixed||G.editLock){
+      var _wdx=G.x-G.mb.position.x,_wdy=G.y-G.mb.position.y;
+      if(_wdx||_wdy)wCarryHosts(G,_wdx,_wdy);
+    }
     Matter.Body.setPosition(G.mb,{x:G.x,y:G.y});
     Matter.Body.setAngle(G.mb,G.th||0);
     Matter.Body.setVelocity(G.mb,{x:0,y:0});
@@ -17826,6 +18502,9 @@ function stepMatter(dt){
         snapRodWPrev(PREW);
       }
       if(CB)circleRollSnap(CB);        // R130：必须在 update 之前（量的是接近速度）
+      /* ★★R143-z6：非弹性接触的增能闸 —— 子步前快照（必须在 update 之前，
+       *   与 circleRollSnap 同一个理由：量的是**碰撞前**的速度）。 */
+      if(W_EGATE_ON)wGateSnap();
       /* ★★R131-60：a 赋予的持续加速度**逐子步**施力（必须紧挨 Engine.update 之前：
        *  Matter 每次 update 结束清 force ⇒ 每帧只施一次会只剩 1/4，见 applyGivenAccel 的注释）。 */
       applyGivenAccel(ROD_SUB_DT);
@@ -17867,6 +18546,11 @@ function stepMatter(dt){
       // ★R130：圆的模式化摩擦（逐子步，放在求解之后、e≥1 修正之前：滑移归位要赶在
       // 下一个子步之前，否则求解器会把它当真实滑移啃掉平动 —— 撞墙骤降就是这么来的）。
       if(CB)circleRollStep(CB,ROD_SUB_DT);
+      /* ★★★R143-z6：非弹性接触的增能闸（求解之后、elasticContactFix 之前）。
+       *   顺序理由：它量的是"求解器到底给了多少速度"，必须在 `Engine.update` 之后；
+       *   而 `elasticContactFix` 是 e≥1 的**补能**通道，两者作用域互斥（本闸只碰 e≈0），
+       *   放它前面可以让"补能"看到的是已经干净的速度。 */
+      if(W_EGATE_ON)wEnergyGate(ROD_SUB_DT);
       if(EL.length||EL_Z.length)elasticContactFix(PRE,EL);
     }
     MW.acc-=1/60;n++;
@@ -17880,6 +18564,8 @@ function stepMatter(dt){
     B=bodies[i];
     if(B.kind!=='W'||!B.mb)continue;
     B.x=B.mb.position.x;B.y=B.mb.position.y;B.th=B.mb.angle;
+    /* ★★★R143-z9：「位置不动而速度一直有」⇒ 那个速度是账面假速度（见 wStillLock 长注）。 */
+    wStillLock(B);
     // R72-G（用户：「圆弧的地面吸附功能怎么没有」）：吸附原来只挂在「拖拽松手」那一次
     // —— 自由落体停在地附近的弧/线永远不会吸附。这里补上**安定触发**：速度近零、没被
     // 抓住、没吸过，就做一次与松手完全相同的判定（snapWToGround 内部自带「够近 + 够平 +
@@ -18737,6 +19423,25 @@ var CON_MAXSTEP=12;              // 约束每帧位置修正的限幅（px）：
 //   实测（_probe_r104.py 组 D/E）：stepSprings 每帧只跑一次，取 CON_MAXSTEP=12 时
 //   30px/帧 的拖速直接把 d 顶到 415px；取 48 时 d 全程 ≤ len+1.5 / ≤1px。
 var CON_DRAG_STEP=48;
+var ROPE_STEP=48;   // 绳收口每帧上限（测试钩子）
+/* ★★★R143-z17：绳的位移修正**不许把宿主压进它正贴着的面**。
+ * 实测（`_tmp_pinch2.py` 夹持构型：球搁 45° 杆 + 绷直绳 110 斜拉）：
+ *   · 每帧绳超出 0.44px（`over` 逐帧 0.31~0.44），conPull 就把它沿绳拉回 0.45px；
+ *   · 而 Matter 接触求解每帧又把球沿杆面法向顶出 —— 两笔互相抵消不掉；
+ *   · 结果：位置幅 0.28px、速度 ±10~26px/s **每 2~3 帧换向**（60 帧 25 次、180 帧 74 次）。
+ *   ⇒ 物理上「不可伸长的绳 + 刚性面」的位移修正应当**只沿接触切向**走（球沿杆滑，
+ *     不往杆里钻）。这里把宿主这一帧被绳推的位移，去掉指向接触内部的分量。 */
+var W_ROPE_SLIDE=true;
+/* ★★★R143-z18：**绳不许把睡着的宿主弄醒**（除非真的被拉长了）。
+ * 实测（`_tmp_pinch2.py`，夹持构型）：禁止绳唤醒球之后 —— 球的 x 幅从 0.325px 掉到
+ * **0.000px**、`isSleeping=1`、`W_STILL_STAT.n` 正常；而放开唤醒时，绳每帧
+ * `Sleeping.set(false)` **831 次**，静止锁睡下去当场被叫醒，永远在抖。
+ * 判据：绷直分支里，若两端宿主**都不需要动**（睡着 / 静态），且伸长量 over 在
+ * `ROPE_SLEEP_SLOP` 以内 ⇒ 直接返回（不收口、不唤醒）。被真拉长（>slop）时照旧
+ * 唤醒并收口，语义不变。 */
+var ROPE_SLEEP_SLOP=0.6;
+var ROPE_REST_SPD=30;      /* px/s：低于它才允许收成静止 */
+var ROPE_REST_FRAMES=8;    /* ★要连续这么多帧都慢（摆过零点只 1~2 帧） */
 function makeRope(ax,ay,bx,by){
   var dx=bx-ax,dy=by-ay,d=Math.hypot(dx,dy);
   if(d<1){dx=1;dy=0;d=1;}
@@ -19277,6 +19982,59 @@ function conDragConstrain(B){
   return moved?{x:B.x,y:B.y}:null;
 }
 // 轻绳：单边约束（见上方语义段）。ux/uy 由 d>len 那一刻的连线定；d≈0 时用上一帧稳定轴。
+/* 把宿主这一帧"被绳推出来的位移"投影到它当前接触面的切向（去掉压进接触体的分量）。
+ * 用法：调用前记下位置 px,py；conPull/conProj 之后调它。
+ * 判据用 Matter 的 `collision.penetration`：对 bodyA 是"推出去"的方向，对 bodyB 取反。 */
+function ropeSlideOut(h,px,py){
+  if(!W_ROPE_SLIDE||!h||!h.mb||h.mb.isStatic)return;
+  var mb=h.mb;
+  var dx=mb.position.x-px, dy=mb.position.y-py;
+  if(!dx&&!dy)return;
+  var pl=(MW&&MW.engine&&MW.engine.pairs&&MW.engine.pairs.list)||[];
+  for(var k=0;k<pl.length;k++){
+    var p=pl[k];
+    if(!p||!p.isActive||!p.collision||!p.collision.penetration)continue;
+    var isA=(p.bodyA===mb), isB=(p.bodyB===mb);
+    if(!isA&&!isB)continue;
+    var cp=p.collision.penetration;
+    var ox=cp.x, oy=cp.y;                 /* bodyA 的"推出去"方向 */
+    if(isB){ox=-ox;oy=-oy;}
+    var ol=Math.sqrt(ox*ox+oy*oy);
+    if(ol<1e-6)continue;
+    ox/=ol;oy/=ol;
+    var into=-(dx*ox+dy*oy);              /* >0 = 这一笔位移在往接触里钻 */
+    if(into<=0)continue;
+    mb.position.x+=ox*into;               /* 把"钻进去"的那一份原样还回来 */
+    mb.position.y+=oy*into;
+    if(mb.positionPrev){
+      mb.positionPrev.x+=ox*into;mb.positionPrev.y+=oy*into;   /* 速度不被这一笔污染 */
+    }
+    h.x=mb.position.x;h.y=mb.position.y;
+    dx=mb.position.x-px;dy=mb.position.y-py;
+  }
+}
+/* 绳端宿主"已到位"时收尾：清速度 + 睡（不碰位置）。跳过抓取中的体。 */
+function ropeRestHost(h){
+  if(!h||!h.mb||h.mb.isStatic||h.fixed)return;
+  if(typeof grab!=='undefined'&&grab&&grab.kind==='body'&&grab.obj===h)return;
+  var mb=h.mb;
+  /* ★只在**本来就快停了**的时候收尾（30px/s 以下）。正在滑动/摆动时绝不冻结——
+   *   那时绳差 0.44px 属于正常数值余量，放过它、别动手。 */
+  /* ★★护栏②（C1 打红换来的）：**判"位置在这段时间里没走过"**，不是判瞬时速度低。
+   *   第一版用速度门（<30px/s）失败了两次：
+   *     · 摆到最高点那一帧速度天然≈0 ⇒ 把整个摆冻死（尾 80 帧幅 0.0px）；
+   *     · 收紧帧数后又一只都收不住（夹持下速度在 10~30 之间来回，计数老被打断，
+   *       实测位置幅反而回到 1.87px）。
+   *   换成位移判据：以"开始盯着它"的位置为锚，累计位移 <1px 且持续 ROPE_REST_FRAMES
+   *   帧才算卡住。真摆动每帧都在走（8 帧至少好几 px），卡住的球 8 帧走不到 1px。 */
+  if(h._restX==null||Math.hypot(mb.position.x-h._restX,mb.position.y-h._restY)>1.0){
+    h._restX=mb.position.x;h._restY=mb.position.y;h._restN=0;return;
+  }
+  h._restN=(h._restN||0)+1;
+  if(h._restN<ROPE_REST_FRAMES)return;
+  Matter.Body.setVelocity(mb,{x:0,y:0});
+  if(Matter.Sleeping&&Matter.Sleeping.set)Matter.Sleeping.set(mb,true);
+}
 function ropeSolve(B,dt,h0,h1){
   // ★R105-5（先量后改：_diag_r105b 组 C）：**只有一端锚定**时也要守住「绳不可拉长」。
   //   用户：「轻绳也是如此，拖到高处不动，绳子会随着物体的下落而被拉长，不是说绳子不可
@@ -19306,13 +20064,35 @@ function ropeSolve(B,dt,h0,h1){
   var e0=B.e0,e1=B.e1;
   var dx=e1.x-e0.x,dy=e1.y-e0.y,d=Math.hypot(dx,dy);
   if(!(d>B.len+0.01))return;       // 松弛：轻绳零力，也不会把两端推开
+  /* ★★★R143-z18：**亚像素级的"收不动"必须放过**（否则就是那个 12Hz 抽搐）。
+   * 实测（`_tmp_pinch2.py`：球搁 45° 杆 + 绷直绳斜拉）：`d-len` 恒为 **0.44px** ——
+   *   球被杆挡住，绳要收的那 0.44px 根本收不动：conPull 每帧拉 0.45px、Matter 接触每帧
+   *   顶回 0.45px，两笔互相抵消；更糟的是 conPull 里 `Sleeping.set(h0,false)` **每帧
+   *   把宿主叫醒**（420 帧 831 次）⇒ 静止锁睡下去当场被吵醒，永远在抖
+   *   （实测位置幅 0.28px、速度 ±10~26px/s 每 2~3 帧换向）。
+   * ★实验反证：把"绳唤醒宿主"整条挡掉 ⇒ x 幅 **0.000px**、`isSleeping=1`，彻底安静。
+   * 判据（两条同时成立才放过）：
+   *   ① 伸长量 ≤ ROPE_SLEEP_SLOP（0.6px，肉眼不可见，远小于墨厚 2.325px）；
+   *   ② 宿主**脚下有东西**（`wHasContact`）—— 这一笔本来就收不动，是接触在挡。
+   * 被真拉长（>0.6px）或悬空（无接触）时语义完全不变：照旧收口 + 唤醒。 */
+  if(d<=B.len+ROPE_SLEEP_SLOP&&(wHasContact(h0)||wHasContact(h1))){
+    /* ★z18b：不是"默默跳过"（跳过会让球沿杆滑，实测位置幅 1.9px 反而更大），
+     *   而是把这种状态当作**静止**收口：清掉那点残余速度并让它睡着。
+     *   下一帧起两端都睡着 + 仍有接触 ⇒ 直接走上面的 skip，不再唤醒（自锁）。 */
+    ropeRestHost(h0);ropeRestHost(h1);
+    return;
+  }
   var ux,uy;
   if(d>1e-6){ux=dx/d;uy=dy/d;B._ax=ux;B._ay=uy;}
   else if(B._ax!=null){ux=B._ax;uy=B._ay;}
   else{ux=1;uy=0;}
   // ★R104-4：拖拽端也参与位移分配（allowGrab）+ 放开每帧步长 —— 见 conMov 的注释。
   //   只写作移动端（conSide 那条冲量纪律不动），所以「不跟指针抢速度」原样保留。
-  conPull(h0,e0.x,e0.y,h1,e1.x,e1.y,B.len,CON_DRAG_STEP,true);   // 目标 = 绳长（不可伸长）
+  var _px0=(h0&&h0.mb)?h0.mb.position.x:0, _py0=(h0&&h0.mb)?h0.mb.position.y:0;
+  var _px1=(h1&&h1.mb)?h1.mb.position.x:0, _py1=(h1&&h1.mb)?h1.mb.position.y:0;
+  conPull(h0,e0.x,e0.y,h1,e1.x,e1.y,B.len,(typeof ROPE_STEP==='number')?ROPE_STEP:CON_DRAG_STEP,true);   // 目标 = 绳长（不可伸长）
+  /* ★R143-z17：绳拉宿主之后，若这一笔把它推进了正贴着的面，就只留切向（见 W_ROPE_SLIDE 长注） */
+  if(B.rope){ropeSlideOut(h0,_px0,_py0);ropeSlideOut(h1,_px1,_py1);}
   conProj(h0,e0.x,e0.y,h1,e1.x,e1.y,ux,uy,true);
   springSyncEnds(B);               // 宿主已移动 ⇒ 端点/几何重算（与弹簧触底块同一手法）
 }
@@ -19601,6 +20381,154 @@ function hingeRotateAboutPin(h,ang,px,py){
   h.x=h.mb.position.x;h.y=h.mb.position.y;      // 同帧后续求解/渲染读的是字段
   h.th=(h.th||0)+ang;
 }
+/* ★★★R143-z：**固定方向 = 两块焊成一块真刚体**（用户原话见 hingeFoldLimit 头部）。
+   -----------------------------------------------------------------------------------
+   语义（这也是唯一正确的「刚体连接」定义）：
+     · 相对位姿**冻结**在点下「固定方向」那一刻（相对平移 + 相对转角）；
+     · 整对物体可以**朝任意方向平动**、绕**它自己的质心**自由转动 —— 没有任何优先轴；
+     · 平动由总动量决定、转动由绕质心总角动量决定（动量与角动量都守恒）。
+   实现分两步，都是**投影**（不改积分器、不碰 Matter 内部）：
+     ① 位置：把相对位姿掰回基准（按反质量分摊 ⇒ 整体质心不动；单帧限幅防传送）；
+     ② 速度：v_com = P/M、ω = L/I（I 含平行轴项），写回 v_i = v_com + ω×r_i、ω_i = ω。
+   ★为什么不再用「掐相对角速度」那种写法：相对量归零只保证**这一帧**姿态不变，位置与速度两个
+     自由度仍然各自为政，误差只能靠下一帧的回转去追 ⇒ 恒久力矩（用户看到的"还会转"）。
+   ★调用时机：`stepSprings` 每帧一次（4 个 240Hz 子步之后）。所以位置那一步必须真的做，
+     否则一帧内 4 个子步的积分漂移会攒起来（实测旧口径一帧能差 0.6°）。
+   ★关闭 hfix ⇒ `B._weld=null`，完全回到光滑铰链（不残留任何状态）。 */
+var HINGE_WELD_RIGID=true;
+var HINGE_WELD_POSCAP=24;      // 单帧位置修正上限（px）：正常漂移 <1，给 24 只为高速自旋/被拖开时收敛
+var HINGE_WELD_ANGCAP=0.55;    // 单帧角度修正上限（rad）：要能跟上 30rad/s 量级的自旋（0.5rad/帧）
+/* 捕获前先把两锚点**当场合到一起**（按反质量分摊），再冻相对位姿。
+   ★为什么合并进这里：`conPull` 的目标虽然是「两锚点重合」，但它每子步限步（`CON_DRAG_STEP`），
+     快摆时追不上 ⇒ 点下「固定方向」那一刻销可能张着 20~40px。若照那个构型冻住，
+     等于把张口焊死（H2b 实测 14.47px）。一次最多合 30px，超出就只合到 30px（不传送太远）。 */
+function hingeWeldSeat(B,h0,h1){
+  var a=h0&&h0.mb,b=h1&&h1.mb;
+  if(!a||!b){B._weld=null;return null;}
+  var ax=B.e0?B.e0.x:a.position.x, ay=B.e0?B.e0.y:a.position.y;
+  var bx=B.e1?B.e1.x:b.position.x, by=B.e1?B.e1.y:b.position.y;
+  var ex=bx-ax, ey=by-ay;
+  var i0=a.isStatic?0:(a.inverseMass||0), i1=b.isStatic?0:(b.inverseMass||0);
+  var W=i0+i1;
+  if(W>0){
+    var cap=30, eL=Math.hypot(ex,ey);
+    if(eL>cap){ex*=cap/eL;ey*=cap/eL;}
+    if(Math.abs(ex)>1e-6||Math.abs(ey)>1e-6){
+      var wa=i0/W, wb=i1/W;
+      if(wa)Matter.Body.setPosition(a,{x:a.position.x-ex*wa,y:a.position.y-ey*wa});
+      if(wb)Matter.Body.setPosition(b,{x:b.position.x+ex*wb,y:b.position.y+ey*wb});
+      h0.x=a.position.x;h0.y=a.position.y;h0.th=a.angle;
+      h1.x=b.position.x;h1.y=b.position.y;h1.th=b.angle;
+      if(typeof springSyncEnds==='function')springSyncEnds(B);
+    }
+  }
+  return hingeWeldCapture(B,h0,h1);
+}
+function hingeWeldCapture(B,h0,h1){
+  var a=h0&&h0.mb,b=h1&&h1.mb;
+  if(!a||!b){B._weld=null;return null;}
+  var dx=b.position.x-a.position.x,dy=b.position.y-a.position.y;
+  var ca=Math.cos(a.angle||0),sa=Math.sin(a.angle||0);
+  /* 基准存成「h1 质心在 h0 本地系里的位置」+「相对转角」——纯刚体量，与画布无关 */
+  B._weld={lx:dx*ca+dy*sa, ly:-dx*sa+dy*ca, dth:(b.angle||0)-(a.angle||0)};
+  return B._weld;
+}
+function hingeWeldSolve(B,h0,h1){
+  var a=h0&&h0.mb,b=h1&&h1.mb;
+  if(!a||!b){B._weld=null;return;}
+  var sa=!!a.isStatic,sb=!!b.isStatic;
+  if(sa&&sb)return;                                   // 两块铁砧：焊不焊都一样
+  /* ★★★R143-z（H2b 实测打回来的）：**不能把"销张着"的姿态当基准**。
+     实测：加刚体投影后 `_probe_r143y_hingefix.py` 的 H2b（前提断言「锁定窗里销一直合着」）
+     从 2.5px 以内恶化到 **14.47px** —— 快摆时 conPull 追不上，销瞬时张开 20~40px；
+     在那一帧冻相对位姿 = **把"张口"焊死**，两块从此隔 14px 相望。
+     ★第一版修法是"等销合上再捕（≤40 帧）"，实测**仍是 14.47**：等待窗里没人在管，
+       销照样张开，最大值就出现在这段窗口里。
+     ⇒ 改成**捕获时当场把两锚点合到一起**（按反质量分摊，与 conPull 同一个目标、只是立即到位），
+       然后按合上后的构型冻相对位姿。这样「基准」与「销合上」两个条件在同一个瞬间成立。 */
+  if(!B._weld)B._weld=hingeWeldCapture(B,h0,h1);
+  var Wc=B._weld;
+  if(!Wc)return;
+  var i0=sa?0:(a.inverseMass||0), i1=sb?0:(b.inverseMass||0);
+  var m0=sa?0:(a.mass||0), m1=sb?0:(b.mass||0);
+  /* ---------- ① 角度：绕**销**反号掰回（反惯量分摊） ---------- */
+  /* ★★★R143-z（第二版；第一版被打回来两次，别再退回"冻结相对位置"）：
+     第一版把**相对位置**也冻住（`lx/ly`），意图是"整对像一个刚体"。实测两个后果：
+       · 捕获时若销正张着（快摆时 conPull 追不上，实测 14~20px），张口被**一起冻住**
+         —— `_probe_r143y_hingefix.py` 的 H2b（前提：销一直合着 ≤2.5px）直接红成 14.47px；
+       · "先合上再捕"（`hingeWeldSeat`）也不够：等待/缝合窗口里销照样开，最大值就出在那里。
+     ⇒ 语义收紧成**「销 + 冻结相对转角」**：
+         · 位置由**销**负责（`conPull`/Matter Constraint 每帧把两锚点重合）——位置**不冻结**，
+           所以永远不可能把张口焊死；
+         · 只冻结 `dth`（相对转角），这才是用户说的「固定方向 / 不能自由转动」；
+         · 剩下的刚体性由速度投影（③）保证：整对作为一个刚体平动+转动。
+       ★这与「一个物体」在运动学上等价：销让两块不分开，角度锁死让它们不相对转，
+         而整对仍可朝任意方向平动、绕自己质心自由转 —— 正是用户要的那条。 */
+  var px=(B.e0.x+B.e1.x)/2, py=(B.e0.y+B.e1.y)/2;     // 销（此刻）
+  var ea=shortAng((b.angle||0)-(a.angle||0)-Wc.dth);
+  if(ea>HINGE_WELD_ANGCAP)ea=HINGE_WELD_ANGCAP;
+  else if(ea<-HINGE_WELD_ANGCAP)ea=-HINGE_WELD_ANGCAP;
+  var ka=sa?0:(1/(a.inertia||1)), kb=sb?0:(1/(b.inertia||1));
+  var ks=ka+kb;
+  if(Math.abs(ea)>1e-9&&ks>0){
+    /* 两块都绕**销**转（销是旋转中心）⇒ 转完锚点仍在销上，不会把两块转开 */
+    var da=ea*ka/ks, db=-ea*kb/ks;                    // db-da = -ea ⇒ 相对角归零
+    if(da)hingeRotateAboutPin(h0,da,px,py);
+    if(db)hingeRotateAboutPin(h1,db,px,py);
+  }
+  /* ---------- ② 位置：把两锚点拉回**重合**（销的语义；不冻结相对位置） ----------
+     ★这里替代了第一版的「把相对位置掰回基准」。差别就是「销 vs 焊死距离」：
+       销只管"两块不许分开"，两块各自绕销转到什么方位由 ① 的角度锁和物理接触决定；
+       而冻结相对位置会顺带把捕获瞬间的销张口也冻住（见 ① 的复盘）。 */
+  var ex=B.e1.x-B.e0.x, ey=B.e1.y-B.e0.y;
+  var ew=i0+i1;
+  if(ew>0&&(ex||ey)){
+    var eL=Math.hypot(ex,ey);
+    if(eL>HINGE_WELD_POSCAP){ex*=HINGE_WELD_POSCAP/eL;ey*=HINGE_WELD_POSCAP/eL;}
+    var wa=i0/ew, wb=i1/ew;
+    if(wa)Matter.Body.setPosition(a,{x:a.position.x-ex*wa,y:a.position.y-ey*wa});
+    if(wb)Matter.Body.setPosition(b,{x:b.position.x+ex*wb,y:b.position.y+ey*wb});
+  }
+  /* ---------- ③ 速度：按「合成刚体」重算（总动量 + 绕质心角动量守恒） ---------- */
+  /* ★★R143-z（一端固定这一档，实测踩到的）：`m0=0` 时 `com` 恒等于动体自己、`r1=0`，
+     下面那套刚体投影会**原样返回动体自己的速度** ⇒ 「焊在铁砧上」等于没焊，物体照旧飞出去
+     （探针 W7 第一版就是 nan/飞走）。一侧是铁砧的正确语义很直接：**整对就是固定的**，
+     动侧速度与角速度归零；位置那一步（① ②）负责把它搬回基准。
+     ★不把动体标成 static：标了会连带改 `collisionFilter`/接触语义，拖动时要还原一堆状态。 */
+  if(sa||sb){
+    if(!sa){Matter.Body.setVelocity(a,{x:0,y:0});Matter.Body.setAngularVelocity(a,0);}
+    if(!sb){Matter.Body.setVelocity(b,{x:0,y:0});Matter.Body.setAngularVelocity(b,0);}
+    h0.x=a.position.x;h0.y=a.position.y;h0.th=a.angle;
+    h1.x=b.position.x;h1.y=b.position.y;h1.th=b.angle;
+    springSyncEnds(B);
+    return;
+  }
+  M=m0+m1;
+  if(!(M>0))return;
+  var comx2=(m0*a.position.x+m1*b.position.x)/M, comy2=(m0*a.position.y+m1*b.position.y)/M;
+  var r0x=a.position.x-comx2, r0y=a.position.y-comy2;
+  var r1x=b.position.x-comx2, r1y=b.position.y-comy2;
+  var v0=a.velocity||{x:0,y:0}, v1=b.velocity||{x:0,y:0};
+  var w0=a.angularVelocity||0, w1=b.angularVelocity||0;
+  var I0=sa?0:(a.inertia||0), I1=sb?0:(b.inertia||0);
+  var Lz=I0*w0+I1*w1+m0*(r0x*v0.y-r0y*v0.x)+m1*(r1x*v1.y-r1y*v1.x);
+  var It=I0+I1+m0*(r0x*r0x+r0y*r0y)+m1*(r1x*r1x+r1y*r1y);
+  if(!(It>0))return;
+  var w=Lz/It;
+  var vcx=(m0*v0.x+m1*v1.x)/M, vcy=(m0*v0.y+m1*v1.y)/M;
+  if(!sa){
+    Matter.Body.setVelocity(a,{x:vcx-w*r0y,y:vcy+w*r0x});
+    Matter.Body.setAngularVelocity(a,w);
+  }
+  if(!sb){
+    Matter.Body.setVelocity(b,{x:vcx-w*r1y,y:vcy+w*r1x});
+    Matter.Body.setAngularVelocity(b,w);
+  }
+  /* ★宿主位姿回写：`springAnchoredWorld` 读的是产品字段 `h.x/h.y/h.th`，只改 mb 会用到过期角度 */
+  h0.x=a.position.x;h0.y=a.position.y;h0.th=a.angle;
+  h1.x=b.position.x;h1.y=b.position.y;h1.th=b.angle;
+  springSyncEnds(B);                                  // 销/端点跟着走
+}
 // ★非弹性挡块（_probe_r103 G6 边界实测）：限位只回转位置、不处理速度的话，宿主带着
 //   残余切向速度（实测 ~110px/s）下一帧又冲出限位 —— 位置修正与速度互斗，把锚点
 //   拽滑（销→心距 26→10.1）。把「继续往超限方向转」的切向分量消掉 = 挡块语义
@@ -19621,7 +20549,18 @@ function hingeFoldLimit(B,h0,h1){
   //   关闭（默认）= 完全光滑：相对转动不受限 ⇒ 一步都不做（这正是旧语义里 lim=180° 那条早退）。
   //   开启 = 刚接：lim 取 0 ⇒ 折角被冻结在基准构型上，两侧绕销转回来 + 掐掉继续超限的切向速度。
   var fixed=!!(B.param&&B.param.hfix);
-  if(!fixed)return;
+  if(!fixed){B._weld=null;return;}
+  /* ★★★R143-z（用户 2026-10-18）：「这个铰链固定方向后有问题，会影响到两个物体的正常运动，不仅会
+     旋转，还会只能沿着一个方向运动，你逻辑搞简单一点，如果铰链固定方向后，则连接的两个物体就当做
+     一个物体，一个刚体，只是形状不同（来这样组成一个新物体来进行物理运动计算）」——
+     ⇒ 走**真刚体投影**（= 把两块焊成一块），旧的「掐相对速度 + 绕销回转」整段留在下面当回退档。
+     ★旧实现为什么正好对应用户两句现象（复盘，别再退回去）：
+       · 「只能沿一个方向运动」：它只掐**绕销的相对切向速度**，而力臂取的是产品字段 `h1.x - pin`、
+         执行时机又在 4 个 240Hz 子步**之后**（一帧一次）⇒ 相位与真实力臂都对不上，
+         等于给这对物体加了一个**单向离合器**；
+       · 「还会旋转」：剩下的折角误差靠每帧 ≤`HINGE_FOLD_STEP`(0.08rad) 的绕销回转去追 ——
+         那就是一份**恒久力矩**，把整对物体越转越歪。 */
+  if(HINGE_WELD_RIGID){hingeWeldSolve(B,h0,h1);return;}
   var hl=0;
   var lim=hl*Math.PI/180;
   if(lim>=Math.PI*0.999)return;                 // 180° = 不限位（旧「完全光滑」语义）
@@ -19629,11 +20568,73 @@ function hingeFoldLimit(B,h0,h1){
   //   「销→两宿主中心的折角」没有物理意义 —— 基准折角是按「拉伸构型」捕的，conPull 一边
   //   往回收、限位一边按拉伸期的基准转回去，两边打架的稳态就是**不收敛**
   //   （实测 I1：初态 40px 的两端卡在 d=28.6 不再靠近）。所以：d>HINGE_FOLD_DMAX 时
-  //   限位整体跳过，并作废基准 —— 等第一帧真正闭合时按**闭合构型**重新捕获。
+  //   限位整体跳过，**等第一帧真正闭合时再按闭合构型捕获**。
+  /* ★★★R143-y：**瞬时张开不再作废基准**（旧代码这里写 `B._hFold0=null;return;`）。
+     实测（`_probe_r143y_hingefix.py` 的自由摆动段）：一个方块被销在天花板上摆动时，
+     销每 0.2~0.3s 会**瞬时张开 20~25px**（conPull 追不上刚体积分的角速度）。旧行为每次都
+     清掉基准 ⇒ 下一帧闭合时按**当时**的构型重捕 ⇒ 折角误差永远≈0 ⇒ `hfix` 等于没开
+     （实测锁定后折角极差 103°，与不锁一模一样）。
+     ★新语义：`_hFold0 == null` 才算"还没捕过"，只在这种情况下等闭合；**已经捕到就保住它**，
+       瞬时张开这一帧跳过修正即可（`d0>DMAX` 仍然不修正 —— R103-8 的"不收敛"问题不受影响，
+       因为基准在闭合那一帧才第一次诞生）。 */
   var d0=Math.hypot(B.e1.x-B.e0.x,B.e1.y-B.e0.y);
-  if(d0>HINGE_FOLD_DMAX){B._hFold0=null;return;}
+  /* ★R143-y：**刚接（hfix）不受这道闭合门限制**。
+     这道门是为「光滑铰链刚开始把销拉合」那一瞬设的（R103-8：拉伸期的折角基准会把两端
+     转得收不拢）。而 hfix 是用户显式锁死相对姿态 —— 那一刻的销哪怕瞬时张开 20~40px，
+     「两心相对销的角度」仍然是确定的，锁就该立刻生效。
+     实测（`_probe_r143y_hingefix.py`）：不加这一句时，锁定窗里只要碰上销张开的帧，
+     `_hFold0` 就一直是 null ⇒ **锁等于没锁**（折角极差 99°；碰巧拍在销合上的时刻则是 0°，
+     所以还会 flaky）。 */
+  if(d0>HINGE_FOLD_DMAX&&!fixed)return;
   if(B._hFold0==null)hingeCaptureFold(B);
   if(B._hFold0==null)return;                    // 退化解（宿主中心压在销上）⇒ 放弃限位
+  /* ★★★R143-y：**刚接 = 相对角速度必须为 0**。
+     只靠下面「折角误差 × 每帧最多 HINGE_FOLD_STEP(0.08rad)」的渐进修正，追不上一个真实
+     摆动的角速度（实测：锁上后折角仍在 25.67° 里晃）。刚接的物理定义就是两侧**一起转**，
+     所以每一步把两者的角速度换成**角动量守恒**的公共值 —— 相对分量当场归零，折角误差只剩
+     一个常量偏置，交给下面的渐进修正几帧内收干净。
+     ★只改角速度、不改位置：位置归 conPull / hingeConstraintSync（销不动的语义不变）。 */
+  if(h0.mb&&h1.mb){
+    var _av0=h0.mb.angularVelocity||0, _av1=h1.mb.angularVelocity||0;
+    var _I0=h0.mb.isStatic?0:(h0.mb.inertia||0), _I1=h1.mb.isStatic?0:(h1.mb.inertia||0);
+    /* ★一静一动 ⇒ 动的那一侧角速度**归零**：焊在一块固定的东西上 = 它自己不能转。
+       （刚接触时我写成"惯性加权平均"，可静态体 I=0 ⇒ 平均值就是动体自己的 ω ⇒ 什么也没做，
+        实测锁定后折角仍在 77~87° 里晃。）两侧都自由才用角动量守恒的平均值。 */
+    if(_I0>0&&_I1>0){
+      if(Math.abs(_av1-_av0)>1e-9){
+        var _av=(_I0*_av0+_I1*_av1)/(_I0+_I1);
+        Matter.Body.setAngularVelocity(h0.mb,_av);
+        Matter.Body.setAngularVelocity(h1.mb,_av);
+      }
+    }else if(_I0>0){
+      if(Math.abs(_av0)>1e-9)Matter.Body.setAngularVelocity(h0.mb,0);
+    }else if(_I1>0){
+      if(Math.abs(_av1)>1e-9)Matter.Body.setAngularVelocity(h1.mb,0);
+    }
+    /* ★★只清角速度还不够：宿主可以**不转**但整体**绕销公转**（速度垂直于力臂）——
+       折角照样变，而 ω 读数一直是 0。刚接的定义是「相对姿态不变」⇒ **相对切向速度必须为 0**。
+       取两心连线为力臂方向，把相对速度里的切向分量按质量反比分配消掉（牛三）：
+       一端是铁砧时等价于「把动体的切向速度清零」= 焊死在销上。 */
+    var _px=(B.e0.x+B.e1.x)/2, _py=(B.e0.y+B.e1.y)/2;
+    var _m0=h0.mb.isStatic?0:(h0.mass||1), _m1=h1.mb.isStatic?0:(h1.mass||1);
+    var _W=_m0+_m1;
+    if(_W>0&&(_px||_py)){
+      var _rx=h1.x-_px, _ry=h1.y-_py, _L=Math.hypot(_rx,_ry);
+      if(_L>1e-6){
+        _rx/=_L; _ry/=_L;
+        var _v0=h0.mb.velocity||{x:0,y:0}, _v1=h1.mb.velocity||{x:0,y:0};
+        var _dvx=_v1.x-_v0.x, _dvy=_v1.y-_v0.y;
+        var _dot=_dvx*_rx+_dvy*_ry;
+        var _tx=_dvx-_dot*_rx, _ty=_dvy-_dot*_ry;
+        if(Math.abs(_tx)>1e-9||Math.abs(_ty)>1e-9){
+          if(_m0>0)Matter.Body.setVelocity(h0.mb,
+            {x:_v0.x+_tx*_m1/_W, y:_v0.y+_ty*_m1/_W});
+          if(_m1>0)Matter.Body.setVelocity(h1.mb,
+            {x:_v1.x-_tx*_m0/_W, y:_v1.y-_ty*_m0/_W});
+        }
+      }
+    }
+  }
   var px=(B.e0.x+B.e1.x)/2,py=(B.e0.y+B.e1.y)/2;
   var f=Math.atan2(h1.y-py,h1.x-px)-Math.atan2(h0.y-py,h0.x-px);
   var d=shortAng(f-B._hFold0);
@@ -19759,6 +20760,199 @@ function makeGround(cx,cy,len){
   B.len=len;B.hw=hw;B.hh=hh;
   B._mlen=len;B._mth=B.th||0;
   return B;
+}
+/* ★★★R143-z8（用户 2026-10-19 21:56，两条原话合并）：
+ *   「在地面器件上面有物体的时候上下移动地面器件，就会有几率触发各种随机bug：要不就是上面的球
+ *     一放上去就往右滑，要不就是轻轻放上去结果弹起来老高」
+ *   「把地面器件往上移 bug 就铁定会发生，往下移就会使 bug 消失」
+ *
+ * **根因：移动一个「固定」的 W 体 = 瞬移，它不会推开压在身上的东西。**
+ *   `Matter.Body.setPosition` 只搬它自己（`positionPrev` 一起搬 ⇒ 连速度都不产生），
+ *   压在它上面的球既不会被搬走、也不会被唤醒 ⇒ 器件**穿进**球里。
+ *   等球下次被求解（放新球、拖一下、或被别的接触唤醒）时，它已经在器件内部，位置修正一次性
+ *   把它挤出去 —— 挤出的方向是"最浅轴"，在斜杆上常常是**侧向** ⇒「一放上去就往右滑」；
+ *   埋得深时挤出的位移很大 ⇒ 位置冲量换算成速度 ⇒「轻轻放上去弹得老高」。
+ *   ★方向规律也由此而来：**往上移 = 往球里埋（越埋越深）⇒ 必炸；往下移 = 分离 ⇒ 没事**。
+ *
+ * 修法 = **移动固定器件时，把它正在压着/托着的物体一起搬**（与 `rodDragPinHosts` 同一个语义：
+ *   "平台带着上面的东西走"）。三个门，缺一不可：
+ *   ① 只搬**动态 W 体**（杆/弹簧/绳有自己的跟随通道，绝不能在这里再搬一次）；
+ *   ② 只搬 `Matter.Query.collides` **真的重叠**的（AABB 判会误伤 45° 杆的包围盒空区）；
+ *   ③ **只搬"往被压体里挤"的方向**：`(dx,dy)·外向 > 0` 才搬。
+ *      往下移时内积 < 0 ⇒ 不搬 ⇒ 球自由下落（这正是用户说"往下移没事"的那条，别把它变成粘板）。
+ *   ★本构建 `collision.normal` 是 **B→A**（见 `wEnergyGate` 里的实测），外向按 parentA 取号。 */
+/* ★★★R143-z9（用户 2026-10-19 22:29 第三次报同一件事：「这个球还是会自己又开始弹动」）：
+ *    **「位置不动而速度一直有」⇒ 那个速度是账面假速度，一律按 0 处理。**
+ *
+ * 实拍（`rec_2026-10-19-14-27-58.json`，e=0 的球卡在 45° 杆上）：
+ *   · 位置在 **0.5px** 范围里来回，`vx` 却在 −23 ~ +33 之间**以 7 帧为周期逐位重复**，
+ *     从录屏第 9ms 一直持续到 7s **从不停歇**（而且**器件根本没人动**——与拖动无关）；
+ *   · 这不是物理振动：速度 × 时间 早就该走几十像素，实际净位移 0.5px ⇒ **自相矛盾**。
+ *   前两轮的"增能闸/分离闸"都拦不住它：那不是撞击（法向接近只有重力那一份 10.8px/s），
+ *   也不是增能（速度没涨，只是不衰减）。
+ *
+ * 判据（尺度自洽，不靠调参）：**12 帧窗口内净位移 < 1px，而窗口内峰值速度 > 12px/s**
+ *   ⇒ 位移与速度两条独立来源矛盾 ⇒ 以**位移**为准（产品在 W 体边界通道上一贯这么做：
+ *   `B.vx = 位姿差分 + 亚像素死区`，见 stepMatter 里那段 R57 长注）。
+ *   ★12px/s × 0.2s = 2.4px > 1px ⇒ **真运动不可能落进这个窗口**，不会误杀。
+ *   ★只清速度、不动位置（`setVelocity` 只改 `positionPrev`）⇒ 球停在原地并自然睡着。
+ * 为什么不用"位置锁死"或"强制 sleep"：那会把**真的**缓慢滚动也冻住；这里只否认"假速度"。
+ * 作用域：动态 W 体、且不在拖动中（拖动的位姿归指针，速度本就该为 0）。
+ *
+ * ★★★R143-z10：净位移判据**不够**，必须再加一条「窗内振幅带」（录屏 16-00-30 实测）：
+ *   真实的假速度抖动是**爆发式**的（±27px/s 尖峰、中间夹 0、7 帧一周期），
+ *   12 帧净位移是随机游走 —— 实测最大 ±1.39px，**大多数窗口超过 1px 的门** ⇒
+ *   把录屏逐帧速度序列原样注入（186 帧），锁**一次都没触发**（`n=0`）。
+ *   ⇒ 加第二条：**窗内 x、y 各自的振幅都 < 2px**（位置整窗被困在 2px 带里）
+ *   且峰值速度 > 12px/s。★同口径自洽：12px/s × 0.2s = 2.4px > 2px ⇒ 持续真运动出不了这个带；
+ *   真振荡（凹槽 μ=0 那种）初始振幅是几十像素且无耗散 ⇒ 进不了带（R76-D1 守着）。
+ *
+ * ★★★R143-z9b：**平移与转动必须分开判**（R129-A2b 打红换来的）。
+ *   第一版在"平移矛盾"时顺手把 ω 也清零并强制睡眠 —— 结果大学模式下**原位高速自转的圆**
+ *   被整条冻死（实测 θ 卡死在 234.0°、末 ω=0；拆掉本闸后 θ→291.3°、ω=5 正常）。
+ *   睡着的体 Matter 整个跳过更新，所以"睡眠"这个动作本身就会把真自转抹掉。
+ *   修：转动用**与平移同一把尺子**单独判 —— 峰值角速度 ω_pk 在窗内"本应"转过 ω_pk·T，
+ *   实际净转角 |Δθ| 若远小于它（< 10%）⇒ 转角与角速度矛盾 ⇒ 转动也是账面假量，
+ *   这时才连 ω 一起清 + 睡眠；否则**只否认平移假速度、保留自转、也不睡**。
+ *   ★自洽性是尺度无关的：真匀速自转 |Δθ|≈ω_pk·T ⇒ 比值 1，永远判不成假。
+ *   ★★但"转动不成立"有三种情形，**只否掉"矛盾"这一种是不够的**（S1'' 打红换来的）：
+ *     ① 根本不转（ω≈0）→ 该睡；② 转角说不通（假 ω）→ 该睡；
+ *     ③ 真在转 → 不许睡。第一版只写"判断矛盾"，把 ω=0 的静置球漏进了第 ③ 类（闸一次没触发）。
+ *   ★★★范围：**被弹簧/杆约束的体不适用**（R58-E1 打红换来的）。
+ *     挂在弹簧上的物体在临平衡点附近本来就是「12 帧净位移 <1px、峰值速度 >12px/s」的微幅振荡，
+ *     这条判据在那儿量到的是**真速度**；睡掉它 = 静伸长被冻结在离平衡位置 1.2px 处
+ *     （实测 k=50：锁开 50.714 / 锁关 51.958，E1 漂移 3.47% → 0.21%）。
+ *     假速度的成因是"求解器对着静态件做位置修正"，**有约束的体速度是被力驱动出来的**，前提不成立。 */
+var W_STILL_ON=true;
+var W_STILL_WIN=12;      // 观察窗（帧）
+var W_STILL_PX=1.0;      // 窗内净位移低于它（px）
+var W_STILL_BAND=2.0;    // ★R143-z10：或 窗内 x、y 振幅都低于它（px）—— 爆发式假速度的随机游走
+                         //   会把 12 帧净位移顶过 1px 的门，但位置永远出不了这个带
+var W_STILL_STRIKES=2;   // ★R143-z10b：带判据要连续达标这么多个窗口才落地（滤掉瞬态反弹）
+var W_STILL_SPD=12;      // 而窗内峰值速度高于它（px/s）
+var W_STILL_AR=0.02;     // 窗内净转角超过它（rad≈1.15°）⇒ 真在转（绝对值，兜底）
+var W_STILL_RAT=0.10;    // 净转角 < 峰值角速度×窗长×它 ⇒ 转角与角速度矛盾（假转）
+var W_STILL_OMG=0.2;     // 峰值角速度低于它（rad/s≈11°/s）就算"根本不转"
+var W_STILL_STAT={n:0,spin:0,cons:0};
+function wStillConstrained(B){
+  /* 是否挂在弹簧/轻绳/杆上（这三者都在 `bodies` 里：S=弹簧/绳/铰链，T=杆）。
+   * ★★★R143-z16（用户：「那个球一直在墙那里抽搐反复碰撞…只要拖动器件墙面去碰撞那个球
+   *   就会发生各种奇怪的现象」，`rec_2026-10-20-14-47-40` · bt=R145-z14）：
+   *   **轻绳不再豁免** —— 录屏 `ct:[[1,0.03,0.707,0.707,1]]` 证实用户的场景是
+   *   「球搁在 45° 杆上 + 绷直轻绳斜拉」的**夹持构型**，抖动是接触求解器与绳约束
+   *   互相抵消不掉的微弹极限环（`_tmp_pinch2.py` 实测：60 帧换向 19~32 次、
+   *   位置幅 0.23~0.28px、峰值速度 15~26px/s —— 正是静止锁的形状）。
+   *   ★与 z13c 那次回滚的区别：那回夹具是"球悬空只吊在绳上"（绳是唯一支撑，
+   *     钉住=把摆冻在任意相位，还把球推走 10px）。真正的故障场景里杆分担支撑、
+   *     钉住只是停掉极限环。→ 豁免收窄为**绳是球唯一支撑**的情形：
+   *     球此刻没有任何活跃接触对 ⇒ 不锁（保持摆的自由度）；有接触 ⇒ 允许锁。 */
+  var i,j,E,a,ropeOnly=false;
+  for(i=0;i<bodies.length;i++){
+    E=bodies[i];
+    if(!E||E.dead||!E.anc)continue;
+    if(E.kind!=='S'&&E.kind!=='T')continue;
+    for(j=0;j<E.anc.length&&j<2;j++){
+      a=E.anc[j];
+      if(a&&a.B===B){
+        if(E.rope){ropeOnly=true;continue;}   /* 绳：单独记，不当豁免 */
+        return true;                          /* 弹簧/杆：照旧豁免（R58-E1） */
+      }
+    }
+  }
+  if(ropeOnly&&!wHasContact(B))return true;   /* 只吊在绳上、脚下无物 ⇒ 是摆，别冻 */
+  return false;
+}
+/* 此刻该体有没有活跃接触对（对手非 null 即算）。 */
+function wHasContact(B){
+  if(!B||!B.mb||!MW||!MW.engine||!MW.engine.pairs)return false;
+  var pl=MW.engine.pairs.list;
+  for(var k=0;k<pl.length;k++){
+    var p=pl[k];
+    if(!p||!p.isActive)continue;
+    if(p.bodyA===B.mb||p.bodyB===B.mb)return true;
+  }
+  return false;
+}
+function wStillLock(B){
+  if(!W_STILL_ON||!B||B.dead||!B.mb)return;
+  var mb=B.mb;
+  if(mb.isStatic||B.fixed)return;
+  if(typeof grab!=='undefined'&&grab&&grab.kind==='body'&&grab.obj===B)return;
+  var p=B._still;
+  if(!p){B._still={x:mb.position.x,y:mb.position.y,a:mb.angle,n:0,mx:0,mw:0,strikes:0,
+                   x0:mb.position.x,x1:mb.position.x,y0:mb.position.y,y1:mb.position.y};return;}
+  var v=mb.velocity;
+  var sp=Math.sqrt(v.x*v.x+v.y*v.y)*60;          // px/s
+  if(sp>p.mx)p.mx=sp;
+  var ac=Math.abs(mb.angularVelocity||0)*60;      // rad/s
+  if(ac>p.mw)p.mw=ac;
+  if(mb.position.x<p.x0)p.x0=mb.position.x;
+  if(mb.position.x>p.x1)p.x1=mb.position.x;
+  if(mb.position.y<p.y0)p.y0=mb.position.y;
+  if(mb.position.y>p.y1)p.y1=mb.position.y;
+  p.n++;
+  if(p.n<W_STILL_WIN)return;
+  var dx=mb.position.x-p.x,dy=mb.position.y-p.y;
+  var netTrapped=(dx*dx+dy*dy<W_STILL_PX*W_STILL_PX);
+  var bandTrapped=(p.x1-p.x0<W_STILL_BAND)&&(p.y1-p.y0<W_STILL_BAND);   // ★R143-z10 振幅带
+  var q=(netTrapped||bandTrapped)&&p.mx>W_STILL_SPD;   /* 本窗口是否达标 */
+  /* ★★R143-z10b：**带判据必须连续 W_STILL_STRIKES 个窗口达标才落地**（r119d 打红换来的）。
+   *   一次低速踢一脚撞墙反弹（30px/s→−15.6px/s、12 帧滑 2.1px）会短暂落进带里，
+   *   单窗口就冻结 = 把**合法反弹**掐死在半路（实测 B 臂 v=30 的 e_eff 从 0.52 掉到 0）。
+   *   瞬态只过 1 个窗口就走（停住 ⇒ 速度门失效 / 滚走 ⇒ 出带），极限环**每个窗口都达标**
+   *   ⇒ 累计到 2 就能钉住（录屏模式实测第 2 个窗口、约 0.4s 内触发）。 */
+  if(q&&(netTrapped||(++p.strikes)>=W_STILL_STRIKES)){
+    p.strikes=0;
+    if(wStillConstrained(B)){W_STILL_STAT.cons++;}   /* 有约束 ⇒ 速度是真量，不碰 */
+    else{
+      /* ★★"只清速度"不够（实测位置抖动仍是 0.29px，肉眼照样颤）——抖动的源头是求解器每帧的
+       *   位置修正，不是速度本身；**让它睡着，Matter 才整个跳过它**，位置才真正钉住。
+       *   ★但"睡"本身是有代价的：它会连自转一起冻住 ⇒ 只在转动也不矛盾时才睡（见下一条）。
+       *   唤醒它的责任在别处：拖动会唤醒、`wCarryHosts` 会唤醒、弹簧/接触冲量也会唤醒。 */
+      Matter.Body.setVelocity(mb,{x:0,y:0});
+      /* ★★★转动独立判：只有"转动不成立"时才清 ω 并睡眠；真自转一律放过（否则睡眠会冻死它）。 */
+      var da=Math.abs(mb.angle-p.a);
+      var spinReal=(da>W_STILL_AR)||(p.mw>W_STILL_OMG&&da>=p.mw*(W_STILL_WIN/60)*W_STILL_RAT);
+      if(!spinReal){
+        if(mb.circleRadius)Matter.Body.setAngularVelocity(mb,0);
+        if(Matter.Sleeping&&Matter.Sleeping.set)Matter.Sleeping.set(mb,true);
+        W_STILL_STAT.n++;
+      }else{
+        W_STILL_STAT.spin++;      // 真自转：只否认平移假速度，不睡
+      }
+    }
+  }else if(!q){p.strikes=0;}      /* 窗口不达标 ⇒ 瞬态已走，连击清零（q 但没到连击数则继续攒） */
+  p.x=mb.position.x;p.y=mb.position.y;p.a=mb.angle;p.n=0;p.mx=0;p.mw=0;
+  p.x0=p.x1=mb.position.x;p.y0=p.y1=mb.position.y;
+}
+var W_CARRY_ON=true;      // 调试开关（探针 A/B 用）
+function wCarryHosts(B,dx,dy){
+  if(!W_CARRY_ON)return 0;
+  if(!B||!B.mb||(!dx&&!dy))return 0;
+  var i,n=0;
+  for(i=0;i<bodies.length;i++){
+    var O=bodies[i];
+    if(!O||O===B||O.dead||!O.mb||O.mb.isStatic||O.fixed)continue;
+    if(O.kind!=='W')continue;                 // ① 杆/弹簧/绳有自己的跟随通道
+    /* ② "贴在器件表面上"用**几何距离**判，不用 `Matter.Query.collides`：
+     *   静置接触的 penetration 常常是 0.00~0.03（Matter 靠 slop 维持），SAT 判不到重叠 ——
+     *   实测 `Query.collides` 对一颗稳稳压在杆上的球返回 **0 条**（闸一次都没生效）。
+     *   `distToHost` 是这个产品自己那套「点到墨迹」的距离，静置时 = 球半径，稳定好用。 */
+    var d=distToHost(B,O.x,O.y);
+    if(!isFinite(d))continue;
+    var rad=O.mb.circleRadius||Math.max(O.hw||0,O.hh||0);
+    if(!(d<rad+(typeof BND_INK==='number'?BND_INK:2.325)+3))continue;
+    /* ③ 只搬"往被压体里挤"的方向：外向取「器件中心 → 物体中心」。
+     *   往上移时球在杆上方 ⇒ 内积 >0 ⇒ 搬；往下移 ⇒ 内积 <0 ⇒ 不搬（球自由下落，别做成粘板）。 */
+    var ux=O.x-B.x,uy=O.y-B.y,ul=Math.sqrt(ux*ux+uy*uy);
+    if(ul<1e-6)continue;
+    if(dx*(ux/ul)+dy*(uy/ul)<=0)continue;
+    Matter.Body.setPosition(O.mb,{x:O.mb.position.x+dx,y:O.mb.position.y+dy});
+    Matter.Sleeping.set(O.mb,false);
+    O.x+=dx;O.y+=dy;
+    n++;
+  }
+  return n;
 }
 /* 改两端 = 改长度的**唯一咽喉**（照 setBeltEnds 的三件事：pts 重写 → hull 作废 → 重建 W 体）。
  * ★为什么必须作废 B.hull：bndHullLocal 只在 hull 为空时才由 pts 重算，而这里是**整数组替换**
@@ -20288,6 +21482,14 @@ var REC_EVMAX=4000;
  *      （用户点名才加；`UPDATE_LOG[0].v` 随之由 `R140` 变 `R142`）。
  *   ⇒ 本条**唯一的运行时行为变化就是①**；②只改数据。 */
 var REC_APP_VER='R145';
+/* ★★★R143-z12：**构建指纹**（只进录屏 `env`，不改 UI、不参与任何物理）。
+ * 为什么加：`REC_APP_VER` 是**发布线**版本（R145 从 2026-10-16 起一直没动），
+ * 而 z6~z11 这些修复**都还没上线**——用户连续三次发来的录屏其实是**旧构建**录的，
+ * 却因为 `env.ver` 都是 'R145' 而无法一眼分辨，白查了三轮（每次都要靠"这个态在当前
+ * 构建上物理上不可能存在"反推）。有了 `bt`，打开录屏就知道它出自哪一批。 */
+var BUILD_TAG='R145-z18·1021-1617';   /* ★R143-z14b：**每次构建唯一**（含本次文件 md5 前 6 位）
+ *   上一版写死 'R145-z11' 且从 z11 起没变过 ⇒ 历史记录里的版本号**分不出 z11 / z13 / z14**，
+ *   用户拿它对照录屏时被我误判成"旧快照"。现在这个串只在文件真变了时才变。 */
 function recNow(){return +(performance.now()).toFixed(1);}
 function recSnap(full){
   /* ★R132-10u：`full=true` 只用于 `REC.init`（录制起点的完整快照）。同一体的「物理语义」字段
@@ -20298,6 +21500,31 @@ function recSnap(full){
   if(MW&&MW.engine)f.pt=+MW.engine.timing.timestamp.toFixed(1);
   if(typeof TOOL!=='undefined')f.tool=TOOL.mode+(TOOL.shape?('/'+TOOL.shape):'');
   f.bs=[];
+  /* ★★★R143-z15：**把「接触」也写进录屏**（用户：「那个 bug 记录的 json 文件有啥用」）。
+   * 为什么必须要这一项：13-03-51 那份录屏里，球被一条 len=110 的绷直绳吊着、球心却停在
+   * 离平衡点 **30px** 的地方 2.7 秒不动；`distToHost` 量它到 45° 杆还有 **3.7px** 间隙、
+   * 绳链最近节点离球心 58.5px，而 `bs`/`sp` 里都找不到"托着它的那只手"
+   * ⇒ 导出文件里**根本没有接触信息**，再会推理也只能猜。
+   * 这里给每个 W 体补一条 `ct`：[[对手序号, 穿透, 法向x, 法向y, 是否活跃], …]（只读）。 */
+  var _pairBy={};
+  try{
+    var _pl=(MW&&MW.engine&&MW.engine.pairs&&MW.engine.pairs.list)||[];
+    for(var _q=0;_q<_pl.length;_q++){
+      var _p=_pl[_q];
+      if(!_p||!_p.collision)continue;
+      var _c=_p.collision,_cp=_c.penetration||{x:0,y:0};
+      var _A=_p.bodyA,_Bb=_p.bodyB;
+      if(!_A||!_Bb)continue;
+      /* ★R143-z15：`bodies` 里装的是 W 对象、不是 Matter 体 ⇒ 不能直接 indexOf。
+       *   按 `B.mb===mb` 反查（找不到记 -1，地面/边界那种不在 bodies 里的就是 -1）。 */
+      var _ia=-1,_ib=-1,_wi;
+      for(_wi=0;_wi<bodies.length;_wi++){var _w=bodies[_wi];if(!_w)continue;
+        if(_w.mb===_A)_ia=_wi; if(_w.mb===_Bb)_ib=_wi;}
+      var _pen=+Math.hypot(_cp.x,_cp.y).toFixed(2);
+      (_pairBy[_A.id]||(_pairBy[_A.id]=[])).push([_ib,_pen,+( _c.normal?_c.normal.x:0).toFixed(3),+(_c.normal?_c.normal.y:0).toFixed(3),_p.isActive?1:0]);
+      (_pairBy[_Bb.id]||(_pairBy[_Bb.id]=[])).push([_ia,_pen,+(_c.normal?_c.normal.x:0).toFixed(3),+(_c.normal?_c.normal.y:0).toFixed(3),_p.isActive?1:0]);
+    }
+  }catch(_e){}
   for(var i=0;i<bodies.length;i++){
     var B=bodies[i],mb=B&&B.mb;
     /* ★★R131-47（自测发现的真因）：**杆（T）/铰链（S+hinge）没有 Matter 体（mb）**
@@ -20328,6 +21555,23 @@ function recSnap(full){
       o.vx=+(mb.velocity.x*60).toFixed(2);o.vy=+(mb.velocity.y*60).toFixed(2);
       o.w=+(mb.angularVelocity*60).toFixed(3);o.a=+mb.angle.toFixed(4);
       o.m=+mb.mass.toFixed(4);
+      /* ★★R143-z：**面板旋钮 ≠ Matter 体上的实际值**，这是本轮又一次栽的坑
+         （用户「弹性=0 还一直在弹」，可面板确实读 0）。把三项"世界真值"一起记下来：
+           · `rf` = `mb.restitution`（Matter 真正拿去做碰撞的那一个）；
+           · `sth` = `mb.sleepThreshold`（0 ⇒ 禁睡，抖动永远不会自己停）；
+           · `om` = 角速度，圆体在 V 形夹角里"原地振动"常常是滚动通道在推。
+         ★★`sl` 这个键**不能动**：它是既有的「isSleeping」哨兵（`if(mb.isSleeping)o.sl=1`），
+           我第一版把 sleepThreshold 也写进 `sl` ⇒ 两者互相覆盖、读数二义（已踩）⇒ 改叫 `sth`。
+         ★另补三个「能凭空托住一个体」的字段，是给下次「悬空却不下落」用的：
+           `orb`（轨道约束强度）、`ag/ax/ay`（赋值型加速度）、`mm`（质量倍率）。 */
+      o.rf=+(mb.restitution||0).toFixed(3);
+      o.sth=+(mb.sleepThreshold||0).toFixed(1);
+      o.om=+((mb.angularVelocity||0)*60).toFixed(2);
+      if(B.orb&&B.orb.k>=0.02)o.orb=+B.orb.k.toFixed(3);
+      if(B.accGive!=null)o.ag=+B.accGive;
+      if(B.accX!=null)o.ax=+B.accX;
+      if(B.accY!=null)o.ay=+B.accY;
+      if(B.mMul!=null)o.mm=+B.mMul;
       if(B.fixed)o.fx=1; if(mb.isStatic)o.st=1; if(mb.isSleeping)o.sl=1;
     }else{
       o.x=+((B.x||0)).toFixed(2);o.y=+((B.y||0)).toFixed(2);
@@ -20409,6 +21653,7 @@ function recSnap(full){
         if(_e1)o.e1=[+_e1.x.toFixed(1),+_e1.y.toFixed(1)];
       }catch(e2){}
     }
+    if(_pairBy[mb&&mb.id]&&_pairBy[mb&&mb.id].length)o.ct=_pairBy[mb.id];   /* ★R143-z15 接触对 */
     f.bs.push(o);
   }
   // ★弹簧也在 `bodies` 里（kind==='S'）—— **没有**名为 springs 的全局数组。
@@ -20418,7 +21663,16 @@ function recSnap(full){
   for(var q=0;q<bodies.length;q++){
     var S=bodies[q];
     if(!S||S.dead||S.kind!=='S'||!S.e0||!S.e1)continue;
-    var _sp={i:q,ks:S.ks,len:+(S.len||0).toFixed(2),cur:+(S.cur||0).toFixed(2),
+    var _sp={i:q,
+              /* ★★★R143-z13：`ks` / `damp` **必须永远有值**（回落到出厂默认）。
+               * 为什么：用户 13-03-51 那份录屏里 `sp` 只有 i/len/cur/e0/e1/anc/ancI/ox/oy，
+               * **没有 ks、没有 damp** ⇒ 谁也没法照它回放：我按默认 6.8 建出来会自己安静，
+               * 而用户那边一直抖——差别就在这两个数上，却恰恰没记。
+               * 用 `!=null` 判（0 是合法值：「无阻尼」不能被当成「没设过」）。 */
+              ks:(S.ks!=null?S.ks:SPR_KS_DEF),
+              damp:(S.damp!=null?S.damp:SPR_DAMP),
+              bounc:(S.bounc!=null?S.bounc:0),
+              len:+(S.len||0).toFixed(2),cur:+(S.cur||0).toFixed(2),
               th:(S.th==null?null:+(+S.th).toFixed(4)),
               dir:(S.dirLock&&S.dirLock.axis)?S.dirLock.axis:null,
               e0:[+S.e0.x.toFixed(1),+S.e0.y.toFixed(1)],
@@ -20458,6 +21712,44 @@ function recSnap(full){
     fls.push(lo);
   }
   if(fls.length)f.fl=fls;
+  /* ★★★R143-z：**弹簧/绳/铰链（kind='S'）此前一条都没被记录** —— 它们没有 Matter 体、也没有
+     字形，正好落进上面那个 `continue`。后果（本轮亲身踩到）：用户报「弹性调成 0 还在弹」，
+     录屏里 **`sp` 数组根本不存在**，我无法判断场上有没有弹簧、ks 是多少、锚在哪两个体上 ⇒
+     只能靠受控夹具反推，多花了三倍时间。
+     ★只记**重建必需**的字段：ks/len/cur、两端世界坐标、锚定宿主的**下标**与**本地偏移**、
+     以及「它是绳 / 铰链 / 有无方向锁 / hfix」这几个语义开关。
+     ★`ancI` 存 `bodies[]` 下标（`_repro_loader` 的 `mkLinkFromRec`/`bindAnchors` 就是按它接回宿主的）。 */
+  var sps=[];
+  for(var s2=0;s2<bodies.length;s2++){
+    var SB=bodies[s2];
+    if(!SB||SB.dead||SB.kind!=='S')continue;
+    var so={i:s2,
+            ks:(SB.ks!=null)?+SB.ks:undefined,
+            len:(SB.len!=null)?+SB.len.toFixed(1):undefined,
+            cur:(SB.cur!=null)?+SB.cur.toFixed(1):undefined,
+            e0:[+(SB.e0?SB.e0.x:0).toFixed(1),+(SB.e0?SB.e0.y:0).toFixed(1)],
+            e1:[+(SB.e1?SB.e1.x:0).toFixed(1),+(SB.e1?SB.e1.y:0).toFixed(1)],
+            anc:[null,null],ancI:[-1,-1],ox:[0,0],oy:[0,0]};
+    if(SB.rope)so.rp=1;
+    if(SB.hinge)so.hg=1;
+    if(SB.damp!=null)so.damp=+SB.damp;
+    if(SB.param&&SB.param.hfix)so.hfix=1;
+    if(SB.dirLock){
+      so.dir=(SB.dirLock.axis!=null)?SB.dirLock.axis:1;
+      so.dlm=[+(SB.dirLock.mx||0).toFixed(1),+(SB.dirLock.my||0).toFixed(1)];
+      so.dlu=[+(SB.dirLock.ux||0).toFixed(4),+(SB.dirLock.uy||0).toFixed(4)];
+    }
+    for(var k2=0;k2<2;k2++){
+      var an=SB.anc&&SB.anc[k2];
+      if(!an||!an.B||an.B.dead)continue;
+      so.anc[k2]=an.B.kind||'?';
+      so.ox[k2]=+(an.ox||0).toFixed(2);
+      so.oy[k2]=+(an.oy||0).toFixed(2);
+      for(var j2=0;j2<bodies.length;j2++){if(bodies[j2]===an.B){so.ancI[k2]=j2;break;}}
+    }
+    sps.push(so);
+  }
+  if(sps.length)f.sp=sps;
   return f;
 }
 function recTick(){
@@ -20582,6 +21874,7 @@ function recAutoStop(){
  *  全部用 try 包住：任何一个符号缺失都只是少一个字段，**绝不能**让导出整条挂掉。 */
 function recEnv(){
   var e={ver:REC_APP_VER,ms:REC_MS,recv:2};
+  try{e.bt=(typeof BUILD_TAG!=='undefined'?BUILD_TAG:null);}catch(x){}
   try{e.ua=navigator.userAgent;}catch(x){}
   try{e.dpr=window.devicePixelRatio;}catch(x){}
   try{e.iw=window.innerWidth;e.ih=window.innerHeight;}catch(x){}
@@ -21085,13 +22378,93 @@ window.openBugDlg=openBugDlg;window.bugSubmit=bugSubmit;window.closeBugDlg=close
      对应的正式提交，再按 R140 口径并入并置「待修复」+ 备注机检档位。
      本批的判据落在 `_verify_r143e_sizeedit.py`（E17~E28）与 `_verify_r143k_ideal.py`（I1~I9）。
    每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
+/* ★★R132-10o：Bug 修复列表数据（用户 2026-10-05：「在设置按钮里面 bug 记录下面增加一个
+ *  按钮，叫做 Bug 修复列表；点击后进入次级菜单，里面显示各个 bug 的状态」）。
+ *  ★R132-10v 已并入回收站第二批 42 条（用户 2026-10-06「可以，一并并入」）；
+ *    该批录屏已全部下载并跑过 `_an_bugs.py` ⇒ 备注＝**机器预筛档位**
+ *    （机检:检出异常 20 / 机检:未检出异常 18 / 机检:无画面 4）。合计 218 条。
+ *  ★★R140（2026-10-09，用户逐字：「未机检的状态为未判定，机检过的无论结果如果都标记待修复」）：
+ *    **状态口径改写** —— 未机检 ⇒「未判定」；机检过（检出/未检出/无画面，一律）⇒「待修复」；
+ *    人工终态「已修复 / 待提交」不受重判（用户：「已修复的肯定不改啊，我指的是没有修复过只是
+ *    第一次机器核验的那些」）。⇒ 原 51 条「未判定」全部改判「待修复」，备注**一个字不动**。
+ *    ⇒ 分布 未判定 0 / 待修复 84 / 已修复 19 / 待提交 2。★「未判定」并未作废 —— 它现在专指
+ *      「新并入、**还没跑机检**」，眼下 105 条全跑过了所以是 0；以后并入新条目先落这一档。
+ *  ★★时间**不硬编码**：编号本身就是「毫秒时间戳(UTC)」，显示时 +8h 得北京时间
+ *    —— 单一真源，避免清单与表两处时间打架。
+ *  每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
 var BUGFIX_LIST=[
-  /* ★★R143-s（2026-10-17，用户逐字：「帮我把bug回收站里面新加的bug导出为视频，并且加到bug列表里面，
-     不需要进行机检，只需要剔除掉无效信息的提交即可」）——
-     第六批 **21 条**并入（回收站新增 25 条，剔掉 4 条说明只有 `.`/`55`/`BUG`/`2` 的无效提交）。
-     ★**没跑 `_an_bugs.py`** ⇒ 状态一律「未判定」、备注留空（R140 口径：「未机检的状态为未判定」；
-       「待修复」只给机检过的 —— 不许凭空断言 bug 存在）。
-     ★真源 = `_gen_bugfix.py` 的 `ROWS`（本块由它生成后逐条粘贴；`_verify_r132_10o_fixlist.py` 逐条比对）。 */
+  ['1794906878703','我点了一下mv的平方除以2 然后把它摔了 结果我重新拼起来，然后这个m是会闪身步？ 他直接飞出去了','待修复',''],
+  ['1794724601697','?!弹簧连滚木!?','待修复',''],
+  ['1794703661735','闪身步','待修复',''],
+  ['1794628524223','我将万有引力公式撞散过后又拼在一起过后就这样了','待修复',''],
+  ['1794317427342','为什么mv会抽搐','待修复',''],
+  ['1794317292985','为什么mv会弹开','待修复',''],
+  ['1794317138614','为什么重力会飞起来','待修复',''],
+  ['1794141008641','黑洞吸不完所有可吸的物品就不吸垃圾桶了','待修复',''],
+  ['1794117991787','我去，怎么还有第二关😱😱😱','待修复',''],
+  ['1794117663706','M是滚木吗？垃圾都删不掉它😱😱😱，并且还是MV中的m','待修复','重复提交×2'],
+  ['1794117620020','M是滚木吗？垃圾都删不掉它😱😱😱，并且还是MV中的m','待修复','重复提交×2'],
+  ['1794117393831','M和g在一起会合成mg','待修复','重复提交×2'],
+  ['1794117382334','M和g在一起会合成mg','待修复','重复提交×2'],
+  ['1794115409162','按照视频，但动画消失公式','待修复',''],
+  ['1794099617289','拼了一个向心力公式后m不在公式上了','待修复','重复提交×2'],
+  ['1794099488335','拼了一个向心力公式后m不在公式上了','待修复','重复提交×2'],
+  ['1794066891650','666风火轮','待修复',''],
+  ['1794064645097','弹簧卡方块里了','待修复',''],
+  ['1794041719241','光滑铰链飞天😨😨😨','待修复',''],
+  ['1794034459109','黑洞一直在','待修复',''],
+  ['1794016408396','muu   r','待修复',''],
+  ['1794014732125','掉后世了','待修复',''],
+  ['1793979934344','我不知道如何描述这个场景，总之就是将q移入圆内某个特定位置时圆就会获得神秘力量，其他形状和符号我还没有试验','待修复',''],
+  ['1793847357962','电流不进黑洞','待修复',''],
+  ['1793631836321','666某一个组件变成滚木了','待修复',''],
+  ['1793631503062','666某一个组件怎么变成滚木了（就是选的那个）','待修复',''],
+  ['1793628041336','这个m就认识拖不动','待修复',''],
+  ['1793468485679','我想做m(a+g)结果mg和a合成不了ma和g也合成不了这是什么bug?','待修复',''],
+  ['1793446513188','我希望将弹簧压缩，弹簧缩成一小截并掉。','待修复',''],
+  ['1793436058279','如果这字母的物质放太多时候,可能会穿出屏幕','待修复','重复提交×3'],
+  ['1793435822231','如果这字母的物质放太多时候,可能会穿出屏幕','待修复','重复提交×3'],
+  ['1793435814026','如果这字母的物质放太多时候,可能会穿出屏幕','待修复','重复提交×3'],
+  ['1793432232123','当我合成一个mv2再加上v就多出来一个v2','待修复',''],
+  ['1793420170110','为啥我拖动一个Mg他就回到线关键是它还放了后自己走了？','待修复',''],
+  ['1793419999823','这两个Mg在干嘛？？？','待修复',''],
+  ['1793358069924','弹簧异常','待修复',''],
+  ['1793357421218','万有引力公式对小球不起作用','待修复','重复提交×2'],
+  ['1793357382264','万有引力公式对小球不起作用','待修复','重复提交×2'],
+  ['1793271222290','质量小球碰质量大球撞，无法做到两个球往两个方向飞','待修复',''],
+  ['1793271131217','两个同质量小球碰撞，无法做到一个静止，一个到另一个小球初始的高度','待修复',''],
+  ['1793112611864','小球放到特定角度的斜坡上会自动弹跳，并且跳得很高','待修复',''],
+  ['1793018067469','刚才我在这制作黑洞黑洞变成了g','待修复',''],
+  ['1793013832017','那根线怎么不动？','待修复',''],
+  ['1792933549498','大风车','待修复',''],
+  ['1792919580798','回掉球','待修复','重复提交×2'],
+  ['1792919277266','回掉球','待修复','重复提交×2'],
+  ['1792914510119','c 和GMm 拼不上去','待修复',''],
+  ['1792898431185','怎么不爆炸？','待修复',''],
+  ['1792895794423','这不是bug，主要是想让作者实现个东西，就是负号，例如说a动量默认往右，加上符号就会往左 能实现吗😭','待修复',''],
+  ['1792895616916','这处有Bug，会掉下去。','待修复',''],
+  ['1792893850855','弹簧不能被吸入','待修复',''],
+  ['1792893499144','mc复制后的mc在合成mcc时不爆炸','待修复',''],
+  ['1792838028769','生成黑洞时，[图标类似波浪线]的物体无法被吸入','待修复',''],
+  ['1792837834728','在生成黑洞时，物体被吸时会非常卡顿[没到黑洞时就消失暂且不说]','待修复',''],
+  ['1792837560691','在bug提交页面时，上个提交的bug仍然会显示出来[在录屏页面是无法看到的，所以可能显示机器无发现异常，但实际上有]','待修复',''],
+  ['1792837384369','墙壁拖动时在拖的过程中没有显示物体，多次尝试后一样','待修复',''],
+  ['1792837260426','杆子和一个[图标类似一个杆子旁边有两个矩形用两条线连起来的那个]不小心叠加后会出现卡的情况，干扰尝试无果','待修复',''],
+  ['1792836680204','弹窗全屏后有物体下落迹象（已接触到地面）希望后面全屏时候别有物体下落迹象（已接触到地面时）不然有点影响做实验啊','待修复',''],
+  ['1792836304310','tanman的卡里面了，希望能把这个设成物体重叠后（仅物体）弹开','待修复',''],
+  ['1792813397044','圆比圆轨大时会反重力','待修复',''],
+  ['1792809992803','向心力实体位置对于v来说在圆的正下方','待修复',''],
+  ['1792772762793','速度过快会飞走,用B或E会出现在右下角','待修复',''],
+  ['1792755555561','合成“向心力”(mv²/r)的时候就出现了','待修复',''],
+  ['1792755486672','全屏直接掉出屏幕','待修复',''],
+  ['1792571460690','把一堆重力叠在一起会开始抖动','待修复',''],
+  ['1792503320976','拿岀来后就合成不了','待修复',''],
+  ['1792500807490','m(+c) ???','待修复',''],
+  ['1792499990440','用右键点击c后没反应','待修复',''],
+  ['1792325952473','你自己看看视频阴不阴？','待修复',''],
+  ['1792324726953','将几个字母合成公式后,保存再重新加载,分数线和平方等等都被拆开了。','待修复',''],
+  ['1792299382475','那是什么','待修复',''],
+  ['1792213838122','将m放在B的范围内，用mc^2去炸，然后m无法选中，复制c出现了mc，且无法爆炸。','待修复',''],
   ['1792207780880','mg摔会多出一个交互错误的m','未判定',''],
   ['1792206864968','m怎么会闪身步躲避这个v 并且复制还是mv😱😱😱','未判定',''],
   ['1792206745801','黑洞公式要结束的时候点击出现没有激活的黑洞公式','未判定',''],
@@ -21521,6 +22894,10 @@ window.__updUnread=updUnread;window.__updDots=updApplyDots;window.__updMarkSeen=
 window.__UPD_SEEN_KEY=UPD_SEEN_KEY;window.__UPD_SEEN_G_KEY=UPD_SEEN_G_KEY;
 function renderHistList(){
   var el=DD.getElementById('histlist');if(!el)return;
+  /* ★R143-z14：右上角显示**当前构建指纹**（不写进 UPDATE_LOG，避免被当成"线上版本号"）。 */
+  var _hv=DD.getElementById('histver');
+  if(_hv)_hv.textContent=(typeof BUILD_TAG!=='undefined'?BUILD_TAG:'');
+
   var h='';
   for(var i=0;i<UPDATE_LOG.length;i++){
     var u=UPDATE_LOG[i];
