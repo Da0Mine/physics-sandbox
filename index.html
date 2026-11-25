@@ -574,7 +574,10 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .fixprogtrack{position:relative;flex:1 1 auto;height:10px;border-radius:6px;
   background:rgba(38,34,28,.10);overflow:hidden;box-shadow:inset 0 0 0 1px rgba(38,34,28,.06)}
 .fixprogfill{display:block;height:100%;width:0%;border-radius:6px;
-  background:linear-gradient(90deg,#C9A86A,#B08948);transition:width .28s ease}
+  background:linear-gradient(90deg,#C9A86A,#B08948);
+  /* ★2026-11-25（impeccable detect: layout-transition）：原来过渡 `width` —— 浏览器每帧重排。
+     这条只在打开面板时设一次，本来不需要动画 ⇒ 去掉过渡。 */
+  }
 .fixprogtxt{flex:none;font-size:12.5px;color:rgba(38,34,28,.66);
   font-variant-numeric:tabular-nums;white-space:nowrap}
 .fixprogtxt b{color:#B08948;font-weight:600}
@@ -830,7 +833,8 @@ input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
    「跟手」与「让位」是两种节奏，混在一起手感全糊）。 */
 .scnit.scnmoving{position:relative;z-index:5;background:rgba(252,250,245,.99);
   box-shadow:0 8px 22px rgba(38,34,28,.20);transition:none}
-.fixtabwrap{margin-top:4px;max-height:calc(100vh - 190px);overflow:auto;overscroll-behavior:contain;
+.fixtabwrap{/* ★2026-11-25（impeccable detect: cramped-padding）：表格子元素原来贴着边框，补内衬。 */
+  padding:8px;margin-top:2px;max-height:calc(100vh - 190px);overflow:auto;overscroll-behavior:contain;
   border:1px solid rgba(38,34,28,.14);border-radius:12px}
 .fixtab{width:100%;border-collapse:collapse;font-size:13.5px;font-style:normal}
 .fixtab th,.fixtab td{padding:7px 9px;text-align:left;vertical-align:top;
@@ -1278,6 +1282,13 @@ input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
          教训：那时判据只钉了 DOM 序（修复列表在记录按钮之前），而**坏布局也满足该序** ⇒ 尺子空转；
          **改 UI 必须自己先看画面**，且判据要升级为**钉「同板块」**（见 `_verify_r132_10o_fixlist.py`
          U16a：`#bugfixbtn` 与「Bug 记录」`.slab` 必须在**同一个 `.srow`** 里）。 -->
+  <!-- ★★★2026-11-25（用户：「在 bug 记录上再增加一个板块，叫做建议，也是一标题一按钮，
+       点击按钮后弹出输入框，里面可以输入文字和提交图片，提交后也是到那个 bug 回收站里去，
+       不过有建议的标签，就不用渲染了」） -->
+  <div class="srow">
+    <span class="slab">建议</span>
+    <button class="rbtn" id="suggbtn">提交建议</button>
+  </div>
   <div class="srow">
     <span class="slab">Bug 记录</span>
     <!-- ★★R143-p（用户第十批逐字：「在 bug 记录那里增加一个**问号按钮的说明，样式同上面的
@@ -1359,7 +1370,7 @@ input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
 <div class="bmask" id="bugmask"></div>
 <div class="bbox" id="bugbox">
   <div class="fmhead"><span class="fmtitle">提交 Bug 记录</span><button class="fmclose" id="bugclose">✕</button></div>
-  <textarea class="bta" id="bugdesc" placeholder="描述一下你刚才是怎么操作的、期望看到什么、实际发生了什么……"></textarea>
+  <textarea class="bta" id="bugdesc" placeholder="描述一下你刚才是怎么操作的、实际发生了什么……"></textarea>
   <!-- ★★R137C（用户 2026-10-08：「增加一个上传截图和截图的按钮，可以上传提交截图，后者可以直接
        退到那个界面截一张图然后提交到这里，在输入框那里可以预览截图和增加删减」）：
        缩略图区在输入框正下方（空时 CSS `:empty` 收成 0 高），两颗按钮紧随其后。
@@ -1384,7 +1395,34 @@ input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
     <button class="rbtn" id="bugsubmit">提交</button>
     <button class="rbtn" id="bugdl">仅下载文件</button>
   </div>
+  </div>
   <div class="snote" id="bugstatus"></div>
+</div>
+  <!-- ★2026-11-25：建议弹窗（复用 bugbox 的 .bbox/.bta/.bshots/.bbtns 视觉，
+       另起一套状态变量，避免和 Bug 记录的截图/提交互相干扰） -->
+  <div class="bmask" id="suggmask"></div>
+  <div class="bbox" id="suggbox">
+    <div class="fmhead"><span class="fmtitle">提交建议</span><button class="fmclose" id="suggclose">✕</button></div>
+    <textarea class="bta" id="suggdesc" placeholder="说说你的想法……"></textarea>
+    <div class="bshots" id="suggshots"></div>
+    <div class="bbtns">
+      <button class="rbtn" id="suggshotup">上传图片</button>
+      <!-- ★2026-11-25（用户：「建议提交那里也要有像 bug 提交那里的截图按钮」）：
+           与 Bug 弹窗**同一颗剪刀图标、同一套合成口径**（bugShotCompose），只是结果进 SUGG_SHOTS。
+           图标语言沿用全站（viewBox 0 0 24 24 / fill:none / stroke 2.2 / 圆头圆角）。 -->
+      <button class="rbtn" id="suggshotgrab" title="截图（退到界面截一张图，再回到这里）"
+        aria-label="截图"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+        stroke="#26221C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle>
+        <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
+        <line x1="14.47" y1="14.48" x2="20" y2="20"></line>
+        <line x1="8.12" y1="8.12" x2="12" y2="12"></line></svg></button>
+    </div>
+    <input type="file" id="suggshotfile" accept="image/*" multiple hidden>
+    <div class="binfo" id="sugginfo"></div>
+    <div class="bbtns">
+      <button class="rbtn" id="suggsubmit">提交</button>
+    </div>
 </div>
 <!-- ★★R137D（用户 2026-10-08：「预览截图的时候，点击那个图片要能完整的显示那个图片」）：
      点缩略图 → 这个覆盖层按**等比完整**显示原图（缩略图本身是 cover 裁过的）。
@@ -1392,7 +1430,9 @@ input[type=color].tcol::-webkit-color-swatch{border:none;border-radius:5px}
      关闭：点任意处 / 点 ✕ / 按 Esc（三路都绑）。 -->
 <div class="svmask" id="shotmask"></div>
 <div class="svbox" id="shotview">
-  <img id="shotimg" alt="截图">
+  <!-- ★2026-11-25（impeccable detect: broken-image）：空 src 会画出破损图标，
+     给一张 1×1 透明 gif 占位，真正的大图由 JS 打开时设置。 -->
+<img id="shotimg" alt="截图" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
   <button class="svx" id="shotclose" title="关闭">✕</button>
 </div>
 <!-- ★★R132-10o：Bug 修复列表（设置 → Bug 记录 → Bug 修复列表 → 次级菜单）。
@@ -6847,7 +6887,16 @@ function gravModeOf(B){
 }
 function wLet(x){if(x==='g')return 0;if(x==='a')return 1;if(x==='v')return 2;return 3;}
 function ensureSt(B){
-  var p1=(B.family===1&&B.mem.length>=2&&B.cCount<2&&!(B.hasGrav||B.hasR));
+  /* ★★★2026-11-25（bug 1792157366474 收尾；用户：「将 m 和 g 拼接后界面左上角会出现（）+ 的符号堆叠」）：
+     **`ensureSt` 与 `tokenSeq` 的口径不一致** —— `tokenSeq` 已改成按「不含 massG 的有效字母」
+     判括号（m+g 只有 1 个有效字母 ⇒ 平排「mg」），可这里仍用 `B.mem.length>=2`（mem=[m,g] ⇒ 2）
+     ⇒ `live('open'/'plus'/'close')` 照样把「(」「+」「)」**创建并挂进 B.glyphs**，
+     而 `tokenSeq` 的 fin 不包含它们 ⇒ refresh 末尾只遍历 mem/massG 去隐藏，
+     结构字形没人管 ⇒ 三个字形停在 (0,0) 附近堆着 = 用户看到的左上角「（）+」。
+     修：p1 与 tokenSeq 同口径（有效字母数）。 */
+  var _effN=0;
+  for(var _pk=0;_pk<B.mem.length;_pk++){ if(B.mem[_pk]&&B.mem[_pk]!==B.massG)_effN++; }
+  var p1=(B.family===1&&_effN>=2&&B.cCount<2&&!(B.hasGrav||B.hasR));
   var p2=(B.family===2&&B.vCount>=2);
   var pFrac=(B.family===2&&(B.hasR||B.hasHalf)&&B.vCount>=2)||(B.hasGrav&&B.hasR);
   var keeps=[];
@@ -6918,19 +6967,31 @@ function tokenSeq(B){
        ★`massG` 自己重复入列由 `fin` 的**按对象去重**兜住（`promoteFreeLetter` 造的体里
          massG 同时在 mem 里）。 */
     for(var mi0=0;mi0<B.mem.length;mi0++)if(B.mem[mi0])out.push(B.mem[mi0]);
-  }else if(B.family===1){
-    if(B.mem.length===1)out.push(B.mem[0]);
+}else if(B.family===1){
+    /* ★★★2026-11-25（bug `1792157366474`「调整 g 的参数后，m 和 g 无法组合为 mg」）：
+       **根因**：`attach()` 对质量字母同时做 `B.mem.push(d)` 与 `B.massG=d` ⇒ `promoteFreeLetter`
+       造的体里 **massG 也在 mem 里**；而 `spawnWhole` 造的预设体里 massG **不在** mem。
+       下面 `B.mem.length===1` 这个判定因此被污染：
+         · 预设 mg      : mem=[g]    ⇒ 长度 1 ⇒ 平排「mg」 ✅
+         · 手工合并 mg  : mem=[g,m]  ⇒ 长度 2 ⇒ 走括号分支 ⇒「m(g+)」 ❌
+       用户看到的「无法组合」其实是**合成了但排成了残缺括号式**。
+       修法：本分支一律按**不含 massG 的有效字母表**判定与排版 —— 与 `canMergeRaw` 的 `_effLen`
+       同一条口径；massG 已由 `out=[B.massG]` 放在首位，不该再进括号。
+       ★口径自检：真正的 m(g+gμ) 有效字母仍是 [g,g,μ]（长度 3）⇒ 括号照旧；mc² 有效 [c,c] ⇒ 走 c 分支。 */
+    var _vm=[];
+    for(var vi=0;vi<B.mem.length;vi++){ if(B.mem[vi]&&B.mem[vi]!==B.massG)_vm.push(B.mem[vi]); }
+    if(_vm.length===1)out.push(_vm[0]);
     else if(B.cCount>=2){
       var c1=null;
-      for(var ci=0;ci<B.mem.length;ci++){if(B.mem[ci].type==='c'){c1=B.mem[ci];break;}}
+      for(var ci=0;ci<_vm.length;ci++){if(_vm[ci].type==='c'){c1=_vm[ci];break;}}
       if(c1)out.push(c1);
       if(B.st.sq)out.push(B.st.sq);
     }
     else{
       out.push(B.st.open);
-      for(var i=0;i<B.mem.length;i++){
+      for(var i=0;i<_vm.length;i++){
         if(i)out.push(B.st.plus);
-        out.push(B.mem[i]);
+        out.push(_vm[i]);
       }
       out.push(B.st.close);
     }
@@ -7358,6 +7419,17 @@ function refresh(B){
     if(B.glyphs.indexOf(B.mem[m])<0)B.mem[m].el.style.display='none';
   }
   if(B.massG&&B.glyphs.indexOf(B.massG)<0)B.massG.el.style.display='none';
+  /* ★2026-11-25：**结构字形（括号/加号/上标/分数线）也要按同一口径隐藏** ——
+     它们不在 mem 里，上面两个循环碰不到；一旦某条路径（如 ensureSt 与 tokenSeq 口径漂移）
+     多造了它们，就会原地堆在 (0,0)（用户报的「左上角（）+ 堆叠」正是这个）。 */
+  try{
+    for(var _sk in B.st){
+      if(!B.st.hasOwnProperty(_sk))continue;
+      var _sg2=B.st[_sk];
+      if(!_sg2||_sg2.dead)continue;
+      if(B.glyphs.indexOf(_sg2)<0&&_sg2.el)_sg2.el.style.display='none';
+    }
+  }catch(_e){}
   // TIGHTEN: replace the layout's generous hw/hh with the true ink box (must run BEFORE the
   // scaleParam multiply below, so a scaled r still inflates the box for non-well bodies).
   anchorBox(B);
@@ -7777,6 +7849,12 @@ function attach(B,d){
   if(gravFieldShape(B)){gravFieldToG(B);return true;}
   /* ★R137：布尔语义补全 —— 走到这里就是「并进 mem 成功」的常规出口。
      上游（`_sb` 实心命中通道 / 场源体通道）按返回值分流，缺这一句会读到 `undefined`。 */
+  /* ★★★2026-11-25（bug `1792157366474` 最终真因）：**这里是「并入 mem 成功」的唯一出口**。
+     实测：m 体 + g 合完是 mem='gm'、glyphs='mg' —— 合并本来是成功的；
+     但 g 让体 hasG=true ⇒ 立刻下落 ⇒ 落地 vy≈1199 > SHATTER_SPEED(1100) ⇒ shatter('split')
+     ⇒ 体当场销毁、字母散回自由态。**用户看到的「拼不起来」=「拼上了就立刻摔碎」。**
+     ⇒ 刚合并的体给 0.7s 免疫，让用户看清结果；过了豁免期再高速撞击照旧散架（用户要的效果保留）。 */
+  try{ B.fragGrace=performance.now()+700; }catch(e){}
   return true;
 }
 function keepMass(B,pv){
@@ -8173,16 +8251,128 @@ function findMergeTarget(d){
 // a loose mass letter on the canvas (left over from a shatter or a split) can be a merge
 // target just like a body: drop another letter onto it and it is promoted to the base of a
 // fresh body on the spot (instead of requiring the player to nudge it first).
-function findFreeMassTarget(d){
+function findFreeMassTarget(d,px,py){
   var best=null,bg=1e9;
   for(var i=0;i<freeL.length;i++){
     var F=freeL[i];
     if(F===d||F.dead||F.state!=='free')continue;
     if(!isMass(F))continue;
-    var gap=twoLetterGap(d,F);
+    /* ★2026-11-25：优先用**指针位置**判距 —— 拖动的字母会把静态字母推开，
+       松手那刻两者已经分开（实测差 26px > MERGE_PAD 14）⇒ 按字母间距判会漏合。 */
+    var gap=(px!=null&&typeof ptToGlyphGap==='function')
+      ? ptToGlyphGap(px,py,F.wx,F.wy,F.w||30,F.h||48)
+      : twoLetterGap(d,F);
+    if(gap<bg){bg=gap;best=F;}
+  }
+
+  return bg<=MERGE_PAD?best:null;
+}
+
+/* ★★★2026-11-25（bug `1792157366474` 用户第四轮：「调节了数值的 g 和 m 就拼不起来了」）：
+   **真因**：`findFreeMassTarget` 只认**质量字母**当底座 ⇒ 拖 m 到一个**还没被右键 promote 过**
+   的自由字母 g 上时，场上既没有体、也没有质量字母当底座 ⇒ `findMergeTarget` 与
+   `findFreeMassTarget` 双双返回 null ⇒ m 走「自由字母落地」分支、原地变成自己的体
+   （实测 `bodies=[{mem:'',glyphs:'m',massG:'m'}]`）⇒ 用户看到的就是「拼不起来」。
+   ★用户的操作正是这条：**在面板里把 g 调好数值 → 拖到画布 → 再拖 m 上去**（不必先右键）。
+   修：L 是质量字母时，**任意自由字母**都可以当底座 —— 先把它 promote 成体，再把 L 并进去。
+   ★排除 t/k/x：这三个不进公式（t 走 gt→v / qt→I，k·x→弹簧，见 canMergeRaw 的同类守卫）。 */
+function findFreeBaseFor(d,px,py){
+  var best=null,bg=1e9;
+  for(var i=0;i<freeL.length;i++){
+    var F=freeL[i];
+    if(F===d||F.dead||F.state!=='free')continue;
+    if(isMass(F))continue;                  // 质量底座由 findFreeMassTarget 负责（原行为不变）
+    if(F.type==='t'||F.type==='k'||F.type==='x')continue;
+    /* 同 findFreeMassTarget：按**指针位置**判距，避免被物理推开的假阴性。 */
+    var gap=(px!=null&&typeof ptToGlyphGap==='function')
+      ? ptToGlyphGap(px,py,F.wx,F.wy,F.w||30,F.h||48)
+      : twoLetterGap(d,F);
     if(gap<bg){bg=gap;best=F;}
   }
   return bg<=MERGE_PAD?best:null;
+}
+
+/* ★★★2026-11-25（bug `1792157366474` **第五层真因**；用户录屏 `rec_2026-11-25-15-45-29.json`）：
+   **产品只有「字母 → 体」的合并通道，没有「体 → 体」。**
+   而用户「先点一下字符看参数 / 改数值」这个动作会把那个字符 **promote 成体**（哪怕只有 1 个字形）
+   ⇒ 之后他把这个体拖去靠另一个体，永远不会合并 ⇒ 用户说的「调节了数值的 g 和 m 就拼不起来了」。
+   ★录屏实证（504 帧）：帧 0 = `bodies=[{gs:'m'}]` + `fl=[g]`；帧 48（点了一下 g）变成
+     `bodies=[{m},{g}]`；此后 456 帧两个体一直被拖来拖去，始终没有合并。
+   ★实测：`canMerge(体m, 字母g) === true`，但 `findMergeTarget(g)` 返回 null
+     （g 已经在该体的 mem 里被 `B.mem.indexOf(d)>=0` 跳过），且全代码没有体-体合并函数。
+   修法：拖体松手时，若该体是**孤立单字形体**（无 kind / 无 mb / 非固定 / 非场源 / 字形 ≤1），
+     把它的字形摘下来当「字母」用，走与拖字母**完全同一套**合并通道。 */
+function isLoneLetterBody(B){
+  if(!B||B.dead)return false;
+  if(B.kind||B.mb||B.fixed||B.bh||B.isWell||B.bnd||B.gnd||B.rope||B.hinge)return false;
+  if(!B.glyphs||!B.glyphs.length)return false;
+  var real=0;
+  for(var i=0;i<B.glyphs.length;i++){
+    var g=B.glyphs[i];
+    if(!g||g.dead||g.stk)continue;
+    real++;
+  }
+  return real<=1;
+}
+function loneBodyGlyph(B){
+  if(!B||!B.glyphs)return null;
+  for(var i=0;i<B.glyphs.length;i++){
+    var g=B.glyphs[i];
+    if(g&&!g.dead&&!g.stk)return g;
+  }
+  return null;
+}
+function findLoneBodyMerge(B){
+  if(!isLoneLetterBody(B))return null;
+  var G=loneBodyGlyph(B);
+  if(!G)return null;
+  var best=null,bd=1e9;
+  for(var i=0;i<bodies.length;i++){
+    var O=bodies[i];
+    if(!O||O===B||O.dead)continue;
+    if(O.kind||O.bh||O.isWell||O.mb)continue;     // 只并进别的公式体；有刚体的是实物，不参与
+    if(!canMerge(O,G))continue;
+    var d=Math.hypot((O.x||0)-pointer.x,(O.y||0)-pointer.y);
+    if(d<bd){bd=d;best=O;}
+  }
+  if(best&&bd<=(Math.max(best.hw||40,best.hh||26)+MERGE_PAD*2))return {tgt:best,glyph:G};
+  return null;
+}
+function mergeLoneBodyOnDrop(B){
+  var hit=findLoneBodyMerge(B);
+  if(!hit)return false;
+  var G=hit.glyph,O=hit.tgt;
+  var bi=bodies.indexOf(B);
+  if(bi<0)return false;
+  /* 摘字形 */
+  if(B.mem){var mi=B.mem.indexOf(G);if(mi>=0)B.mem.splice(mi,1);}
+  if(B.glyphs){var gi=B.glyphs.indexOf(G);if(gi>=0)B.glyphs.splice(gi,1);}
+  if(B.massG===G)B.massG=null;
+  G.body=null;G.inBody=false;
+  bodies.splice(bi,1);B.dead=true;
+  /* 结构字形（括号/上标/分数线）由体自己画 ⇒ 一并清掉 */
+  if(B.glyphs){
+    for(var k=B.glyphs.length-1;k>=0;k--){
+      var sg=B.glyphs[k];
+      if(sg&&sg.stk){try{killG(sg);}catch(e){}}
+    }
+    B.glyphs.length=0;
+  }
+  var ok=false;
+  try{ok=attach(O,G);}catch(e){ok=false;}
+  if(!ok){
+    /* 合不了 ⇒ 尽量还原（不能把字卡住） */
+    B.dead=false;bodies.splice(bi,0,B);
+    if(O.mem){var i2=O.mem.indexOf(G);if(i2>=0)O.mem.splice(i2,1);}
+    if(O.glyphs){var i3=O.glyphs.indexOf(G);if(i3>=0)O.glyphs.splice(i3,1);}
+    G.body=B;G.inBody=true;
+    if(!B.mem)B.mem=[];B.mem.push(G);
+    if(!B.glyphs)B.glyphs=[];B.glyphs.push(G);
+    try{refresh(B);}catch(e){}
+    return false;
+  }
+  try{ringGo(O.x,O.y);}catch(e){}
+  return true;
 }
 function findFreeLetterTarget(B){
   var best=null,bg=1e9;
@@ -9303,6 +9493,17 @@ DD.addEventListener('pointerup',function(e){
       grab.kind=null;grab.obj=null;
       return;
     }
+
+    /* ★★★2026-11-25（bug `1792157366474` 第五层）：孤立单字形体之间的合并。
+       用户「点一下字符看参数/改数值」会把字符 promote 成体（哪怕只有 1 个字形），
+       此后拖这个体去靠另一个体就再也并不上 —— 产品原本只有「字母 → 体」通道。
+       ★录屏实证（rec_2026-11-25-15-45-29.json）：帧 0 = bodies[{m}] + fl[g]；
+         帧 48（点了一下 g）变成 bodies[{m},{g}]；此后 456 帧一直拖、始终没合并。
+       ★实测 canMerge(体m, 字母g) === true，但 findMergeTarget(g) 返回 null
+         （g 已在体 m 的 mem 里被跳过），且全代码没有体-体合并函数。 */
+    if(typeof isLoneLetterBody==='function'&&isLoneLetterBody(B)){
+      if(mergeLoneBodyOnDrop(B)){grab.kind=null;grab.obj=null;return;}
+    }
     /* ★★R132-9ze（用户 2026-10-03 的录屏 `rec_2026-10-03-05-57-33.json` 定案：
      *   「把 q 放到物体上**根本没反应**」）。
      *   画布上那个"q"其实是**场源体**（`spawnField('q')` 造的 `kind:'q'` 体），
@@ -9606,12 +9807,19 @@ DD.addEventListener('pointerup',function(e){
       // shatter/split leaves letters FREE on the canvas. A loose mass (m/M) must still work
       // as a base: promote it to a body right here, then merge the dragged letter into it.
       // (mc, mg, mv, mG, Mm … all assemble again without a manual nudge.)
-      var FM=findFreeMassTarget(L);
+      var FM=findFreeMassTarget(L,pointer.x,pointer.y);
+      /* ★★★2026-11-25：质量字母也能并到**非质量的自由字母**上当底座
+         （用户「面板里调好 g 的数值、拖出来，再拖 m 上去」——那时 g 还只是自由字母）。 */
+      var FB=(!FM&&isMass(L)&&typeof findFreeBaseFor==='function')?findFreeBaseFor(L,pointer.x,pointer.y):null;
       if(FM){
         var fi3=freeL.indexOf(FM);if(fi3>=0)freeL.splice(fi3,1);
         var nb3=BODY(FM.wx,FM.wy);
         FM.pop=0;FM.body=nb3;FM.inBody=true;
-        nb3.massG=FM;nb3.glyphs=[FM];
+      nb3.massG=FM;nb3.glyphs=[FM];
+      /* ★2026-11-25：**质量字母也要进 mem** —— `promoteFreeLetter` 那一支是这么做的，
+         这里原来只挂 massG，造出来的体 mem 为空 ⇒ 与「公式体」形状不一致，
+         下游 `tokenSeq` / canMerge 的上限判定都会读到 0。 */
+      nb3.mem.push(FM);
         refresh(nb3);
         if(canMerge(nb3,L)){
           attach(nb3,L);
@@ -9621,7 +9829,7 @@ DD.addEventListener('pointerup',function(e){
              `FM.body` 清回 null ⇒ 那时 FM 仍是场上自由字母，轨迹必须留在它自己身上。 */
           trailAdopt(nb3,FM);
           ringGo(nb3.x,nb3.y);
-        }else{
+}else{
           // not a valid merge after all — undo the promotion and keep the old behaviour
           var ri3=bodies.indexOf(nb3);if(ri3>=0)bodies.splice(ri3,1);
           FM.body=null;FM.inBody=false;FM.pop=0;
@@ -9630,7 +9838,7 @@ DD.addEventListener('pointerup',function(e){
           if(isMass(L)||L.type==='G'){
             var nb=BODY(L.wx,L.wy);
             L.pop=0;L.body=nb;L.inBody=true;
-            if(isMass(L)){ nb.massG=L; nb.glyphs=[L]; refresh(nb); }
+      if(isMass(L)){ nb.massG=L; nb.mem.push(L); nb.glyphs=[L]; refresh(nb); }   // ★2026-11-25：质量字母同时进 mem（与 promoteFreeLetter 同口径）
             else { nb.glyphs=[L]; attach(nb,L); }
             ringGo(nb.x,nb.y);
           }else{
@@ -9640,8 +9848,48 @@ DD.addEventListener('pointerup',function(e){
             else{L.vx=0;L.vy=0;}
             if(freeL.indexOf(L)<0)freeL.push(L);
             placeLetter(L);
+        /* ★2026-11-25（用户：「怎么就只有 m 和 M 字符放下时有动画效果，其他的字符怎么都没有」）：
+           落地反馈不应该只给质量字母 —— 它们走 isMass 分支 promote 成体后调了 ringGo，
+           而 g/v/r/a/μ/c… 走这个 else 分支只是安静地放下 ⇒ 观感不一致。 */
+        try{ ringGo(L.wx,L.wy); }catch(e){}
           }
         }
+}else if(FB){
+          /* ★2026-11-25：把那个自由字母 promote 成体，再把 L 并进去。
+             promoteFreeLetter 对无 spec 的字母会返回 null（c/G/½…）⇒ 那段走手工构造兜底。 */
+          var nb4=null;
+          try{ nb4=promoteFreeLetter(FB); }catch(e){ nb4=null; }
+          if(!nb4){
+            var fi4=freeL.indexOf(FB); if(fi4>=0)freeL.splice(fi4,1);
+            nb4=BODY(FB.wx,FB.wy);
+            FB.pop=0;FB.body=nb4;FB.inBody=true;
+            nb4.mem.push(FB); nb4.glyphs=[FB];
+            if(FB.type==='g')nb4.hasG=true;
+            else if(FB.type==='v')nb4.hasV=true;
+            else if(FB.type==='r')nb4.hasR=true;
+            else if(FB.type==='a')nb4.hasA=true;
+            try{ if(typeof setF==='function')setF(nb4); }catch(e){}
+            refresh(nb4);
+          }else{
+            /* promoteFreeLetter 不动 freeL ⇒ 手动摘掉，否则它会同时是「自由字母」和「体内字形」 */
+            var fi5=freeL.indexOf(FB); if(fi5>=0)freeL.splice(fi5,1);
+          }
+          if(nb4&&canMerge(nb4,L)){
+            attach(nb4,L);
+            try{ trailAdopt(nb4,FB); }catch(e){}
+            ringGo(nb4.x,nb4.y);
+          }else{
+            /* 合不了 ⇒ 回退：把刚 promote 的体拆掉，L 照常落地（不能把字卡住）。 */
+            if(nb4){ var ri5=bodies.indexOf(nb4); if(ri5>=0)bodies.splice(ri5,1); }
+            if(FB){ FB.body=null;FB.inBody=false;FB.pop=0; if(freeL.indexOf(FB)<0)freeL.push(FB); placeLetter(FB); }
+            L.state='free';
+            var spd4=Math.hypot(grab.svx,grab.svy);
+            if(spd4>40){L.vx=grab.svx*clamp(1-spd4/8000,0.4,1);L.vy=grab.svy*clamp(1-spd4/8000,0.4,1);}
+            else{L.vx=0;L.vy=0;}
+            if(freeL.indexOf(L)<0)freeL.push(L);
+            placeLetter(L);
+        try{ ringGo(L.wx,L.wy); }catch(e){}
+  }
       }else if(isMass(L)||L.type==='G'){
       // no body nearby accepts it -> spawn a fresh body here.
       // Masses become the base (massG); G is routed through attach() so it lands in
@@ -9653,7 +9901,7 @@ DD.addEventListener('pointerup',function(e){
          不把轨迹过户给 nb，`trailOwner` 归一到 nb 后 `trailEnabled` 读到 host 的 undefined
          ⇒ 回落默认关 ⇒ 轨迹当场消失。详见 `trailAdopt`。 */
       trailAdopt(nb,L);
-      if(isMass(L)){ nb.massG=L; nb.glyphs=[L]; refresh(nb); }
+      if(isMass(L)){ nb.massG=L; nb.mem.push(L); nb.glyphs=[L]; refresh(nb); }   // ★2026-11-25：质量字母同时进 mem（与 promoteFreeLetter 同口径）
       else { nb.glyphs=[L]; attach(nb,L); }
       ringGo(nb.x,nb.y);
     }else{
@@ -9663,6 +9911,7 @@ DD.addEventListener('pointerup',function(e){
       else{L.vx=0;L.vy=0;}
       if(freeL.indexOf(L)<0)freeL.push(L);
       placeLetter(L);
+        try{ ringGo(L.wx,L.wy); }catch(e){}
     }
     }
     cv.style.cursor='default';
@@ -9748,6 +9997,7 @@ DD.addEventListener('pointercancel',function(){
     L.state='free';
     if(freeL.indexOf(L)<0)freeL.push(L);
     placeLetter(L);
+        try{ ringGo(L.wx,L.wy); }catch(e){}
   }
   rszHandle.classList.remove('on');
   cv.classList.remove('cur-ew','cur-ns');
@@ -9861,7 +10111,11 @@ function stepPhysics(dt){
     if(d.wx<20){d.wx=20;d.vx=Math.abs(d.vx)*0.6;}
     if(d.wx>W-20){d.wx=W-20;d.vx=-Math.abs(d.vx)*0.6;}
     if(d.wy<20){d.wy=20;d.vy=Math.abs(d.vy)*0.6;}
-    if(!massless&&d.wy>groundY-8){d.wy=groundY-8;d.vy=-Math.abs(d.vy)*0.6;}
+    /* ★★★2026-11-25（bug 1792157071615「字母或公式…超出线不会被检测到」；用户问「为什么那些字符
+     可以跑到下面去」）：原来这里带 `!massless` ⇒ **无质量字符（c / t / g / v / ½ …）没有地面下界**，
+     能被一直拖到画布外、看着像丢了。画布只有上界（9903 行 `wy<20`），下界是空的。
+     ★去掉 `!massless` 只是补**位置约束**，不是加重力 —— 9911 行「符号是浮空标签、不加重力」的设计没动。 */
+  if(d.wy>groundY-8){d.wy=groundY-8;d.vy=-Math.abs(d.vy)*0.6;}
     // R68⑥（用户：「很多那些符号怎么不被那些物体所阻挡，或者说碰不到那些？」）
     // 自由字母（k / x / ½ / c / G / t … 这类没有参数面板、因此不会 promote 成 body 的符号）
     // 此前只与屏幕四壁和地面打交道，完全不认识用户画的 W 体 / 杆 / 弹簧 —— 扔过去直接穿
@@ -10006,6 +10260,14 @@ function walls(B){
   if(B.orb&&B.orb.k>=0.02&&B.orb.gx!=null){ox=B.orb.gx-B.x;oy=B.orb.gy-B.y;}
   var cxp=B.x+ox,cyp=B.y+oy;
   function shatterIfFast(sp){
+  /* ★★★2026-11-25（bug `1792157366474` 最终真因；用户录屏 rec_2026-11-25-15-45-29.json）：
+     `attach(m体, g)` **合并是成功的**（实测 mem='gm'、glyphs='mg'），但 g 让体 `hasG=true`
+     ⇒ 体立刻开始下落 ⇒ 落到地面时 `vy≈1199 > SHATTER_SPEED(1100)` ⇒ `shatter('split')`
+     ⇒ 体当场销毁、m/g 变回游离字母。**用户看到的「拼不起来」其实是「拼上了就立刻摔碎」。**
+     ★而上一轮我加的 `B.mb&&` 守卫把散架一起关掉了（用户：「碰撞散架的效果也没了」）—— 那是过修。
+     ★正确口径：**刚合并/刚建立的体给 0.7 秒豁免**，让用户看清拼好的结果；
+       过了豁免期再高速撞击照旧散架（用户要的那个效果保留）。 */
+  if(B.fragGrace && performance.now() < B.fragGrace)return false;
     if(sp<SHATTER_SPEED)return false;
     if(B.hasC&&B.cCount>=2){
       return false;   // mc² never shatters on a wall — it just bounces off (then inflates/explodes)
@@ -10015,7 +10277,19 @@ function walls(B){
       return true;
     }
     // EVERY other lettered whole (mv, mv², mg, GMm/r² well, ...) breaks into its OWN letters
-    if(B.massG||B.mem.length){
+    /* ★★★2026-11-25（bug `1792157366474` 的第二层真因；用户：「我修改完数值后再拼，会导致左上角
+     出现一些符号，然后这边也没正确显示」）：
+     **`promoteFreeLetter` 造的体没有 Matter 刚体（`mb=false`）** —— 它是个「排版容器」，
+     `stepPhysics` 走的是 `if(!mb)` 的**自算通道**，仍然会积分 `vy`。
+     于是「右键改过参数的 g」+ m 拼成的 mg，**从高处落到地面时 vy 会超过 SHATTER_SPEED**
+     ⇒ 走下面这条 `shatter(B,'split')` ⇒ 体当场销毁、m/g 变回**游离字母**。
+     用户看到的就是：拼好的东西没了、画面上冒出两个字母（他说的「左上角出现符号」）。
+         ★★2026-11-25 回退（用户：「这些组合体的速度过快就碰撞散架的效果也没了」）：
+           上一轮我在这里加了 `B.mb&&` 守卫，本意是治「拼好的 mg 落地就散」；
+           但**散架本身是用户要的效果**（公式高速撞击就该碎成字母）⇒ 撤掉该守卫。
+           真正该修的是「两个体合并不上」，见 `isLoneLetterBody` / `mergeLoneBodyOnDrop`。
+       碎裂语义对它是错的。有 `mb` 的体（W 画出来的 / 撞出来的）行为一个字不改。 */
+  if(B.massG||B.mem.length){
       shatter(B,'split');
       return true;
     }
@@ -11278,8 +11552,12 @@ function applyParam(B,spec,val){
   if(key==='mass'){
     // R72：质量无上限；只守 >0（质量 ≤0 违反物理）
     B.mass=(val>0)?val:0.001;
+  /* ★2026-11-25：与 vsize/qcharge 同族 —— dock 单例记进 CHAR_DEF，世界里那个字符写回自己。 */
+  if(paramLetter){if(paramLetter.state!=='dock')paramLetter.mass=B.mass;else charDefWrite(paramLetter,'mass',B.mass);}
   }else if(key==='massM'){
     B.massCap=(val>0)?val:0.001;  // capital-M mass (independently tunable from lowercase m)
+  /* ★2026-11-25：与 vsize/qcharge 同族 —— dock 单例记进 CHAR_DEF，世界里那个字符写回自己。 */
+  if(paramLetter){if(paramLetter.state!=='dock')paramLetter.massCap=B.massCap;else charDefWrite(paramLetter,'massCap',B.massCap);}
   }else if(key==='grav'){
     // R71⑬（用户：「右键 g 的修改里面的参数影响的是**全局**的重力加速度，包括那些物体
     // （其他之前没有重力的字符不受影响）」）：g 的参数不再写进本体的 B.grav（那是「只让这个体
@@ -11291,6 +11569,20 @@ function applyParam(B,spec,val){
     // nb.grav=2600 验证加速度，靠的就是这条通道。
     GRAV=clamp(val,0,1e7);    // R72：上限只是防 NaN 的护栏，物理上 g 不设上限
     if(MW)MW.engine.gravity.y=GRAV/1000;
+  /* ★★★2026-11-25（bug `1792157366474` 用户第三轮：「调节了数值的 g 和 m 就拼不起来了」）：
+     **这一支漏了 `charDefWrite`**。`vsize`/`vang`/`asize`/`aang`/`qcharge` 每一支都有
+     「dock 单例不写回、改记进 `CHAR_DEF`」的处理（见 11309 起那一族），唯独 `grav` 只改了
+     全局 `GRAV`，没把值记到字符上 ⇒
+       · 从面板拖出的 g 克隆走 `charDefFill()` 时**拿不到**改过的值；
+       · 世界里那个 g 被 promote 后也没有可读回的值。
+     用户「先调 g 的数值、再拼 mg」时，那个 g 在数据上仍是默认值 ⇒ 看上去就是「改过数值的 g 拼不起来」。
+     ★修法：与同族完全一致 —— dock 态记进 `CHAR_DEF`，世界里那个字符写回它自己。
+     ★`GRAV` 仍然照改（全局语义不变，R71⑬ 的拍板不推翻），这里只是**额外**把值记到字符上。 */
+  if(B)B.grav=GRAV;
+  if(paramLetter){
+    if(paramLetter.state!=='dock')paramLetter.grav=GRAV;
+    else charDefWrite(paramLetter,'grav',GRAV);
+  }
   }else if(key==='acc'){
     B.acc=val;
   }else if(key==='bounc'){
@@ -11319,6 +11611,8 @@ function applyParam(B,spec,val){
     B.rmass=clamp(val,0.01,1e7);
   }else if(key==='frict'){
     B.frict=val;              // R72：μ>1 完全物理（橡胶-玻璃≈2），不设上限
+  /* ★2026-11-25：与 vsize/qcharge 同族 —— dock 单例记进 CHAR_DEF，世界里那个字符写回自己。 */
+  if(paramLetter){if(paramLetter.state!=='dock')paramLetter.frict=B.frict;else charDefWrite(paramLetter,'frict',B.frict);}
   }else if(key==='sk'){
     // R57 弹簧劲度系数。R72：刚度无物理上限
     B.ks=clamp(val,0,1e6);
@@ -11345,15 +11639,23 @@ function applyParam(B,spec,val){
   }else if(key==='scale'){
     if(!(val>0))val=1;                       // guard: scale must stay positive (input is unclamped)
     B.scaleParam=val;
+  /* ★2026-11-25：与 vsize/qcharge 同族 —— dock 单例记进 CHAR_DEF，世界里那个字符写回自己。 */
+  if(paramLetter){if(paramLetter.state!=='dock')paramLetter.scaleParam=B.scaleParam;else charDefWrite(paramLetter,'scaleParam',B.scaleParam);}
     // refresh() re-lays-out (unscaled hw/hh) then applies scaleParam ONCE — no cumulative growth.
     if(B.isWell)B.wellR=(B.baseWellR||360)*val;   // GMm/r² well: r scales its attraction range
     refresh(B);
   }else if(key==='bz'){
     B.Bz=val;
+  /* ★2026-11-25：与 vsize/qcharge 同族 —— dock 单例记进 CHAR_DEF，世界里那个字符写回自己。 */
+  if(paramLetter){if(paramLetter.state!=='dock')paramLetter.Bz=B.Bz;else charDefWrite(paramLetter,'Bz',B.Bz);}
   }else if(key==='eacc'){
     B.eacc=val;
+  /* ★2026-11-25：与 vsize/qcharge 同族 —— dock 单例记进 CHAR_DEF，世界里那个字符写回自己。 */
+  if(paramLetter){if(paramLetter.state!=='dock')paramLetter.eacc=B.eacc;else charDefWrite(paramLetter,'eacc',B.eacc);}
   }else if(key==='iacc'){
     B.iacc=val;
+  /* ★2026-11-25：与 vsize/qcharge 同族 —— dock 单例记进 CHAR_DEF，世界里那个字符写回自己。 */
+  if(paramLetter){if(paramLetter.state!=='dock')paramLetter.iacc=B.iacc;else charDefWrite(paramLetter,'iacc',B.iacc);}
   }else if(key==='wmass'){
     // R64：质量乘数。JS 侧 B.mass（弹簧 Δv=f/m、手写 SAT 冲量份额）与 Matter 侧
     // setMass(自然质量×乘数) 同步；setMass 会按比例调惯量，重的方块更难被拧转。
@@ -21622,7 +21924,7 @@ var REC_APP_VER='R145';
  * 而 z6~z11 这些修复**都还没上线**——用户连续三次发来的录屏其实是**旧构建**录的，
  * 却因为 `env.ver` 都是 'R145' 而无法一眼分辨，白查了三轮（每次都要靠"这个态在当前
  * 构建上物理上不可能存在"反推）。有了 `bt`，打开录屏就知道它出自哪一批。 */
-var BUILD_TAG='R145-z27·1122-2305';   /* ★2026-11-20：从 z18 起连续 7 轮修复（弹簧层级/mc² 自爆/copied/碎片槽位/mv²r 可达/massG/keepMass）后重置；★用户反馈「改了还是一样」时先看 REC 的 env.bt 对不对得上——本轮之前它一直是 z18，说明测的是未刷新的旧页面。 */   /* ★R143-z14b：**每次构建唯一**（含本次文件 md5 前 6 位）
+var BUILD_TAG='R145-z38·1126-0048';   /* ★2026-11-20：从 z18 起连续 7 轮修复（弹簧层级/mc² 自爆/copied/碎片槽位/mv²r 可达/massG/keepMass）后重置；★用户反馈「改了还是一样」时先看 REC 的 env.bt 对不对得上——本轮之前它一直是 z18，说明测的是未刷新的旧页面。 */   /* ★R143-z14b：**每次构建唯一**（含本次文件 md5 前 6 位）
  *   上一版写死 'R145-z11' 且从 z11 起没变过 ⇒ 历史记录里的版本号**分不出 z11 / z13 / z14**，
  *   用户拿它对照录屏时被我误判成"旧快照"。现在这个串只在文件真变了时才变。 */
 function recNow(){return +(performance.now()).toFixed(1);}
@@ -21769,6 +22071,27 @@ function recSnap(full){
       if(B._nm)o.nm=B._nm;
       if(B.wshape)o.shp=B.wshape;
     }
+  /* ★★★2026-11-25（用户：「现在的 bug 记录能否录到用户拖动字符和合成的状态之类的…
+     我看以前的这些都不是很看得到字符的相关运动和合成等效果」）：
+     **逐帧记「体内字形槽位」** —— `o.mem` 只在起点 full 快照里记（字符序列，不变），
+     而 `gs` 是**排布**：拼装/撞碎时每帧都可能变 ⇒ 必须逐帧。
+     ★体积控制：用 `_recGsKey` 比对，**只在槽位真的变化时才写**（平移/旋转由体的 x/y/a 表达，
+       槽位没变就不重复写）。渲染端用 `体.xy + R(th)·(sx,sy)` 即可还原每个字母的世界位置。
+     ★跳过结构字形（括号/上标/分数线 —— 它们由体自己画）。 */
+  if(B.glyphs&&B.glyphs.length){
+    var _gs2=[],_gk='';
+    for(var _gi2=0;_gi2<B.glyphs.length;_gi2++){
+      var _g2=B.glyphs[_gi2];
+      if(!_g2||_g2.dead||_g2.stk)continue;
+      var _row=[(_g2.ch||_g2.type), +((_g2.sx||0)).toFixed(1), +((_g2.sy||0)).toFixed(1)];
+      _gs2.push(_row);
+      _gk+=_row[0]+':'+_row[1]+','+_row[2]+';';
+    }
+    /* ★2026-11-25：**每帧都写**（不再做「变化才写」）—— 渲染器是逐帧独立 buildFrame 的，
+       某一帧没带 gs 就完全不知道体里有什么字母；这点体积很小（每帧约 40 字节，
+       1800 帧 ≈ 72 KB）。 */
+    if(_gs2.length)o.gs=_gs2;
+  }
     /* ★★R131-43（用户：「杆链脱钩你不是有日志吗？把日志输出内容改多点不就行了」）：
      *  REC 里为**杆（T）与铰链（S+hinge）**补记诊断字段——长度/当前长度/两端锚定状态/
      *  两端锚定到的体序号/端点世界坐标/锚点本地偏移（脱钩时 ox,oy 或 anc 会立刻暴露）。 */
@@ -21984,14 +22307,35 @@ function recStart(){
   REC.init=recSnap(true);REC.drop=0;
   recHook(true);recEv('start',null);
   REC.raf=requestAnimationFrame(recTick);recUI();
-  if(recnote)recnote.textContent='记录中……照常操作复现 bug，然后回到设置点「停止并导出」。'
-                                +'（最多 30 秒，满 30 秒自动停止；右上角有红点提示）';
+  /* ★★★2026-11-25（用户：「还有这个 bug 记录中的这个你确定是给用户看的？这种需求性话语不要放上去」）：
+     原文案 =「照常操作复现 bug，然后回到设置点『停止并导出』（最多 30 秒，满 30 秒自动停止；右上角有红点提示）」
+     —— 那是需求/规格说明，不是产品文案。按钮上已经写着「停止并导出（Xs / 30s · N帧）」，
+     剩余时间与帧数实时可见 ⇒ 这里只需说明「正在录」。 */
+  if(recnote)recnote.textContent='记录中…';
 }
+/* ★2026-11-25：录完自动截图（bugShotCompose 拍的是当前画面 ⇒ 正是用户刚复现的那个状态）。
+   ★不覆盖：待上传区已经有图就不加（用户可能自己截过更准的）。
+   ★全程 try 包住 —— 截图失败绝不能让「停止录制」这条主流程挂掉。 */
+function recAutoShot(){
+  try{
+    if(typeof bugShotCompose!=='function'||typeof bugShotAdd!=='function')return;
+    if(typeof BUG_SHOTS==='undefined'||!BUG_SHOTS)return;
+    if(BUG_SHOTS.length>0)return;
+    if(typeof SHOT_MAX==='number'&&BUG_SHOTS.length>=SHOT_MAX)return;
+    var shot=bugShotCompose();
+    if(shot)bugShotAdd(shot,'');
+  }catch(e){}
+}
+
 function recStop(){
   if(REC.on)REC.ready=true; // ★R133c(PR#8)：这一段留着，直到用户明确选「清空并重录」。
   REC.on=false;recHook(false);
   if(REC.raf)cancelAnimationFrame(REC.raf);
   REC.raf=0;recEv('stop',null);recUI();
+  /* ★★★2026-11-25（用户：「每次录制完后自动截取一张图片放在待上传那里」）：
+     录完自动截一张当前画面，塞进提交框的待上传区 —— 用户复现完那一刻的画面正是最有信息量的，
+     让他自己去点「截图」很容易漏掉。★只在本段还没有图时才加（不覆盖用户自己截的）。 */
+  try{ recAutoShot(); }catch(e){}
 }
 /* ★R132-10u：录满 30 秒的自动收尾。**刻意不弹提交框** —— 用户此刻往往还在复现，
  *  弹框只会打断他；提示一句 + 红点熄灭即可（之后可点「导出记录」）。
@@ -22216,8 +22560,9 @@ function bugShotAdd(s,src){
     bugShotStatus('最多 '+SHOT_MAX+' 张截图，先删掉一张再加吧。');return false;
   }
   BUG_SHOTS.push(s);bugShotRender();
-  bugShotStatus('已加入 '+(src||'')+'第 '+BUG_SHOTS.length+' 张截图（'+s.w+'×'+s.h+' / '+s.kb+' KB）。'
-    +'点缩略图右上角 ✕ 可以删掉。');
+  /* ★2026-11-25（用户：「点击后界面左上角会出现那些截图的相关状态的文字，这出现干嘛」）：
+     截图成功后原来会写一行「已加入第 N 张截图（800×600 / 120 KB）」—— 预览图本身就是反馈，
+     这行字纯噪声。错误提示保留（失败时必须说清原因）。 */
   return true;
 }
 /* 上传的图片统一「限长边 + 转 JPEG」再入列 —— 否则手机截图动辄 3~8 MB，几张就把 20 MB 撑爆。 */
@@ -22378,10 +22723,14 @@ if(bugshotgrab)bugshotgrab.addEventListener('click',bugShotGrab);
      等比缩放铺满可视区（不裁、不放大过 1:1 以外）。
    ★关闭三路都绑（点遮罩 / 点 ✕ / Esc）—— 少一路就会「关不掉」。
    ★浮层打开时 `#bugbox` **不关**（提交框还在底下），所以别去动 bugmask/bugbox 的状态。 */
-function bugShotView(i){
+  var PLACEHOLDER_SRC='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+function bugShotView(i,arr){
+  /* ★2026-11-25：「建议」弹窗的缩略图也要能点开看大图 —— 两边共用同一个浮层，只是取的数组不同。 */
   if(!shotview||!shotimg)return;
-  if(!(i>=0&&i<BUG_SHOTS.length))return;
-  shotimg.src=BUG_SHOTS[i].d;
+  arr = arr || BUG_SHOTS;
+  if(!(i>=0&&i<arr.length))return;
+  shotimg.src=arr[i].d;
   if(shotclose)shotclose.focus();
   if(shotmask)shotmask.classList.add('on');
   shotview.classList.add('on');
@@ -22390,7 +22739,9 @@ function bugShotViewClose(){
   if(shotmask)shotmask.classList.remove('on');
   if(shotview)shotview.classList.remove('on');
   /* 清 src：一是让浏览器尽快释放那张图，二是下次打开不会先闪上一张。 */
-  if(shotimg)shotimg.removeAttribute('src');
+  /* ★2026-11-25：原来 removeAttribute('src') 会回到空 src ⇒ impeccable 的 broken-image 复发。
+     改成回到 1×1 透明占位。 */
+  if(shotimg)shotimg.src=PLACEHOLDER_SRC;
 }
 if(shotmask)shotmask.addEventListener('click',bugShotViewClose);
 if(shotclose)shotclose.addEventListener('click',bugShotViewClose);
@@ -22667,6 +23018,62 @@ window.openBugDlg=openBugDlg;window.bugSubmit=bugSubmit;window.closeBugDlg=close
  *  ★★时间**不硬编码**：编号本身就是「毫秒时间戳(UTC)」，显示时 +8h 得北京时间
  *    —— 单一真源，避免清单与表两处时间打架。
  *  每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
+/* ★★R132-10o：Bug 修复列表数据（用户 2026-10-05：「在设置按钮里面 bug 记录下面增加一个
+ *  按钮，叫做 Bug 修复列表；点击后进入次级菜单，里面显示各个 bug 的状态」）。
+ *  ★R132-10v 已并入回收站第二批 42 条（用户 2026-10-06「可以，一并并入」）；
+ *    该批录屏已全部下载并跑过 `_an_bugs.py` ⇒ 备注＝**机器预筛档位**
+ *    （机检:检出异常 20 / 机检:未检出异常 18 / 机检:无画面 4）。合计 226 条。
+ *  ★★R140（2026-10-09，用户逐字：「未机检的状态为未判定，机检过的无论结果如果都标记待修复」）：
+ *    **状态口径改写** —— 未机检 ⇒「未判定」；机检过（检出/未检出/无画面，一律）⇒「待修复」；
+ *    人工终态「已修复 / 待提交」不受重判（用户：「已修复的肯定不改啊，我指的是没有修复过只是
+ *    第一次机器核验的那些」）。⇒ 原 51 条「未判定」全部改判「待修复」，备注**一个字不动**。
+ *    ⇒ 分布 未判定 0 / 待修复 84 / 已修复 19 / 待提交 2。★「未判定」并未作废 —— 它现在专指
+ *      「新并入、**还没跑机检**」，眼下 105 条全跑过了所以是 0；以后并入新条目先落这一档。
+ *  ★★时间**不硬编码**：编号本身就是「毫秒时间戳(UTC)」，显示时 +8h 得北京时间
+ *    —— 单一真源，避免清单与表两处时间打架。
+ *  每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
+/* ★★R132-10o：Bug 修复列表数据（用户 2026-10-05：「在设置按钮里面 bug 记录下面增加一个
+ *  按钮，叫做 Bug 修复列表；点击后进入次级菜单，里面显示各个 bug 的状态」）。
+ *  ★R132-10v 已并入回收站第二批 42 条（用户 2026-10-06「可以，一并并入」）；
+ *    该批录屏已全部下载并跑过 `_an_bugs.py` ⇒ 备注＝**机器预筛档位**
+ *    （机检:检出异常 20 / 机检:未检出异常 18 / 机检:无画面 4）。合计 229 条。
+ *  ★★R140（2026-10-09，用户逐字：「未机检的状态为未判定，机检过的无论结果如果都标记待修复」）：
+ *    **状态口径改写** —— 未机检 ⇒「未判定」；机检过（检出/未检出/无画面，一律）⇒「待修复」；
+ *    人工终态「已修复 / 待提交」不受重判（用户：「已修复的肯定不改啊，我指的是没有修复过只是
+ *    第一次机器核验的那些」）。⇒ 原 51 条「未判定」全部改判「待修复」，备注**一个字不动**。
+ *    ⇒ 分布 未判定 0 / 待修复 84 / 已修复 19 / 待提交 2。★「未判定」并未作废 —— 它现在专指
+ *      「新并入、**还没跑机检**」，眼下 105 条全跑过了所以是 0；以后并入新条目先落这一档。
+ *  ★★时间**不硬编码**：编号本身就是「毫秒时间戳(UTC)」，显示时 +8h 得北京时间
+ *    —— 单一真源，避免清单与表两处时间打架。
+ *  每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
+/* ★★R132-10o：Bug 修复列表数据（用户 2026-10-05：「在设置按钮里面 bug 记录下面增加一个
+ *  按钮，叫做 Bug 修复列表；点击后进入次级菜单，里面显示各个 bug 的状态」）。
+ *  ★R132-10v 已并入回收站第二批 42 条（用户 2026-10-06「可以，一并并入」）；
+ *    该批录屏已全部下载并跑过 `_an_bugs.py` ⇒ 备注＝**机器预筛档位**
+ *    （机检:检出异常 20 / 机检:未检出异常 18 / 机检:无画面 4）。合计 229 条。
+ *  ★★R140（2026-10-09，用户逐字：「未机检的状态为未判定，机检过的无论结果如果都标记待修复」）：
+ *    **状态口径改写** —— 未机检 ⇒「未判定」；机检过（检出/未检出/无画面，一律）⇒「待修复」；
+ *    人工终态「已修复 / 待提交」不受重判（用户：「已修复的肯定不改啊，我指的是没有修复过只是
+ *    第一次机器核验的那些」）。⇒ 原 51 条「未判定」全部改判「待修复」，备注**一个字不动**。
+ *    ⇒ 分布 未判定 0 / 待修复 84 / 已修复 19 / 待提交 2。★「未判定」并未作废 —— 它现在专指
+ *      「新并入、**还没跑机检**」，眼下 105 条全跑过了所以是 0；以后并入新条目先落这一档。
+ *  ★★时间**不硬编码**：编号本身就是「毫秒时间戳(UTC)」，显示时 +8h 得北京时间
+ *    —— 单一真源，避免清单与表两处时间打架。
+ *  每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
+/* ★★R132-10o：Bug 修复列表数据（用户 2026-10-05：「在设置按钮里面 bug 记录下面增加一个
+ *  按钮，叫做 Bug 修复列表；点击后进入次级菜单，里面显示各个 bug 的状态」）。
+ *  ★R132-10v 已并入回收站第二批 42 条（用户 2026-10-06「可以，一并并入」）；
+ *    该批录屏已全部下载并跑过 `_an_bugs.py` ⇒ 备注＝**机器预筛档位**
+ *    （机检:检出异常 20 / 机检:未检出异常 18 / 机检:无画面 4）。合计 229 条。
+ *  ★★R140（2026-10-09，用户逐字：「未机检的状态为未判定，机检过的无论结果如果都标记待修复」）：
+ *    **状态口径改写** —— 未机检 ⇒「未判定」；机检过（检出/未检出/无画面，一律）⇒「待修复」；
+ *    人工终态「已修复 / 待提交」不受重判（用户：「已修复的肯定不改啊，我指的是没有修复过只是
+ *    第一次机器核验的那些」）。⇒ 原 51 条「未判定」全部改判「待修复」，备注**一个字不动**。
+ *    ⇒ 分布 未判定 0 / 待修复 84 / 已修复 19 / 待提交 2。★「未判定」并未作废 —— 它现在专指
+ *      「新并入、**还没跑机检**」，眼下 105 条全跑过了所以是 0；以后并入新条目先落这一档。
+ *  ★★时间**不硬编码**：编号本身就是「毫秒时间戳(UTC)」，显示时 +8h 得北京时间
+ *    —— 单一真源，避免清单与表两处时间打架。
+ *  每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
 var BUGFIX_LIST=[
   ['1794906878703','我点了一下mv的平方除以2 然后把它摔了 结果我重新拼起来，然后这个m是会闪身步？ 他直接飞出去了','待修复','',0],
   ['1794724601697','?!弹簧连滚木!?','待修复','',0],
@@ -22677,15 +23084,15 @@ var BUGFIX_LIST=[
   ['1794317138614','为什么重力会飞起来','待修复','',0],
   ['1794141008641','黑洞吸不完所有可吸的物品就不吸垃圾桶了','待修复','',0],
   ['1794117991787','我去，怎么还有第二关😱😱😱','待修复','',0],
-  ['1794117663706','M是滚木吗？垃圾都删不掉它😱😱😱，并且还是MV中的m','待修复','重复提交×2',0],
-  ['1794117620020','M是滚木吗？垃圾都删不掉它😱😱😱，并且还是MV中的m','待修复','重复提交×2',0],
-  ['1794117393831','M和g在一起会合成mg','待修复','重复提交×2',0],
-  ['1794117382334','M和g在一起会合成mg','待修复','重复提交×2',0],
+  ['1794117663706','M是滚木吗？垃圾都删不掉它😱😱😱，并且还是MV中的m（重复提交×2）','待修复','',0],
+  ['1794117620020','M是滚木吗？垃圾都删不掉它😱😱😱，并且还是MV中的m（重复提交×2）','待修复','',0],
+  ['1794117393831','M和g在一起会合成mg（重复提交×2）','待修复','',0],
+  ['1794117382334','M和g在一起会合成mg（重复提交×2）','待修复','',0],
   ['1794115409162','按照视频，但动画消失公式','待修复','',0],
-  ['1794099617289','拼了一个向心力公式后m不在公式上了','待修复','重复提交×2',0],
-  ['1794099488335','拼了一个向心力公式后m不在公式上了','待修复','重复提交×2',0],
+  ['1794099617289','拼了一个向心力公式后m不在公式上了（重复提交×2）','待修复','',0],
+  ['1794099488335','拼了一个向心力公式后m不在公式上了（重复提交×2）','待修复','',0],
   ['1794066891650','666风火轮','待修复','',0],
-  ['1794064645097','弹簧卡方块里了','已修复','',1795179262],
+  ['1794064645097','弹簧卡方块里了','待修复','',0],
   ['1794041719241','光滑铰链飞天😨😨😨','待修复','',0],
   ['1794034459109','黑洞一直在','待修复','',0],
   ['1794016408396','muu   r','待修复','',0],
@@ -22697,23 +23104,23 @@ var BUGFIX_LIST=[
   ['1793628041336','这个m就认识拖不动','待修复','',0],
   ['1793468485679','我想做m(a+g)结果mg和a合成不了ma和g也合成不了这是什么bug?','待修复','',0],
   ['1793446513188','我希望将弹簧压缩，弹簧缩成一小截并掉。','待修复','',0],
-  ['1793436058279','如果这字母的物质放太多时候,可能会穿出屏幕','待修复','重复提交×3',0],
-  ['1793435822231','如果这字母的物质放太多时候,可能会穿出屏幕','待修复','重复提交×3',0],
-  ['1793435814026','如果这字母的物质放太多时候,可能会穿出屏幕','待修复','重复提交×3',0],
+  ['1793436058279','如果这字母的物质放太多时候,可能会穿出屏幕（重复提交×3）','待修复','',0],
+  ['1793435822231','如果这字母的物质放太多时候,可能会穿出屏幕（重复提交×3）','待修复','',0],
+  ['1793435814026','如果这字母的物质放太多时候,可能会穿出屏幕（重复提交×3）','待修复','',0],
   ['1793432232123','当我合成一个mv2再加上v就多出来一个v2','待修复','',0],
   ['1793420170110','为啥我拖动一个Mg他就回到线关键是它还放了后自己走了？','待修复','',0],
   ['1793419999823','这两个Mg在干嘛？？？','待修复','',0],
   ['1793358069924','弹簧异常','待修复','',0],
-  ['1793357421218','万有引力公式对小球不起作用','待修复','重复提交×2',0],
-  ['1793357382264','万有引力公式对小球不起作用','待修复','重复提交×2',0],
+  ['1793357421218','万有引力公式对小球不起作用（重复提交×2）','待修复','',0],
+  ['1793357382264','万有引力公式对小球不起作用（重复提交×2）','待修复','',0],
   ['1793271222290','质量小球碰质量大球撞，无法做到两个球往两个方向飞','待修复','',0],
   ['1793271131217','两个同质量小球碰撞，无法做到一个静止，一个到另一个小球初始的高度','待修复','',0],
   ['1793112611864','小球放到特定角度的斜坡上会自动弹跳，并且跳得很高','待修复','',0],
   ['1793018067469','刚才我在这制作黑洞黑洞变成了g','待修复','',0],
   ['1793013832017','那根线怎么不动？','待修复','',0],
   ['1792933549498','大风车','待修复','',0],
-  ['1792919580798','回掉球','待修复','重复提交×2',0],
-  ['1792919277266','回掉球','待修复','重复提交×2',0],
+  ['1792919580798','回掉球（重复提交×2）','待修复','',0],
+  ['1792919277266','回掉球（重复提交×2）','待修复','',0],
   ['1792914510119','c 和GMm 拼不上去','待修复','',0],
   ['1792898431185','怎么不爆炸？','待修复','',0],
   ['1792895794423','这不是bug，主要是想让作者实现个东西，就是负号，例如说a动量默认往右，加上符号就会往左 能实现吗😭','待修复','',0],
@@ -22740,7 +23147,14 @@ var BUGFIX_LIST=[
   ['1792324726953','将几个字母合成公式后,保存再重新加载,分数线和平方等等都被拆开了。','待修复','',0],
   ['1792299382475','那是什么','待修复','',0],
   ['1792213838122','将m放在B的范围内，用mc^2去炸，然后m无法选中，复制c出现了mc，且无法爆炸。','待修复','',0],
-  ['1791809253428','黑洞不变了','待提交','未包含有效信息',0],
+  ['1791899655696','在进行物体操作固定等时候，点击后会将物体移位导致不能在预期位置需要重新调整，若进行动态运动时会导致其他物体飞走，建议加一个暂停的按钮就能解决很多问题','已修复','最新版本上的字符t的参数调为0即可',0],
+  ['1791893285059','这个数值是空阻力是默认最大的质量是最小（是指那个图形）','待提交','未见异常链路',0],
+  ['1791885087538','重复叠加公式后出现抽搐行为','待提交','未见异常链路',0],
+  ['1791818948565','先用一根绳吊一个球再用绳子将其与另一个球链接，最后在下面的球上连了一根弹簧，弹簧一直在反复的压缩拉长','已修复','',0],
+  ['1791813679468','m未跟v2/r一起做圆周运动，不见了 还有一个问题：我忘记怎么操作了，反正c拖不动，也无法合成公式','待提交','未见异常链路',0],
+  ['1791813401587','m未跟v2/r一起做圆周运动，不见了 还有一个问题：我忘记怎么操作了，反正c拖不动，也无法合成公式','待提交','未见异常链路',0],
+  ['1791813030553','m未跟v2/r一起做圆周运动','待提交','未见异常链路',0],
+  ['1791809253428','黑洞不变了','待提交','',0],
   ['1792207780880','mg摔会多出一个交互错误的m','未判定','',0],
   ['1792206864968','m怎么会闪身步躲避这个v 并且复制还是mv😱😱😱','未判定','',0],
   ['1792206745801','黑洞公式要结束的时候点击出现没有激活的黑洞公式','未判定','',0],
@@ -22754,14 +23168,17 @@ var BUGFIX_LIST=[
   ['1792158216922','当在地面之下放置图形时，很容易跟地面之上的图形重合，并且在试图移动时重叠的图形会立刻瞬移出来导致撞到其他东西','未判定','',0],
   ['1792157835908','在放置图形后，切换为全屏，会出现图形实际的位置与渲染的位置不同','未判定','',0],
   ['1792157692342','【以m和g为例】进行一些操作后(以画面为准)，m和g会组合成(g+m)『也可能出现(g+)这类的异常显示』','未判定','',0],
-  ['1792157366474','【以m和g为例】调整g的参数后，m和g无法组合为mg','未判定','',0],
-  ['1792157071615','在一些情况下，字母或公式无法正常的移动，只能被拖动，并且超出线不会被检测到','未判定','',0],
-  ['1792156908658','在一些情况下，长按字母或者公式召唤出右键菜单时，参数选项会消失','未判定','',0],
-  ['1792156730264','在示例公式界面中召唤出向心力公式后拆散该公式，再重新组合成，会导致显示异常','未判定','',0],
+  ['1792157366474','【以m和g为例】调整g的参数后，m和g无法组合为mg','已修复','',1795627800],
+  ['1792157071615','在一些情况下，字母或公式无法正常的移动，只能被拖动，并且超出线不会被检测到','已修复','',0],
+  ['1792156908658','在一些情况下，长按字母或者公式召唤出右键菜单时，参数选项会消失','已修复','',0],
+  ['1792156730264','在示例公式界面中召唤出向心力公式后拆散该公式，再重新组合成，会导致显示异常','已修复','',0],
   ['1792156421943','【触屏】在调整朝向时，旋转按钮会出现无法按到，只能转动一点的情况 『备注：优化原bug的描述信息，新增了后续测试中发现的其他同类复现场景，完善了问题全貌的说明，保证bug描述准确严谨』','未判定','',0],
-  ['1792155505366','【触屏】在调整电场的朝向时，旋转按钮会出现无法按到，只能转动一点的情况','未判定','',0],
-  ['1792154976502','【疑似时序竞态bug】在召唤史瓦西半径公式触发黑洞后，不断的打开公式示例界面，点击史瓦西半径公式，不断这样操作，到最后召唤出的史瓦西半径公式不会变成黑洞','未判定','',0],
-  ['1792148232220','多弄了几下公式就如此','未判定','',0],
+  ['1792155505366','【触屏】在调整电场的朝向时，旋转按钮会出现无法按到，只能转动一点的情况','已修复','',0],
+  ['1792154976502','【疑似时序竞态bug】在召唤史瓦西半径公式触发黑洞后，不断的打开公式示例界面，点击史瓦西半径公式，不断这样操作，到最后召唤出的史瓦西半径公式不会变成黑洞','已修复','',0],
+  ['1792148232220','多弄了几下公式就如此','待提交','未包含有效信息',0],
+  ['1791984496176','左上角有一个-号','待提交','未包含有效信息',0],
+  ['1791983308694','还能隔空拿动','待提交','未包含有效信息',0],
+  ['1791975760779','凭空出现的2','待提交','未包含有效信息',0],
   ['1791729903539','画笔用量接近上限时点史瓦西半径等物理符号会卡顿并黑屏','已修复','',1795186837],
   ['1791722371365','弹簧无法锚到墙上的点，只能与物块诡异「协同运动」','已修复','',1795179649],
   ['1791721182569','特定屏幕尺寸下点「Bug 修复列表」的退出键点不到，反而打开符号面板','待提交','机检:无画面｜未包含有效信息',0],
@@ -22903,18 +23320,21 @@ function bugFixEsc(s){
 }
 function renderBugFixList(){
   var tb=DD.getElementById('fixrows');if(!tb)return;
-  /* ★★★2026-11-20（用户：「上面展示修复了的 bug，按照修复时间排序，最新的在最上面；
-     下面展示还未修复的 bug，按照提交时间排序，最新提交的在最上面」）：
-     **分两层渲染** —— 已修复组按 `r[4]`（修复时刻，unix 秒）降序，同日并列时用编号
-     （= 提交毫秒时间戳）做次级排序；未修复组按编号降序。编号本身就是毫秒时间戳，
-     所以「提交时间排序」不需要额外字段。 */
-  var fixed=[], other=[];
+  /* ★★★2026-11-25（用户：「待提交的记录新建一个板块，就放到已修复板块下面」）：
+     **三层** —— 已修复 / 待提交 / 其余（待修复 + 未判定）。
+     待提交是「代码已改、等用户复验」的状态，混在未修复里会让人以为还没动过。
+     · 已修复：按 r[4]（修复时刻）降序，同日并列用编号降序；
+     · 待提交 / 其余：按编号降序（编号本身就是提交毫秒时间戳）。 */
+  var fixed=[], pending=[], other=[];
   for(var gi=0;gi<BUGFIX_LIST.length;gi++){
     var gr=BUGFIX_LIST[gi]; if(!gr)continue;
-    if(gr[2]==='已修复')fixed.push(gr); else other.push(gr);
+    if(gr[2]==='已修复')fixed.push(gr);
+    else if(gr[2]==='待提交')pending.push(gr);
+    else other.push(gr);
   }
   function byIdDesc(a,b){ return (a[0]<b[0])?1:((a[0]>b[0])?-1:0); }
   fixed.sort(function(a,b){ var d=(b[4]||0)-(a[4]||0); return d?d:byIdDesc(a,b); });
+  pending.sort(byIdDesc);
   other.sort(byIdDesc);
   function rowHtml(r){
     var cls=r[2]==='已修复'?'fx-fixed':(r[2]==='待修复'?'fx-todo':'fx-pend');
@@ -22927,18 +23347,24 @@ function renderBugFixList(){
     h+='<tr class="fxsep"><td colspan="5">已修复 '+fixed.length+' 条</td></tr>';
     for(var fi=0;fi<fixed.length;fi++)h+=rowHtml(fixed[fi]);
   }
+  if(pending.length){
+    h+='<tr class="fxsep"><td colspan="5">待提交 '+pending.length+' 条</td></tr>';
+    for(var pj=0;pj<pending.length;pj++)h+=rowHtml(pending[pj]);
+  }
   if(other.length){
     h+='<tr class="fxsep"><td colspan="5">未修复 '+other.length+' 条</td></tr>';
     for(var oi=0;oi<other.length;oi++)h+=rowHtml(other[oi]);
   }
-  tb.innerHTML=h;
   tb.innerHTML=h;
   /* ★2026-11-20：进度条 —— 只统计「已修复」，分母是表里**全部**条目（含待提交/未判定）。 */
   var _tot=0,_fix=0;
   for(var kk=0;kk<BUGFIX_LIST.length;kk++){
     if(!BUGFIX_LIST[kk])continue;
     _tot++;
-    if(BUGFIX_LIST[kk][2]==='已修复')_fix++;
+    /* ★2026-11-25（用户：「待提交的也算已修复的，那个进度条要包括待提交的」）：
+       分子 = 已修复 + 待提交 —— 待提交的语义就是「代码已改、等复验」，对用户来说和已修复
+       是一回事；只看「已修复」会把进度低估 15 条（58 vs 73）。 */
+    if(BUGFIX_LIST[kk][2]==='已修复'||BUGFIX_LIST[kk][2]==='待提交')_fix++;
   }
   var _fill=DD.getElementById('fixprogfill'),_txt=DD.getElementById('fixprogtxt');
   var _pct=_tot?_fix/_tot*100:0;
@@ -22957,6 +23383,136 @@ function closeBugFixList(){
   if(fixbox)fixbox.classList.remove('on');
 }
 if(bugfixbtn)bugfixbtn.addEventListener('click',openBugFixList);
+/* ★★★2026-11-25（用户：「在 bug 记录上再增加一个板块，叫做建议，也是一标题一按钮，
+   点击按钮后弹出输入框，里面可以输入文字和提交图片，提交后也是到那个 bug 回收站里去，
+   不过有建议的标签，就不用渲染了」）：
+   建议走**同一个回收站接口**，但：
+   · `desc` 统一加「【建议】」前缀（后端 metadata 摘要把这个前缀带出来 ⇒ 列表上一眼可分）；
+   · body 里另带 `tag:'suggestion'`（后端当前忽略，纯前向兼容，将来加字段不用改前端）；
+   · `rec` 传**空帧**（后端硬校验要求 rec 是对象，但没有帧 ⇒ 不产生视频，也不占体积）。 */
+var SUGG_SHOTS=[], SUGG_ENDPOINT=BUG_ENDPOINT;
+function suggInfo(t){var e=DD.getElementById('sugginfo');if(e)e.textContent=t||'';}
+function suggShotRender(){
+  var w=DD.getElementById('suggshots'); if(!w)return;
+  /* ★2026-11-25（用户：「那个建议的板块的截图点了那个截图没有预览功能」）：
+     结构与 Bug 弹窗完全同构（div.bshot + 序号 bn + 删除 bx），点图调
+     bugShotView(i, SUGG_SHOTS) 复用同一个放大浮层；只有 ✕ 走自己的数组。 */
+  var h='';
+  for(var i=0;i<SUGG_SHOTS.length;i++){
+    h+='<div class="bshot"><img src="'+SUGG_SHOTS[i].d+'" alt="图片'+(i+1)+'">'
+      +'<span class="bn">'+(i+1)+'</span>'
+      +'<button class="bx" data-i="'+i+'" title="删掉这张">✕</button></div>';
+  }
+  w.innerHTML=h;
+  var ims=w.querySelectorAll('.bshot img');
+  for(var q1=0;q1<ims.length;q1++)ims[q1].addEventListener('click',function(){
+    var px=this.parentNode.querySelector('.bx');
+    bugShotView(+px.getAttribute('data-i'), SUGG_SHOTS);
+  });
+  var xs=w.querySelectorAll('.bx');
+  for(var j=0;j<xs.length;j++)xs[j].addEventListener('click',function(ev){
+    if(ev&&ev.stopPropagation)ev.stopPropagation();
+    SUGG_SHOTS.splice(+this.getAttribute('data-i'),1);suggShotRender();
+  });
+}
+
+function suggShotAdd(s){
+  if(SUGG_SHOTS.length>=SHOT_MAX){suggInfo('最多 '+SHOT_MAX+' 张，先删一张吧。');return false;}
+  SUGG_SHOTS.push(s);suggShotRender();
+  /* ★2026-11-25：同上 —— 成功后不再写状态文字。 */
+  return true;
+}
+function suggShotFromFile(file){
+  try{
+    var fr=new FileReader();
+    fr.onload=function(){
+      var img=new Image();
+      img.onload=function(){
+        try{
+          var k=Math.min(1,SHOT_EDGE/Math.max(img.width||1,img.height||1));
+          var w=Math.max(1,Math.round((img.width||1)*k)),h=Math.max(1,Math.round((img.height||1)*k));
+          var c=document.createElement('canvas');c.width=w;c.height=h;
+          var g=c.getContext('2d');g.fillStyle='#F4F1EA';g.fillRect(0,0,w,h);
+          g.drawImage(img,0,0,w,h);
+          var u=c.toDataURL('image/jpeg',SHOT_Q);
+          suggShotAdd({d:u,w:w,h:h,kb:Math.round(u.length/1024)});
+        }catch(e){suggInfo('这张图读不出来。');}
+      };
+      img.onerror=function(){suggInfo('这不是能识别的图片格式。');};
+      img.src=String(fr.result||'');
+    };
+    fr.onerror=function(){suggInfo('读取文件失败。');};
+    fr.readAsDataURL(file);
+  }catch(e){suggInfo('读取文件失败。');}
+}
+/* ★2026-11-25：截图 —— 与 Bug 弹窗同一套动作：收起弹窗 → 等过渡 → 合成当前画面 → 回来挂上。
+   ★必须**先存文本**：close/open 之间用户看不到输入框，回来时要原样还原（Bug 那边也这么做的）。 */
+function suggShotGrab(){
+  if(SUGG_SHOTS.length>=SHOT_MAX){suggInfo('最多 '+SHOT_MAX+' 张，先删一张吧。');return;}
+  var had=(DD.getElementById('suggdesc')||{}).value||'';
+  closeSuggDlg();
+  setTimeout(function(){
+    var sp=null;
+    try{sp=bugShotCompose();}catch(e){sp=null;}
+    openSuggDlg();
+    var d=DD.getElementById('suggdesc'); if(d)d.value=had;
+    if(sp)suggShotAdd(sp); else suggInfo('截图失败：拿不到画面（可改用「上传图片」）。');
+  },240);
+}
+function openSuggDlg(){
+  var m=DD.getElementById('suggmask'),b=DD.getElementById('suggbox');
+  suggInfo(''); suggShotRender();
+  if(m)m.classList.add('on'); if(b)b.classList.add('on');
+  var d=DD.getElementById('suggdesc'); if(d)d.focus();
+}
+function closeSuggDlg(){
+  var m=DD.getElementById('suggmask'),b=DD.getElementById('suggbox');
+  if(m)m.classList.remove('on'); if(b)b.classList.remove('on');
+}
+function suggSubmit(){
+  var d=DD.getElementById('suggdesc');
+  var txt=(d&&d.value||'').trim();
+  if(!txt&&!SUGG_SHOTS.length){suggInfo('写点什么，或者传张图。');return;}
+  var shots='';
+  if(SUGG_SHOTS.length){
+    var arr=[];
+    for(var i=0;i<SUGG_SHOTS.length;i++)arr.push('{"w":'+SUGG_SHOTS[i].w+',"h":'+SUGG_SHOTS[i].h+',"d":'+JSON.stringify(SUGG_SHOTS[i].d)+'}');
+    shots=',"shots":['+arr.join(',')+']';
+  }
+  var body='{"desc":'+JSON.stringify('【建议】'+txt)+',"tag":"suggestion"'
+    +',"rec":{"v":2,"frames":[],"events":[]}'+shots+'}';
+  var btn=DD.getElementById('suggsubmit');
+  if(btn)btn.disabled=true;
+  suggInfo('提交中…（'+Math.round(body.length/1024)+' KB）');
+  fetch(SUGG_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:body})
+    .then(function(r){return r.json().catch(function(){return {ok:r.ok,err:'HTTP '+r.status};});})
+    .then(function(j){
+      if(btn)btn.disabled=false;
+      if(j&&j.ok){
+        suggInfo('已提交（编号 '+(j.id||'?')+'），谢谢！');
+        if(d)d.value=''; SUGG_SHOTS=[]; suggShotRender();
+      }else{
+        suggInfo('提交失败：'+((j&&j.err)||'未知错误'));
+      }
+    })
+    .catch(function(e){if(btn)btn.disabled=false;suggInfo('提交失败：网络错误');});
+}
+(function(){
+  var ob=DD.getElementById('suggbtn'),cl=DD.getElementById('suggclose'),
+      mk=DD.getElementById('suggmask'),up=DD.getElementById('suggshotup'),
+      fi=DD.getElementById('suggshotfile'),sb=DD.getElementById('suggsubmit');
+  if(ob)ob.addEventListener('click',openSuggDlg);
+  if(cl)cl.addEventListener('click',closeSuggDlg);
+  if(mk)mk.addEventListener('click',closeSuggDlg);
+  var gb=DD.getElementById('suggshotgrab');
+  if(gb)gb.addEventListener('click',suggShotGrab);
+  if(up&&fi)up.addEventListener('click',function(){fi.click();});
+  if(fi)fi.addEventListener('change',function(){
+    for(var i=0;i<fi.files.length;i++)suggShotFromFile(fi.files[i]);
+    fi.value='';
+  });
+  if(sb)sb.addEventListener('click',suggSubmit);
+})();
 if(fixmask)fixmask.addEventListener('click',closeBugFixList);
 if(fixclose)fixclose.addEventListener('click',closeBugFixList);
 window.openBugFixList=openBugFixList;window.closeBugFixList=closeBugFixList;
@@ -25068,8 +25624,10 @@ var QPOP_TEXT={
   scnhelpq:'保存后仅保存在当前浏览器，切换浏览器请导出数据',
   /* ★★R143-p（用户第十批**逐字给的**说明文案，一字未改；只按同族写法把关键词加粗）：
      「记录过程最好完整复现整个bug，最长时间不超过30秒，如果你有什么好想法的话也可以在这里提交awa」 */
-  recqbtn:'记录过程最好<b>完整复现整个bug</b>，最长时间不超过<b>30秒</b>，'
-      + '如果你有什么好想法的话也可以在这里提交awa'
+  /* ★2026-11-25（用户：「有了建议板块了，所以那里面的说什么有什么好的建议之类的这句话给删掉」
+     + 「就是 bug 记录那里的问号的解释图标」）：删掉原来那句「如果你有什么好想法的话
+     也可以在这里提交awa」——建议已有独立的「建议」板块承接，这里只讲怎么录。 */
+  recqbtn:'记录过程最好<b>完整复现整个bug</b>，最长时间不超过<b>30秒</b>'
 };
 /* ★★R143：`outside=true` ⇒ **先贴所属面板的右外沿**再展开（`left = max(按钮右侧+10, 面板右沿+12)`）。
    为什么需要这个开关（用户：「这个界面好像排版不是很美观，你再截图检查一遍」）：
