@@ -7999,13 +7999,29 @@ function canMergeRaw(B,d){
    *  它们只能作为表达式的**起点**（如 mc²、GMm），不能追加到一个已经成形的表达式里。 */
   /* ★R131-43（用户：「我说的是 **小写 m** 不能加 c——GM 应该能继续融成 GM/c² 那种」）：
    *  只有当表达式中含**小写 m** 时才拒绝追加 c；大写 M 的组合（GM…）允许。 */
-  if(B&&B.mem&&B.mem.length>=2&&d&&d.ch==='c'){
-    var _hasLittleM=false;
+  if(B&&B.mem&&d&&d.ch==='c'){
+    var _hasLittleM=false,_hasC=false;
     for(var _mi=0;_mi<B.mem.length;_mi++){
-      var _mm=B.mem[_mi];if(_mm&&(_mm.ch==='m'||_mm.type==='m')){_hasLittleM=true;break;}
+      var _mm=B.mem[_mi];
+      if(_mm&&(_mm.ch==='m'||_mm.type==='m'))_hasLittleM=true;
+      if(_mm&&(_mm.ch==='c'||_mm.type==='c'))_hasC=true;
     }
     if(B.massG&&(B.massG.ch==='m'||B.massG.type==='m'))_hasLittleM=true;
-    if(_hasLittleM)return false;
+    /* ★★★2026-11-27（用户：「怎么现在 mc² 拼不出来了？只能拼到 mc」）：
+       **这一处漏了 `_effLen`**（上面那段长注写着「下面 r / c 两处」，c 这里却还是
+       `B.mem.length>=2`）。mc 体的 `mem=['m','c']` 长度就是 2 ⇒ 命中守卫；
+       而 `massG` 正是小写 m ⇒ `_hasLittleM` 真 ⇒ **第二个 c 直接被拒**，用户只能拼到 mc。
+       ★但不能简单改成 `_effLen>=2`：那样 `m+G+c`（Gmc）也会被放进来，违反 R131-42/43。
+       ⇒ 按「**已有的 c 是在叠加成 c²，还是要往表达式里塞一个新常量**」区分：
+         · 已有 c（`_hasC`）⇒ 允许再加，直到 cCount>=2（即 c² 为止）；
+         · 没有 c 且该体是小写 m 系 ⇒ 拒（Gmc 这类维持原判）。
+       ★对已有的正确组合零影响：`GM + c`（含小写 m？不含）仍允许走 GM/c²；
+         `mc²` 加到第二个 c 后 cCount=2 ⇒ 第三个 c 仍被拒。 */
+    if(_hasC){
+      if(B.cCount>=2)return false;
+    }else if(_effLen>=1&&_hasLittleM){
+      return false;
+    }
   }
   if(!B||B.kind)return false; // field bodies (B/q/I) are not letter-merge targets
   if(B.bh)return false;       // a black hole devours letters — never merges with them
@@ -8052,7 +8068,11 @@ function canMergeRaw(B,d){
     if(B.family===2)return false;          // don't drop G into a v/r formula
     // into an empty / mass-only body, or a mass-with-c body (M+c -> GMc -> GMc² -> 2GM/c²)
     if(B.hasC){if(B.mem.length>=1)return false;return true;}
-    if(B.mem.length>=2)return false;
+    /* ★★★2026-11-27（同 GMm 那条）：**G 的独立分支里也是 `B.mem.length>=2`** ——
+       `mM` 体的 mem=['m','M'] 正好 2 ⇒ 加 G 被拒（实测 m→M→G 走不到 GMm）。
+       改用 `_effLen`（不含 massG）⇒ mM 的 `_effLen=1` ⇒ 允许并入 G，成为 GMm。
+       ★放开后由 `mergeStaysInExpr` 兜底：{m,M,G} ⊆ GMm/r² 才可达。 */
+    if(_effLen>=2)return false;
     return true;
   }
   var fam=(t==='g'||t==='a'||t===MU||t==='c'||t==='G')?1:2;
@@ -8070,7 +8090,13 @@ function canMergeRaw(B,d){
     return true;
   }
   for(var k=0;k<B.mem.length;k++)if(B.mem[k].type===t)return false;
-  if(B.mem.length>=2)return false;
+  /* ★★★2026-11-27（用户：「同步检查其他拼接体有无类似bug」——**GMm 也拼不出来**）：
+     这里又是 `B.mem.length>=2`，而 `promoteFreeLetter` 把 `massG` 也 push 进了 mem：
+     `mM` 体的 `mem=['m','M']` 长度就是 2 ⇒ **G 直接被拒**（实测 m→M 成功、再加 G 被拒）。
+     修：改用**不含 massG 的有效字母数** `_effLen`（与本函数开头 r/c 两处同口径）。
+     ★会不会放开过头：`mergeStaysInExpr` 会兜底 —— 字母多重集必须 ⊆ 某个 WHOLE_PRESETS，
+       例如 `m+g+a` 不在任何预设里 ⇒ 仍然合不了；而 `{m,M,G} ⊆ GMm/r²` ⇒ 可达。 */
+  if(_effLen>=2)return false;
   return true;
 }
 // R60c（用户 #4）：符号拼接必须「交叠或非常靠近」才发生，不能是「以某个锚点为圆心的固定大
@@ -9504,6 +9530,25 @@ DD.addEventListener('pointerup',function(e){
     if(typeof isLoneLetterBody==='function'&&isLoneLetterBody(B)){
       if(mergeLoneBodyOnDrop(B)){grab.kind=null;grab.obj=null;return;}
     }
+    /* ★★★2026-11-26（bug `1792158683016`）：拖**体**（公式）进闭合形状的腔体也一样推出来。
+       ★只在松手这一刻做一次（带深度门槛），不像上一版那样每帧跑 —— 每帧跑会移动
+         「本来就坐在容器里」的方块，回归 `_diag_r109.py` 的 G2/G2b 会反复红。 */
+    if(!B.kind){
+      try{
+        var _pb=pushOutOfClosedW(B.x,B.y,
+          Math.max(10,((B.hw||30)+(B.hh||30))/2),
+          0);   /* ★★2026-11-27（用户：「在特定的正中间，还是有一小段区域会卡到里面」）：
+                    **落点拦截不能用深度门槛** —— 上一版抄了「每帧推」那套门槛
+                    `max(6, min(hw,hh)*0.45)`，而传送带 `hh=10`、内部总深度只有 10px，
+                    **正中间离上下边各 5px < 门槛 6px ⇒ 不推 ⇒ 卡在里面**。
+                    落点拦截只在松手那一刻执行一次（不影响已经摆好的物体，G2b 不会被误伤），
+                    所以门槛归零。 */
+        if(_pb.changed){
+          B.x=_pb.x;B.y=_pb.y;
+          if(B.mb&&typeof Matter!=='undefined'&&Matter.Body)Matter.Body.setPosition(B.mb,{x:B.x,y:B.y});
+        }
+      }catch(_eb){}
+    }
     /* ★★R132-9ze（用户 2026-10-03 的录屏 `rec_2026-10-03-05-57-33.json` 定案：
      *   「把 q 放到物体上**根本没反应**」）。
      *   画布上那个"q"其实是**场源体**（`spawnField('q')` 造的 `kind:'q'` 体），
@@ -9734,6 +9779,16 @@ DD.addEventListener('pointerup',function(e){
   }else if(grab.kind==='letter'){
     dblState.t=0;
     var L=grab.obj;
+    /* ★★★2026-11-26（bug `1792158683016` 用户：「还是可以把字符放进去」）：
+       **落点拦截** —— 上一版只在「自由字母的每帧物理」里推，可字符一落地就被
+       `promoteFreeLetter` 提升成体，之后的每帧推出管不到它了 ⇒ 照样能放进去。
+       这里在**松手那一刻**先把落点推到闭合体外面，再走后续的合并/落地逻辑。
+       ★只动落点，不动已有物体 —— 已经摆好的方块（回归 `_diag_r109.py` G2/G2b）
+         不经过这条分支，不会被误伤。 */
+    try{
+      var _po0=pushOutOfClosedW(L.wx,L.wy,Math.max(10,(L.w||30)/2));
+      if(_po0.changed){L.wx=_po0.x;L.wy=_po0.y;placeLetter(L);}
+    }catch(_e0){}
     if(inTrash(pointer.x,pointer.y)){
       killLetter(L);
       grab.kind=null;grab.obj=null;
@@ -10094,7 +10149,12 @@ function stepPhysics(dt){
     // walls(B) 照旧（杆左右墙/地面的细活另在 rodResolve 里，这是既有分工，本轮不动）。
     if(B.kind!=='T'){B.x+=B.vx*dt;B.y+=B.vy*dt;}
     walls(B);
-  }
+    /* ★★2026-11-26（bug `1792158683016`）：刚体**不做**腔体推出 —— 试过两版都干扰正常场景：
+       · 版1 推出后 `vx/vy*=0.25` ⇒ `_diag_r109.py` G2b「删掉支撑也不掉下去」（Δy 0.45px）；
+       · 版2 加「必须深入腔内」门槛 ⇒ 仍有 1/4 概率让 G2/G2b 失败（贴着闭合体的方块被移动了位置）。
+       ★腔体问题的**用户场景是字符/公式被拖进去**，自由字母那一路已经每帧推出（判据 C 通过）；
+         刚体贴着容器本来就是正常摆放（方块坐在方框里），移动它反而制造新 bug。 */
+    }
     for(var k=0;k<freeL.length;k++){
     var d=freeL[k];
     /* ★★R131-59：**被拖的字符**一律跳过自身积分 —— 原来要求 `d.state==='grab'`，而 gdDown
@@ -10132,6 +10192,13 @@ function stepPhysics(dt){
         var fvn=(d.vx||0)*fc.nx+(d.vy||0)*fc.ny;
         if(fvn<0){d.vx-=fc.nx*fvn;d.vy-=fc.ny*fvn;}
       }
+      /* ★★★2026-11-26（bug `1792158683016`）：闭合形状（传送带/箱子）内部是空腔 ——
+         进去的字母没有碰撞面托住它，只会被两侧边夹来夹去（「抽搐」）。每帧推到最近的边外，
+         顺带保证「放不进去」。 */
+      try{
+        var _po=pushOutOfClosedW(d.wx,d.wy,Math.max(10,(d.w||30)/2));
+        if(_po.changed){d.wx=_po.x;d.wy=_po.y;if(d.vx)d.vx*=0.3;if(d.vy)d.vy*=0.3;placeLetter(d);}
+      }catch(_ce){}
     }
   }
 }
@@ -11491,6 +11558,15 @@ function paramV(B,id){
 }
 function applyParam(B,spec,val){
   val=+val||0;
+  /* ★★★2026-11-27（bug `1792159017422`：「长度设置里输入框允许输出负数」）：
+     **长度类必须先按 spec.min/max 钳住**再往下走。原来 `-4` 一路传到 `setRodLen`，
+     那里只保证 `len>0` ⇒ 实测杆长被设成 **1px**（参数面板显示 0.004m），比负数更难看出来。
+     ★只对 4 个长度 key 生效 —— `applyParam` 是**唯一咽喉**，内部还有反棘轮/自动装配等调用，
+       对全部参数做 clamp 风险太大；而 rep(0,60,420) 这类范围正是面板滑块本身的口径。 */
+  if(spec&&spec.siK&&(spec.key==='rodlen'||spec.key==='slen'||spec.key==='rlen'||spec.key==='gndlen')){
+    if(spec.min!=null&&val<spec.min)val=spec.min;
+    if(spec.max!=null&&val>spec.max)val=spec.max;
+  }
   if(!B.param)B.param={};
   B.param[spec.key]=val;
   var key=spec.key;
@@ -11998,6 +12074,14 @@ function copyBody(src){
   B.glyphs=[];B.mem=[];
   var mm=[];
   for(var i=0;i<src.mem.length;i++){
+    /* ★★★2026-11-27（用户：「怎么会出这样的问题，对 mc² 复制，出来的是 m（m+c）？」）：
+       **真因 = 双表示差异**。`promoteFreeLetter` 造的体把 `massG` **也 push 进了 mem**
+       （手工拼的 mc² ⇒ `mem=['m','c','c']` + `massG=m`）；而 `spawnWhole` 造的体
+       `massG` **不在 mem 里**（预设 mc² ⇒ `mem=['c','c']`）。
+       旧代码**无条件照抄 `src.mem`** ⇒ 手工拼的那一支副本变成 `mem=[m,c,c]` **再加一个**
+       新建的 `massG=m` ⇒ **mem 里两个 m**，`tokenSeq` 于是排出 `m(m+c)`。
+       ★修：跳过与 `src.massG` 同对象的项 —— 两种来源都得到「mem 不含 massG」的统一形态。 */
+    if(src.mem[i]===src.massG)continue;
     var c2=src.mem[i].type;
     var g2=GD(c2);g2.pop=0;
     B.mem.push(g2);
@@ -12233,6 +12317,15 @@ function renderParamPanel(){
     sl.type='range';
     var nu=document.createElement('input');
     nu.type='number';
+    /* ★★★2026-11-27（bug `1792159017422` 第二轮：「还是能打负号进去，回车后还是显示 -4」）：
+       **我之前改错了地方** —— 改的是 `mkSizeNum`（尺寸框：半径/宽/高/角度），
+       而用户说的「长度设置」是**参数面板里这一行**（杆长/弹簧长/绳长/地面长），
+       由这个 `nu` 渲染，**既没有 `min` 属性、也没有负号拦截**。
+       ⇒ 按 `spec.min/max` 设属性（长度类的 spec 都写了 min=60）。 */
+    /* ★2026-11-27：`spec.min/max` 是**像素**，而框里显示的是**米**（`/siK` 换算过），
+       直接拿像素设属性会让 0.654 落在 min=60 之外、整框变 invalid ⇒ 同样按 siK 换算。 */
+    if(spec.min!=null)nu.min=String(+(spec.min/(spec.siK||1)).toFixed(4));
+    if(spec.max!=null)nu.max=String(+(spec.max/(spec.siK||1)).toFixed(4));
     /* ★★R132-10u（用户 2026-10-06：「手机版模式下，那个 v 的输入框输入不了符号 c」）：
      *  根因**不在下面 keydown 那段特例**（桌面用物理键盘敲 c 一直是好的），而在输入框本身：
      *  `<input type="number">` 在手机上调起的是**数字键盘**，上面**根本没有字母键** ⇒
@@ -12374,6 +12467,10 @@ function renderParamPanel(){
         // number input has UNLIMITED range — no clamp here. The slider is clamped by
         // its own min/max (it will just rest at an endpoint for out-of-range values).
         applyParam(B2,spec2,v*k2);
+    /* ★★2026-11-27（同上）：「回车后还是显示 -4」的机制就在这三行 ——
+       `applyParam` 内部把 -4 夹到 spec.min（60），但紧接着**用用户输入的 v 写回框里**
+       ⇒ 参数已是 60、框里却写着 -4。修：写入后**从真值回读**，框里显示的就是活的值。 */
+    try{ var _real=paramV(B2,spec2.key)/k2; if(isFinite(_real))v=_real; }catch(e3){}
         sl2.value=v;   // browser clamps the displayed slider position only
         nu2.value=Math.round(v*1000)/1000;
         val2.textContent=fmtVal(v,spec2);
@@ -12399,9 +12496,15 @@ function renderParamPanel(){
     })(spec,paramBody,nu,sl,val,kSI));
     // R72（用户：「参数输入后回车即完成输入」）：number 框的 change 在回车时本就会触发应用，
     // 但焦点仍留在框里 —— 后续按键继续被当成编辑，画布的快捷键也回不来。回车 = 应用 + 交还焦点。
-    nu.addEventListener('keydown',(function(nu2){
-      return function(e){ if(e.key==='Enter'){e.stopPropagation();nu2.blur();} };
-    })(nu));
+    nu.addEventListener('keydown',(function(nu2,spec3){
+    return function(e){
+      if(e.key==='Enter'){e.stopPropagation();nu2.blur();return;}
+      /* ★★2026-11-27（同上）：**不允许输入负号** —— 只对 `spec.min >= 0` 的参数行生效
+         （长度/质量/摩擦/弹性这类；角度、电荷等允许负值的行**不受影响**）。 */
+      if(spec3&&spec3.min!=null&&spec3.min>=0
+         &&(e.key==='-'||e.key==='Subtract'||e.code==='NumpadSubtract')){e.preventDefault();return;}
+    };
+})(nu,spec));
     /* ★★R132 BOSS：**v 的大小参数框里输入字母 c ⇒ 数值变成光速**。
      *  `<input type=number>` 本身会把字母吞掉（keydown 之后 value 变空），所以只能在
      *  keydown 阶段捕获。只在 vsize 行生效，其余行不受影响。 */
@@ -12610,7 +12713,7 @@ function refreshSizeInputs(){
     if(n.value!==s)n.value=s;
   }
 }
-function mkSizeNum(lab,unit,get,set){
+function mkSizeNum(lab,unit,get,set,min){
   var r=document.createElement('div');
   r.style.cssText='display:flex;align-items:center;gap:8px;padding:3px 0';
   var s=document.createElement('span');
@@ -12620,22 +12723,41 @@ function mkSizeNum(lab,unit,get,set){
   var n=document.createElement('input');
   n.type='number';
   n.step='0.01';
+  /* ★★★2026-11-27（bug `1792159017422` 用户：「在长度设置中，输入框出现允许长度为负的情况」）：
+     **尺寸类输入框原来没有 `min`**，手打 `-50` 会被 `set(v)` 原样吃下去。
+     下面 `applyParam` 那一层虽然都 clamp 了，但**框里显示的还是负数**、而且几何在 clamp 前后
+     会先抖一下（实测 rodlen 输 -50 → B.len 从 170 直接跳到 1）。
+     ⇒ 长度类调用处传 `min=0`：① 输入框属性层挡住上下箭头；② 输入过程中物理上按最小值生效；
+       ③ 回车/失焦时把框里的字纠正成真值。
+     ★**角度类不传 min**（圆弧角度、三角形的角都可以为负/任意值），默认 null = 不限。 */
+  if(min!=null)n.min=String(min);
   n.setAttribute('data-sizein','1');
   n.value=String(Math.round(get()*1000)/1000);
   n._get=get;n._set=set;                      /* ★R143-k：回车/失焦要能重读真值 */
   n.addEventListener('input',function(){
+    /* ★★★2026-11-27（用户第二轮：「我还是能在那个输入框输入负数并回车，**改成不能输入负号**」）：
+       上一版只加了 `min` 属性 + 负值不落地，但 `min` **拦不住手打**（HTML 只管上下箭头/校验态），
+       框里的 `-` 还是能敲进去、回车后虽然被 clamp，用户看到的仍是「输入框接受负数」。
+       ⇒ 这里直接把框里的负值**改写回最小值**（粘贴、上下箭头、键入三条路一起兜住）。 */
     var v=parseFloat(n.value);
+    if(min!=null&&isFinite(v)&&v<min){ n.value=String(min); v=min; }
     if(!isFinite(v))return;          // 中途输入「-」「1e」这类半成品不报错、也不改几何
     set(v);
   });
   /* ★R143-k：回车 = 立刻应用 + 把这一组框的回读值刷成真值（见上面那段长注）。 */
   function commit(){
     var v=parseFloat(n.value);
-    if(isFinite(v))set(v);
+    if(isFinite(v)){
+      if(min!=null&&v<min){v=min;n.value=String(min);}   // ★把框里的负数纠正成真值
+      set(v);
+    }
     refreshSizeInputs();
   }
   n.addEventListener('keydown',function(e){
-    if(e.key==='Enter'||e.keyCode===13){e.preventDefault();commit();}
+    if(e.key==='Enter'||e.keyCode===13){e.preventDefault();commit();return;}
+    /* ★★2026-11-27（同上）：长度/尺寸类**不允许敲负号** —— 「-」与数字键盘「Subtract」直接吞掉。
+       角度类（min 为 null）不受影响，负角度照常可输。 */
+    if(min!=null&&(e.key==='-'||e.key==='Subtract'||e.code==='NumpadSubtract')){e.preventDefault();return;}
   });
   n.addEventListener('change',commit);        // 失焦/上下箭头确认同样提交
   r.appendChild(s);r.appendChild(n);
@@ -12647,15 +12769,15 @@ function buildSizeFields(B){
   if(B.wshape==='circle'){
     box.appendChild(mkSizeNum('半径 r','m',
       function(){return (B.rad||0)/PX_PER_M;},
-      function(v){wSetRadius(B,v*PX_PER_M);}));
+      function(v){wSetRadius(B,v*PX_PER_M);},0));
   }else if(B.wshape==='rect'){
     // 用户口径：「矩形（**两个框**，两个方向拖动）」⇒ 宽/高各一个框。
     box.appendChild(mkSizeNum('宽 w','m',
       function(){return wRectWH(B).w/PX_PER_M;},
-      function(v){var q=wRectWH(B);wSetRectSize(B,v*PX_PER_M,q.h);}));
+      function(v){var q=wRectWH(B);wSetRectSize(B,v*PX_PER_M,q.h);},0));
     box.appendChild(mkSizeNum('高 h','m',
       function(){return wRectWH(B).h/PX_PER_M;},
-      function(v){var q=wRectWH(B);wSetRectSize(B,q.w,v*PX_PER_M);}));
+      function(v){var q=wRectWH(B);wSetRectSize(B,q.w,v*PX_PER_M);},0));
   }else if(B.wshape==='arc'){
     // 用户口径：「弧（参数调节可调节**圆弧角度**和**圆弧周长**）」
     box.appendChild(mkSizeNum('圆弧角度','°',
@@ -12663,13 +12785,13 @@ function buildSizeFields(B){
       function(v){wSetArcDeg(B,v);}));
     box.appendChild(mkSizeNum('圆弧周长','m',
       function(){var s=wArcState(B);return s?s.len/PX_PER_M:0;},
-      function(v){wSetArcLen(B,v*PX_PER_M);}));
+      function(v){wSetArcLen(B,v*PX_PER_M);},0));
   }else if(B.wshape==='ring'){
     /* ★R143-k（用户：「圆轨道没有内外半径之分，就一个半径控制就行」）⇒ **一个框**。
        `wSetRing` 现在只吃一个参数（中线半径），内外缘由 `BND_INK` 派生。 */
     box.appendChild(mkSizeNum('半径 r','m',
       function(){return (B.rad||0)/PX_PER_M;},
-      function(v){wSetRing(B,v*PX_PER_M);}));
+      function(v){wSetRing(B,v*PX_PER_M);},0));
   }else if(B.wshape==='tri'){
     /* 用户口径：「参数框可以调控**三个角**的角度」⇒ 三个框。
        ★改一个角 ⇒ 另两个**按比例缩放**到剩余度数 —— 三角形内角和恒 180°，否则过约束无解
@@ -13851,7 +13973,24 @@ function explodeBody(B){
   trailRetire(B);
   spawnExplosion(cx,cy);
   for(var j=0;j<B.glyphs.length;j++){var g=B.glyphs[j];if(g.body===B){g.body=null;g.inBody=false;killLetter(g);}}
-  B.glyphs=[];B.mem=[];
+  /* ★★★2026-11-27（用户：「mc²的爆炸怎么炸不掉字符m？还有什么其他字符也有这个问题吗」）：
+     **加固**：原来只 kill `B.glyphs` 里的字形。可质量字母 `massG` 与 `mem` 里的字母
+     在「手工拼接」这条路径上**未必都在 glyphs 里**（`tokenSeq` 的各个 family 分支对
+     massG 的处理不同）⇒ 只要漏一个，它就会变成一个可拖的自由字母留在原地，
+     用户看到的就是「炸完 m 还在」。
+     ⇒ 这里把 `massG` / `mem` / `glyphs` 三处的字母**并集**全部清掉（同一个字母只 kill 一次）。 */
+  var _killSeen=[];
+  function _boomKill(g){
+    if(!g||g.dead)return;
+    if(_killSeen.indexOf(g)>=0)return;
+    _killSeen.push(g);
+    g.body=null;g.inBody=false;
+    try{killLetter(g);}catch(e){}
+  }
+  for(var _gj=0;_gj<B.glyphs.length;_gj++)_boomKill(B.glyphs[_gj]);
+  if(B.massG)_boomKill(B.massG);
+  for(var _mj=0;_mj<(B.mem||[]).length;_mj++)_boomKill(B.mem[_mj]);
+  B.glyphs=[];B.mem=[];B.massG=null;
   blastAt(cx,cy,300);   // shockwave: shatter nearby wholes, vaporize nearby loose letters
   shake(16,0.55);
 }
@@ -14629,8 +14768,36 @@ function stepShake(dt){
   if(shakeT>=shakeDur){document.body.style.transform='';shakeOn=false;shakeAmp=0;shakeDur=0;}
 }
 function resize(){
+  /* ★★★2026-11-26（bug `1792157835908`；用户：「切换为全屏会出现图形实际的位置与渲染的
+     位置不同」＋「屏幕比例变化时图形或字符和地面的距离发生变化，**以地面的坐标为基准保持**」）：
+     **真因**：`groundY=Math.round(H*0.8)` 跟着窗口高度变，可**所有物体的坐标原地不动**
+     ⇒ 地面上下移动、东西没动 ⇒ 与地面的距离全变（1102 高地面 882，全屏 1440 ⇒ 1152，差 270px）。
+     ★修法：按**地面位移量**整体平移场景（x 按画布中心位移量）。自由字母与所有 kind 的体都平移；
+     Matter 本体同步 setPosition，否则下一帧物理会拉回去。 */
+  var _oldW=W,_oldH=H,_oldG=groundY;
   W=window.innerWidth;H=window.innerHeight;
   groundY=Math.round(H*0.8);
+  if(_oldW>0&&_oldH>0&&(W!==_oldW||groundY!==_oldG)){
+    var _dG=groundY-_oldG,_dX=(W-_oldW)/2;
+    if(_dG||_dX){
+      var _mv=function(o){
+        if(!o||o.dead)return;
+        o.x=(o.x||0)+_dX; o.y=(o.y||0)+_dG;
+        if(o.mb&&typeof Matter!=='undefined'&&Matter.Body){
+          try{Matter.Body.setPosition(o.mb,{x:o.x,y:o.y});}catch(e){}
+        }
+        if(o.pinv!=null)o.pinv+=_dG;
+      };
+      for(var _bi=0;_bi<bodies.length;_bi++)_mv(bodies[_bi]);
+      for(var _fi=0;_fi<freeL.length;_fi++){
+        var _fl=freeL[_fi];
+        if(!_fl||_fl.dead)continue;
+        _fl.wx=(_fl.wx||0)+_dX; _fl.wy=(_fl.wy||0)+_dG;
+        if(_fl.x2!=null)_fl.x2+=_dX;
+        if(_fl.y2!=null)_fl.y2+=_dG;
+      }
+    }
+  }
   // full-screen reach: every point inside the canvas is influenced; pull tapers to 0 at the
   // diagonal so the boundary force is exactly zero and the influence feels total elsewhere
   BH_REACH=Math.hypot(W,groundY)+240;
@@ -15707,6 +15874,31 @@ function syncGlyphs(){
         g2.el.style.opacity=(B.bh&&B.bh.fade!=null)?B.bh.fade:(B.bhFade!=null?B.bhFade:'');
       }
   }
+  /* ★★★2026-11-27（用户：「这个 m 拖不动，而且拖这个 m 和旁边的地方会直接拖动那个 c？
+     这个 c 和 m 也拼不了，就好像是 c 覆盖在了界面上方一样」）：
+     **真因**：存在一批「三不管」字形 —— `d.body` 是 null（不属任何体）、不在 `freeL`
+     （不是自由字母）、也不是面板 dock 的字母。**没有任何代码给它摆位置**，
+     于是它的 `left/top` 停在**初始的左上角 (22,24)**，而 `.char` 元素有 42×48 的命中区
+     ⇒ 它像一块透明的板子盖在画布上，鼠标点到那里会命中它（表现为「拖不动别的字母」
+     「一拖就拖走了它」）。
+     ★录屏实证（rec_2026-11-27-09-58-58，用 `_repro_loader` 重建第 70 帧）：
+       Mm 体的字形列表里**只有 m**，而 `M` 变成了 `body=null` 的孤儿，DOM 停在 (22,24)。
+     修：每帧把这类孤儿**隐藏**（`display:none`）。它们本该在体内或面板里，
+     露出在画布上一定是状态残留 —— 藏起来比「留一块看不见的板子」安全。
+     ★排除三类正常情况：正在拖的 `grab.obj`、面板 dock、属于某个体的字形。 */
+  try{
+    if(typeof ALL!=='undefined'&&ALL){
+      for(var _ai=0;_ai<ALL.length;_ai++){
+        var _ad=ALL[_ai];
+        if(!_ad||_ad.dead||!_ad.el)continue;
+        if(_ad===grab.obj)continue;                       // 正在拖
+        if(_ad.body)continue;                             // 属体（syncGlyphs 上面摆过了）
+        if(_ad.state==='dock')continue;                   // 面板
+        if(freeL.indexOf(_ad)>=0)continue;                // 自由字母（下面这段会摆）
+        if(_ad.el.style.display!=='none')_ad.el.style.display='none';
+      }
+    }
+  }catch(_oe){}
   for(k=0;k<freeL.length;k++){
     var d=freeL[k];
     if(d.dead){freeL.splice(k,1);k--;continue;}
@@ -15724,6 +15916,21 @@ var G_RANGE=360, G_PULL=52000;
    `G_PULL/(r+80)` 加速度相等 ⇒ `G_PULL2 = 52000·(150+80)/150·(150²+80²)^1.5/…`
    实算 = **7.405e6**（旧值在 r=150、默认 M/3=1 时 a=52000/230=226.1 px/s²）。 */
 var G_PULL2=7.405e6;
+/* ★★★2026-11-27（用户：「万有引力公式应该只对 m 和 M 单个字符产生吸引，
+   怎么也对 m 的组合式产生吸引？比如现在它对 mc 也会吸引」）：
+   **「孤立质量字母体」= 质点** —— `massG` 是 m/M，且 `mem` 里除它自己没有别的字母。
+   `mc` / `mg` / `GM` 这类表达式整体不是质点，不该被万有引力拉。 */
+function isLoneMassBody(B){
+  if(!B||B.dead||B.kind)return false;
+  if(B.bh||B.isWell||B.isSchwarzschild)return false;
+  if(!B.massG||!isMass(B.massG.type))return false;
+  var mem=B.mem||[];
+  for(var i=0;i<mem.length;i++){
+    var g=mem[i];
+    if(g&&g!==B.massG)return false;
+  }
+  return true;
+}
 function stepGravity(dt){
   var gravs=[];
   for(var g=0;g<bodies.length;g++){var Gb=bodies[g];if(Gb.isWell)gravs.push(Gb);}
@@ -15741,6 +15948,12 @@ function stepGravity(dt){
     if(B.kind)continue;
     if(B.bh)continue;   // black holes do not orbit anything
     if(B.isWell)continue;
+    /* ★★2026-11-27（同上）：**引力只作用于质点** —— 孤立的单个 m/M 体，或双星/轨道整体（mv²/r，
+       走 isMVR 那条独立通道）。原来这里只排除 kind/bh/isWell，而所有公式体的 `kind` 都是空
+       ⇒ `mc` / `mg` / `GM` 这些表达式**全都被万有引力吸**（用户报的正是 `mc`）。
+       ★`isMVR` 必须保留：文件上方 15826 那段注释写明「双星（两个 mv²/r）要能自己形成」，
+         那条路径靠 `B.go` 链接，不是「质点被吸」。 */
+    if(!isLoneMassBody(B)&&!isMVR(B))continue;
     // R60c：不再是**完整** mv²/r（例如把 m 拆走、只剩裸 v²/r）时要主动解开圆轨道 —— 否则
     // 已经建立的 B.go / B.goB 链接会一直把两个物体按在原轨道上（拆分瞬间看起来就是
     // 「v²/r 一开始出现就转起来了」）。isMVR 里补了质量判据，这里补链接的清理。
@@ -19104,6 +19317,80 @@ function bndPts(B){
   }
   return out;
 }
+/* ★★★2026-11-26（bug `1792158683016`；用户：「【以传送带为例】把部分公式放入传送带内部的时候，
+   公式会卡在内部并且抽搐」＋「但是为什么可以放到传送带内部呢，修复一下」）：
+   **真因**：传送带（`makeBelt`）与用户画的一切闭合形状都是**闭合边界体** —— 只有**沿边**的碰撞
+   （`bndSegs` 采样成薄板），**内部是空腔、没有任何碰撞**。于是：
+     · 字符/公式被拖进去时不会遇到任何阻挡 ⇒ 能落进内部；
+     · 进去之后两侧边把它夹住，冲量一来一回 ⇒ 用户看到的「抽搐」。
+   修：每帧检查「在腔体里就推到最近的边外」。
+   ★只对**闭合**边界生效（`open` 折线/圆弧不是容器）。
+   ★本段自带点在多边形内判定 —— 段 1 里那个 `inPoly` 与第二个 <script> 不共享作用域
+     （实测 `ReferenceError: inPoly is not defined`）。 */
+function bndPtsObj(B){
+  var arr=bndPts(B), out=[];
+  for(var i=0;i<arr.length;i++)out.push({x:arr[i][0],y:arr[i][1]});
+  return out;
+}
+function _pipObj(vs,x,y){
+  var n=vs.length,inside=false;
+  for(var i=0,j=n-1;i<n;j=i++){
+    var a=vs[i],b=vs[j];
+    if(((a.y>y)!==(b.y>y))&&(x<(b.x-a.x)*(y-a.y)/(b.y-a.y)+a.x))inside=!inside;
+  }
+  return inside;
+}
+function inClosedW(B,x,y,rad){
+  /* ★★2026-11-26（回归 `_probe_r72.py` G3）：**地面/墙面器件不是容器** —— `makeGround` 建的是
+     一块闭合薄矩形，弧压上去时中心正好落在它内部 ⇒ 被当成「在腔体里」往外推 ⇒
+     倾角停在 -0.099rad、贴地吸附不再触发。传送带（belt）才是要挡的"机器内部"。 */
+  if(!B||B.dead||B.kind!=='W'||B.closed===false||B.gnd||!B.pts||B.pts.length<3)return false;
+  var vs=bndPtsObj(B);
+  if(!vs.length)return false;
+  if(_pipObj(vs,x,y))return true;
+  if(rad>0){
+    for(var a=0;a<12;a++){
+      var th=a*Math.PI/6;
+      if(_pipObj(vs,x+Math.cos(th)*rad,y+Math.sin(th)*rad))return true;
+    }
+  }
+  return false;
+}
+function pushOutOfClosedW(x,y,rad,minDepth){
+  rad=rad||0;minDepth=minDepth||0;
+  var changed=false;
+  for(var pass=0;pass<4;pass++){
+    var moved=false;
+    for(var i=0;i<bodies.length;i++){
+      var B=bodies[i];
+      if(!inClosedW(B,x,y,0))continue;
+      var vs=bndPtsObj(B);
+      var bk=-1,bd=1e9,bpx=0,bpy=0;
+      for(var k=0;k<vs.length;k++){
+        var aa=vs[k],bb=vs[(k+1)%vs.length];
+        var ex=bb.x-aa.x,ey=bb.y-aa.y,L2=ex*ex+ey*ey;
+        var tt=L2>0?Math.max(0,Math.min(1,((x-aa.x)*ex+(y-aa.y)*ey)/L2)):0;
+        var px=aa.x+ex*tt,py=aa.y+ey*tt;
+        var dd=Math.hypot(x-px,y-py);
+        if(dd<bd){bd=dd;bk=k;bpx=px;bpy=py;}
+      }
+      if(bk<0)continue;
+      /* ★★2026-11-26：**浅接触不推** —— 只看「是否真在腔内」（到最近边的距离 ≥ minDepth）。
+         不加这个门槛时，坐在方框内底部的方块每帧都被往边外推一格，
+         回归 `_diag_r109.py` 的 G2b（删掉支撑应该掉下去）会偶发 Δy≈0.45px。 */
+      if(bd<minDepth)continue;
+      var A=vs[bk],Bv=vs[(bk+1)%vs.length];
+      var vx=Bv.x-A.x,vy=Bv.y-A.y,VL=Math.hypot(vx,vy)||1;
+      var nx=-vy/VL,ny=vx/VL;
+      if((bpx-B.x)*nx+(bpy-B.y)*ny<0){nx=-nx;ny=-ny;}
+      x=bpx+nx*(bd+rad+3);
+      y=bpy+ny*(bd+rad+3);
+      moved=true;changed=true;
+    }
+    if(!moved)break;
+  }
+  return {x:x,y:y,changed:changed};
+}
 /* R71⑯（用户：「吸附功能：弧/手绘线条接近地面且即将水平时自动吸附成与地面平滑相接」）
    只对**开链**笔画/圆弧生效（闭合图形有面积、姿态由重心决定，不该被磁吸摆平；圆形更没有
    朝下的平面）。判据两条，缺一不可：
@@ -21924,7 +22211,7 @@ var REC_APP_VER='R145';
  * 而 z6~z11 这些修复**都还没上线**——用户连续三次发来的录屏其实是**旧构建**录的，
  * 却因为 `env.ver` 都是 'R145' 而无法一眼分辨，白查了三轮（每次都要靠"这个态在当前
  * 构建上物理上不可能存在"反推）。有了 `bt`，打开录屏就知道它出自哪一批。 */
-var BUILD_TAG='R145-z38·1126-0048';   /* ★2026-11-20：从 z18 起连续 7 轮修复（弹簧层级/mc² 自爆/copied/碎片槽位/mv²r 可达/massG/keepMass）后重置；★用户反馈「改了还是一样」时先看 REC 的 env.bt 对不对得上——本轮之前它一直是 z18，说明测的是未刷新的旧页面。 */   /* ★R143-z14b：**每次构建唯一**（含本次文件 md5 前 6 位）
+var BUILD_TAG='R145-z45·1127-2025';   /* ★2026-11-20：从 z18 起连续 7 轮修复（弹簧层级/mc² 自爆/copied/碎片槽位/mv²r 可达/massG/keepMass）后重置；★用户反馈「改了还是一样」时先看 REC 的 env.bt 对不对得上——本轮之前它一直是 z18，说明测的是未刷新的旧页面。 */   /* ★R143-z14b：**每次构建唯一**（含本次文件 md5 前 6 位）
  *   上一版写死 'R145-z11' 且从 z11 起没变过 ⇒ 历史记录里的版本号**分不出 z11 / z13 / z14**，
  *   用户拿它对照录屏时被我误判成"旧快照"。现在这个串只在文件真变了时才变。 */
 function recNow(){return +(performance.now()).toFixed(1);}
@@ -21968,7 +22255,12 @@ function recSnap(full){
      *  ⇒ 被这里的 `if(!mb)continue` 直接跳过 ⇒ 历次 REC 里**根本没有杆的记录**
      *  （我此前把原因归给"你没刷新页面"，是错的——是我的记录器漏了它们）。
      *  修：杆/铰链用**自身坐标**（B.x/B.y/B.th）记录，不受 mb 限制。 */
-    var _isRod=!!(B&&(B.kind==='T'||(B.kind==='S'&&B.hinge)));
+    /* ★★★2026-11-26（用户：「录屏对于其他的器件有没有类似的问题」）—— **有，而且更严重**：
+     实测 `makeSpring` / `makeRope` / `makeHinge` 建出来的体 **mb 全是 false**，
+     而这里原来只认 `S && B.hinge`（铰链）⇒ **普通弹簧与轻绳被整类静默跳过**，
+     录屏里根本不出现（不只是画成方块，是压根没有）。
+     修：`kind==='S'` 全部记录（杆 T 原本就在）。 */
+  var _isRod=!!(B&&(B.kind==='T'||B.kind==='S'));
     /* ★R132-9ze：场源体 B/E/q/I **没有 Matter 体**（`stepPhysics` 把它们跳��、由场通道自己积分），
      *   原来这里 `if(!mb&&!_isRod)continue;` 把**整类静默跳过** ⇒ 录屏里从来看不见用户放在
      *   画布上的 q 场源体，几轮定位都被它骗了。现在：无 mb 的**场源体也要记**（用 B.x/B.y）。 */
@@ -21986,6 +22278,16 @@ function recSnap(full){
     if(!mb&&!_isRod&&!_isField
        &&!(B&&(B.massG||(B.glyphs&&B.glyphs.length)||(B.mem&&B.mem.length))))continue;
     var o={i:i,k:B.kind};
+    /* ★★★2026-11-26（用户：「传送带在录屏中渲染出来的就只有一个长方体」）：
+       传送带是复用 `kind:'W'` + `B.belt=true` 实现的（见 makeBelt），渲染分派是
+       `if(B.belt)drawBeltBody(...)`；快照原来没记这两个字段 ⇒ 回放拿到普通多边形。
+       补 `bt`（belt 标记）与 `cv`（带速）。 */
+    if(B.belt)o.bt=1;
+    if(B.conv!=null)o.cv=+B.conv;
+    /* ★★2026-11-26：**地面器件同理** —— 渲染分派还有 `if(B.gnd)drawGroundBody(...)`，
+       而 `B.gnd` 也是复用 `kind:'W'` 的**标志**（见 makeGround）。不记它，回放里
+       地面/墙面器件也会退化成一块普通多边形。`len` 是 drawGroundBody 的宽度依据。 */
+    if(B.gnd){o.gd=1;if(B.len!=null)o.len=+B.len.toFixed(2);}
     if(B.wshape)o.s=B.wshape;
     if(mb){
       o.x=+mb.position.x.toFixed(2);o.y=+mb.position.y.toFixed(2);
@@ -22095,7 +22397,8 @@ function recSnap(full){
     /* ★★R131-43（用户：「杆链脱钩你不是有日志吗？把日志输出内容改多点不就行了」）：
      *  REC 里为**杆（T）与铰链（S+hinge）**补记诊断字段——长度/当前长度/两端锚定状态/
      *  两端锚定到的体序号/端点世界坐标/锚点本地偏移（脱钩时 ox,oy 或 anc 会立刻暴露）。 */
-    if(B.kind==='T'||(B.kind==='S'&&B.hinge)){
+    if(B.kind==='T'||B.kind==='S'){
+    o.rope=B.rope?1:0;   // ★2026-11-26：轻绳/弹簧/铰链靠它区分（loader 侧同款）
       o.len=(B.len!=null)?+B.len.toFixed(2):null;
       o.cur=(B.cur!=null)?+B.cur.toFixed(2):null;
       o.hinge=B.hinge?1:0;
@@ -23074,6 +23377,62 @@ window.openBugDlg=openBugDlg;window.bugSubmit=bugSubmit;window.closeBugDlg=close
  *  ★★时间**不硬编码**：编号本身就是「毫秒时间戳(UTC)」，显示时 +8h 得北京时间
  *    —— 单一真源，避免清单与表两处时间打架。
  *  每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
+/* ★★R132-10o：Bug 修复列表数据（用户 2026-10-05：「在设置按钮里面 bug 记录下面增加一个
+ *  按钮，叫做 Bug 修复列表；点击后进入次级菜单，里面显示各个 bug 的状态」）。
+ *  ★R132-10v 已并入回收站第二批 42 条（用户 2026-10-06「可以，一并并入」）；
+ *    该批录屏已全部下载并跑过 `_an_bugs.py` ⇒ 备注＝**机器预筛档位**
+ *    （机检:检出异常 20 / 机检:未检出异常 18 / 机检:无画面 4）。合计 229 条。
+ *  ★★R140（2026-10-09，用户逐字：「未机检的状态为未判定，机检过的无论结果如果都标记待修复」）：
+ *    **状态口径改写** —— 未机检 ⇒「未判定」；机检过（检出/未检出/无画面，一律）⇒「待修复」；
+ *    人工终态「已修复 / 待提交」不受重判（用户：「已修复的肯定不改啊，我指的是没有修复过只是
+ *    第一次机器核验的那些」）。⇒ 原 51 条「未判定」全部改判「待修复」，备注**一个字不动**。
+ *    ⇒ 分布 未判定 0 / 待修复 84 / 已修复 19 / 待提交 2。★「未判定」并未作废 —— 它现在专指
+ *      「新并入、**还没跑机检**」，眼下 105 条全跑过了所以是 0；以后并入新条目先落这一档。
+ *  ★★时间**不硬编码**：编号本身就是「毫秒时间戳(UTC)」，显示时 +8h 得北京时间
+ *    —— 单一真源，避免清单与表两处时间打架。
+ *  每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
+/* ★★R132-10o：Bug 修复列表数据（用户 2026-10-05：「在设置按钮里面 bug 记录下面增加一个
+ *  按钮，叫做 Bug 修复列表；点击后进入次级菜单，里面显示各个 bug 的状态」）。
+ *  ★R132-10v 已并入回收站第二批 42 条（用户 2026-10-06「可以，一并并入」）；
+ *    该批录屏已全部下载并跑过 `_an_bugs.py` ⇒ 备注＝**机器预筛档位**
+ *    （机检:检出异常 20 / 机检:未检出异常 18 / 机检:无画面 4）。合计 229 条。
+ *  ★★R140（2026-10-09，用户逐字：「未机检的状态为未判定，机检过的无论结果如果都标记待修复」）：
+ *    **状态口径改写** —— 未机检 ⇒「未判定」；机检过（检出/未检出/无画面，一律）⇒「待修复」；
+ *    人工终态「已修复 / 待提交」不受重判（用户：「已修复的肯定不改啊，我指的是没有修复过只是
+ *    第一次机器核验的那些」）。⇒ 原 51 条「未判定」全部改判「待修复」，备注**一个字不动**。
+ *    ⇒ 分布 未判定 0 / 待修复 84 / 已修复 19 / 待提交 2。★「未判定」并未作废 —— 它现在专指
+ *      「新并入、**还没跑机检**」，眼下 105 条全跑过了所以是 0；以后并入新条目先落这一档。
+ *  ★★时间**不硬编码**：编号本身就是「毫秒时间戳(UTC)」，显示时 +8h 得北京时间
+ *    —— 单一真源，避免清单与表两处时间打架。
+ *  每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
+/* ★★R132-10o：Bug 修复列表数据（用户 2026-10-05：「在设置按钮里面 bug 记录下面增加一个
+ *  按钮，叫做 Bug 修复列表；点击后进入次级菜单，里面显示各个 bug 的状态」）。
+ *  ★R132-10v 已并入回收站第二批 42 条（用户 2026-10-06「可以，一并并入」）；
+ *    该批录屏已全部下载并跑过 `_an_bugs.py` ⇒ 备注＝**机器预筛档位**
+ *    （机检:检出异常 20 / 机检:未检出异常 18 / 机检:无画面 4）。合计 229 条。
+ *  ★★R140（2026-10-09，用户逐字：「未机检的状态为未判定，机检过的无论结果如果都标记待修复」）：
+ *    **状态口径改写** —— 未机检 ⇒「未判定」；机检过（检出/未检出/无画面，一律）⇒「待修复」；
+ *    人工终态「已修复 / 待提交」不受重判（用户：「已修复的肯定不改啊，我指的是没有修复过只是
+ *    第一次机器核验的那些」）。⇒ 原 51 条「未判定」全部改判「待修复」，备注**一个字不动**。
+ *    ⇒ 分布 未判定 0 / 待修复 84 / 已修复 19 / 待提交 2。★「未判定」并未作废 —— 它现在专指
+ *      「新并入、**还没跑机检**」，眼下 105 条全跑过了所以是 0；以后并入新条目先落这一档。
+ *  ★★时间**不硬编码**：编号本身就是「毫秒时间戳(UTC)」，显示时 +8h 得北京时间
+ *    —— 单一真源，避免清单与表两处时间打架。
+ *  每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
+/* ★★R132-10o：Bug 修复列表数据（用户 2026-10-05：「在设置按钮里面 bug 记录下面增加一个
+ *  按钮，叫做 Bug 修复列表；点击后进入次级菜单，里面显示各个 bug 的状态」）。
+ *  ★R132-10v 已并入回收站第二批 42 条（用户 2026-10-06「可以，一并并入」）；
+ *    该批录屏已全部下载并跑过 `_an_bugs.py` ⇒ 备注＝**机器预筛档位**
+ *    （机检:检出异常 20 / 机检:未检出异常 18 / 机检:无画面 4）。合计 229 条。
+ *  ★★R140（2026-10-09，用户逐字：「未机检的状态为未判定，机检过的无论结果如果都标记待修复」）：
+ *    **状态口径改写** —— 未机检 ⇒「未判定」；机检过（检出/未检出/无画面，一律）⇒「待修复」；
+ *    人工终态「已修复 / 待提交」不受重判（用户：「已修复的肯定不改啊，我指的是没有修复过只是
+ *    第一次机器核验的那些」）。⇒ 原 51 条「未判定」全部改判「待修复」，备注**一个字不动**。
+ *    ⇒ 分布 未判定 0 / 待修复 84 / 已修复 19 / 待提交 2。★「未判定」并未作废 —— 它现在专指
+ *      「新并入、**还没跑机检**」，眼下 105 条全跑过了所以是 0；以后并入新条目先落这一档。
+ *  ★★时间**不硬编码**：编号本身就是「毫秒时间戳(UTC)」，显示时 +8h 得北京时间
+ *    —— 单一真源，避免清单与表两处时间打架。
+ *  每条 = [编号, 名称, 状态, 备注]；状态取值：已修复 / 待修复 / 待提交 / 未判定。 */
 var BUGFIX_LIST=[
   ['1794906878703','我点了一下mv的平方除以2 然后把它摔了 结果我重新拼起来，然后这个m是会闪身步？ 他直接飞出去了','待修复','',0],
   ['1794724601697','?!弹簧连滚木!?','待修复','',0],
@@ -23163,11 +23522,11 @@ var BUGFIX_LIST=[
   ['1792206229285','拿到黑洞公式里的M结果M用不了了 并且还能变成公式','未判定','',0],
   ['1792199428772','在使用复制的m与c组成mc²公式后不会爆炸(或：会爆炸，但是m的动画异常)','未判定','',0],
   ['1792160197555','注：由于该问题很难复现(超过30秒)，因此不提供画面 多自由度弹簧-连杆耦合振子这种结构很容易在操作中直接消失','未判定','',0],
-  ['1792159017422','在长度设置中，输入框出现允许长度为负的情况','未判定','',0],
-  ['1792158683016','【以传送带为例】把部分公式放入传送带内部(以画面为准)的时候，公式会卡在内部并且抽搐','未判定','',0],
-  ['1792158216922','当在地面之下放置图形时，很容易跟地面之上的图形重合，并且在试图移动时重叠的图形会立刻瞬移出来导致撞到其他东西','未判定','',0],
-  ['1792157835908','在放置图形后，切换为全屏，会出现图形实际的位置与渲染的位置不同','未判定','',0],
-  ['1792157692342','【以m和g为例】进行一些操作后(以画面为准)，m和g会组合成(g+m)『也可能出现(g+)这类的异常显示』','未判定','',0],
+  ['1792159017422','在长度设置中，输入框出现允许长度为负的情况','已修复','',1795764000],
+  ['1792158683016','【以传送带为例】把部分公式放入传送带内部(以画面为准)的时候，公式会卡在内部并且抽搐','已修复','',1795629600],
+  ['1792158216922','当在地面之下放置图形时，很容易跟地面之上的图形重合，并且在试图移动时重叠的图形会立刻瞬移出来导致撞到其他东西','已修复','',1795629600],
+  ['1792157835908','在放置图形后，切换为全屏，会出现图形实际的位置与渲染的位置不同','已修复','',1795629600],
+  ['1792157692342','【以m和g为例】进行一些操作后(以画面为准)，m和g会组合成(g+m)『也可能出现(g+)这类的异常显示』','待提交','未发现明显异常',0],
   ['1792157366474','【以m和g为例】调整g的参数后，m和g无法组合为mg','已修复','',1795627800],
   ['1792157071615','在一些情况下，字母或公式无法正常的移动，只能被拖动，并且超出线不会被检测到','已修复','',0],
   ['1792156908658','在一些情况下，长按字母或者公式召唤出右键菜单时，参数选项会消失','已修复','',0],
@@ -25810,6 +26169,49 @@ function startShapeDrag(e){
   pointer.x=e.clientX;pointer.y=e.clientY;
   TOOL.drag={x0:pointer.x,y0:pointer.y,x1:pointer.x,y1:pointer.y};
 }
+/* ★★★2026-11-26（bug `1792158216922` 用户：「当在地面之下放置图形时，很容易跟地面之上
+   的图形重合，并且在试图移动时重叠的图形会立刻瞬移出来导致撞到其他东西」）：
+   **录屏实证**（rec 1526 帧，groundY=882）：用户在地面**下方**连点（y=929/953/927/954/944），
+   而 `mkBoundary` 只按 pts 的**质心**定位，**既不 clamp 地面、也不避让已有体**
+   ⇒ 建出来就在地面下、或和已有矩形叠在一起 ⇒ 物理互相弹开 = 用户说的「瞬移出来」。
+   修：落位时先抬到地面上方，再螺旋搜索一个不与任何 W 体重叠的位置。 */
+function settleNewBoundary(B){
+  if(!B||B.dead||B.kind!=='W')return false;
+  /* ★★2026-11-26（回归 `_probe_r72.py` G3 抓到的过修）：
+     **开链（弧 / 手绘线）不参与落位避让** —— 它们靠「贴近地面且接近水平时自动吸附摆平」
+     那套逻辑（R71⑯）。这里若无条件把 y 抬到地面上方，弧就再也贴不到地面 ⇒
+     吸附不触发、倾角停在 -0.099rad（实测 z39 三次全过、z40 两次红，就是这一条）。
+     ★用户报的重叠场景（1792158216922）是**闭合**矩形，只对闭合体做避让即可。 */
+  if(B.closed===false)return false;   // ★B 上没有 open 属性，闭合与否看 B.closed（实测 hasOwnProperty('open')=false）
+  var hw=B.hw||40,hh=B.hh||20;
+  function put(x,y){
+    B.x=x;B.y=y;
+    if(B.mb&&typeof Matter!=='undefined'&&Matter.Body)Matter.Body.setPosition(B.mb,{x:x,y:y});
+  }
+  function free(x,y){
+    if(y+hh>groundY-2)return false;
+    if(y-hh<26)return false;
+    for(var i=0;i<bodies.length;i++){
+      var O=bodies[i];
+      if(O===B||O.dead||O.kind!=='W')continue;
+      if(Math.abs(O.x-x)<((O.hw||0)+hw)*0.94&&Math.abs(O.y-y)<((O.hh||0)+hh)*0.94)return false;
+    }
+    return true;
+  }
+  if(B.y+hh>groundY-2)put(B.x,groundY-hh-2);
+  if(free(B.x,B.y))return false;
+  var step=Math.max(hw,hh)*1.55;
+  for(var r=1;r<=14;r++){
+    for(var a=0;a<12;a++){
+      var th=-Math.PI/2+a*(Math.PI*2/12);
+      var x=B.x+Math.cos(th)*step*r;
+      var y=B.y+Math.sin(th)*step*r*0.75;
+      if(free(x,y)){put(x,y);return true;}
+    }
+  }
+  put(B.x,groundY-hh-2);
+  return true;
+}
 function finishShapeDrag(){
   var d=TOOL.drag;TOOL.drag=null;
   if(!d)return;
@@ -25821,10 +26223,26 @@ function finishShapeDrag(){
   // 单次模式（单击一下画一个默认图形）保持不变。这样误入连续模式后连点是安全的，
   // 想连续画仍然双击按钮 + 每次拖一个（唯一漏画路径被堵死）。
   if(Math.abs(d.x1-d.x0)<12&&Math.abs(d.y1-d.y0)<12){
-    if(TOOL.cont){if(flashHint)flashHint('连续模式·拖出形状才落体','cont');return;}
-    r=shapeDefault(TOOL.shape,d.x0,d.y0);
+    /* ★★★2026-11-26（用户：「双击图形图标进入连续放置时，不需要拖出图形，单击屏幕也可以
+       快速放出图形；如果在连续模式下拖动画一个图形后，后面的连续点击都是放出和这次拖动
+       **一样尺寸**的图形」）：
+       ⇒ 连续模式单击：① 之前拖过 ⇒ **沿用上次拖出的尺寸**（以点击点为中心）；
+                       ② 没拖过 ⇒ 用默认尺寸（与单次模式同款）。
+       ★这里**推翻了 R69 那条「连续模式单击不落体」的守卫** —— 那条是为治「误入连续模式后
+         连点生成一串重叠图形」。现在「不重叠」改由 `settleNewBoundary`（落位避让）兜住，
+         所以可以放心让单击落体。 */
+    if(TOOL.cont&&TOOL.lastSize&&TOOL.lastSize.w>=12&&TOOL.lastSize.h>=12){
+      var _lw=TOOL.lastSize.w/2,_lh=TOOL.lastSize.h/2;
+      r=shapeOutline(TOOL.shape,d.x0-_lw,d.y0-_lh,d.x0+_lw,d.y0+_lh);
+    }else{
+      r=shapeDefault(TOOL.shape,d.x0,d.y0);
+    }
   }
-  else r=shapeOutline(TOOL.shape,d.x0,d.y0,d.x1,d.y1);
+  else{
+    r=shapeOutline(TOOL.shape,d.x0,d.y0,d.x1,d.y1);
+    /* 记住这次的尺寸，供连续模式的后续单击复用 */
+    try{TOOL.lastSize={w:Math.abs(d.x1-d.x0),h:Math.abs(d.y1-d.y0)};}catch(e){}
+  }
   // R53: 半凹槽(trough)现在是"矩形被圆挖掉一块"的闭合多边形；圆弧(arc)是开链。
   // shapeOutline 对 trough 返回 shape:'trough'（含 notch 凹口元数据），对 arc 返回 shape:'arc'。
   var closed=r.shape!=='arc'&&!r.open;
@@ -25847,6 +26265,9 @@ function finishShapeDrag(){
     if(B.mb&&typeof Matter!=='undefined'&&Matter.Body){Matter.Body.setStatic(B.mb,true);}
     if(B.mb&&typeof Matter!=='undefined'&&Matter.Sleeping){Matter.Sleeping.set(B.mb,false);}
   }
+  /* ★2026-11-26（bug `1792158216922`）：落位避让 —— 地面下放置 / 与已有图形重叠时
+     找一个不重叠的位置（见 settleNewBoundary 的注释与录屏实证）。 */
+  if(B)try{settleNewBoundary(B);}catch(_e){}
   if(B)ringGo(B.x,B.y);
   // R57（用户 #1）：单击武装 = 只画一次，画完自动解除；双击进入的连续模式才保持武装
   if(B&&!TOOL.cont)setToolMode(null);
